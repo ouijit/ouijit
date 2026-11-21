@@ -3,6 +3,8 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { ManagedTasks } from '../../components/chat/ManagedTasks';
 import { useAppStore } from '../../stores/appStore';
 import { useHomeChatStore } from '../../stores/homeChatStore';
+import { useChatStore } from '../../stores/chatStore';
+import { NO_CAPABILITIES, type ChatSessionInfo } from '../../chat/model';
 import { DEFAULT_DISPLAY_STATE, useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import type { TaskWithWorkspace } from '../../types';
 
@@ -98,5 +100,54 @@ describe('the tasks Chat manages, above its composer', () => {
     // None: nothing above the composer.
     follow();
     expect(screen.queryByLabelText('Tasks Chat is managing')).toBeNull();
+  });
+
+  test('say what is still running in the background, and tell a running turn from background work alone', () => {
+    seed('fix', { taskId: 12, status: 'thinking' });
+    follow([APP, 12]);
+    const info = (patch: Partial<ChatSessionInfo>) =>
+      act(() =>
+        useChatStore.getState().adopt({
+          info: {
+            id: 'fix',
+            agent: 'claude',
+            agentSessionId: null,
+            projectPath: APP,
+            cwd: APP,
+            worktreePath: null,
+            sandbox: null,
+            taskId: 12,
+            status: 'running',
+            capabilities: NO_CAPABILITIES,
+            models: [],
+            efforts: [],
+            modes: [],
+            commands: [],
+            ...patch,
+          } as ChatSessionInfo,
+          nodes: [],
+          seq: 0,
+        }),
+      );
+    const shell = (id: string) => ({ id, kind: 'shell' as const, description: id, startedAt: 1 });
+    render(<ManagedTasks conversation={CHAT} />);
+    const row = () => screen.getByLabelText('Tasks Chat is managing').querySelector<HTMLElement>('[data-sidebar-row]')!;
+    const mark = () => within(row()).getByTestId('group-mark').dataset.state;
+
+    // The turn running: the thinking mark, and the work it has already left running.
+    info({ status: 'running', background: [shell('a'), shell('b')] });
+    expect(row().textContent).toContain('2 in background · App');
+    expect(mark()).toBe('thinking');
+
+    // The turn over and the work still going: the mark is the background moving, not the turn.
+    info({ status: 'idle', background: [shell('a'), shell('b')] });
+    expect(row().textContent).toContain('2 in background · App');
+    expect(mark()).toBe('background');
+
+    // All of it over, and not yet looked at: back to the project alone, and unread.
+    info({ status: 'idle', background: [] });
+    act(() => useTerminalStore.getState().updateDisplay('fix', { status: 'ready' }));
+    expect(row().textContent).not.toContain('in background');
+    expect(mark()).toBe('unread');
   });
 });

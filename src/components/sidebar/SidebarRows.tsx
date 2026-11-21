@@ -117,7 +117,7 @@ interface RowProps {
   unread?: boolean;
   selected?: boolean;
   mono?: boolean;
-  detail?: string | null;
+  detail?: ReactNode;
   trailing?: ReactNode;
   onClick: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;

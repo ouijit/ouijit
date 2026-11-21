@@ -13,7 +13,7 @@ const OUTPUT_POLL_MS = 1000;
 
 type Ended = NoticeNode['ended'];
 
-function BackgroundDots() {
+export function BackgroundDots() {
   return (
     <span className="background-dots w-3.5 justify-center shrink-0" aria-hidden>
       <span />

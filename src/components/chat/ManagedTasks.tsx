@@ -8,6 +8,8 @@ import { focusTerminal, openTaskTerminal } from '../navigation';
 import { useAppStore } from '../../stores/appStore';
 import { useHomeChatStore } from '../../stores/homeChatStore';
 import { useTerminalStore } from '../../stores/terminalStore';
+import { useChatStore } from '../../stores/chatStore';
+import { BackgroundDots } from './ChatBackground';
 import { loadTasks } from '../../stores/projectDataStore';
 import type { TaskRef } from '../../chat/preferences';
 import type { TaskWithWorkspace } from '../../types';
@@ -41,9 +43,33 @@ function taskState(
   );
 }
 
+/**
+ * Work its chats left running after their turns, and whether a turn is still
+ * going in any of its sessions. Only then is the row's mark the thinking one;
+ * background work alone moves where the mark is instead.
+ */
+function useBackground(managed: Managed): { count: number; turn: boolean } {
+  const ids = useTerminalStore(useShallow((s) => taskSessions(s, managed)));
+  const thinking = useTerminalStore(useShallow((s) => ids.map((id) => s.displayStates[id]?.status === 'thinking')));
+  return useChatStore(
+    useShallow((s) => {
+      let count = 0;
+      let turn = false;
+      ids.forEach((id, i) => {
+        const info = s.sessions[id]?.info;
+        count += info?.background?.length ?? 0;
+        if (info ? info.status === 'running' : thinking[i]) turn = true;
+      });
+      return { count, turn };
+    }),
+  );
+}
+
 function ManagedRow({ managed, state }: { managed: Managed; state: GroupState | null }) {
   const { projectPath, task } = managed;
   const projectName = useProjectName(projectPath);
+  const background = useBackground(managed);
+  const backgroundOnly = background.count > 0 && !background.turn && state === 'thinking';
   const open = () => {
     const [front] = taskSessions(useTerminalStore.getState(), managed);
     if (front) void focusTerminal(front, { projectPath });
@@ -57,8 +83,33 @@ function ManagedRow({ managed, state }: { managed: Managed; state: GroupState | 
       bright={false}
       faint={!state}
       unread={state === 'unread'}
-      detail={projectName}
-      trailing={state && <GroupMark state={state} />}
+      detail={
+        background.count > 0 ? (
+          <span className="flex items-center gap-1">
+            {background.turn && (
+              <span className="flex scale-75 -mr-0.5">
+                <BackgroundDots />
+              </span>
+            )}
+            {background.count} in background · {projectName}
+          </span>
+        ) : (
+          projectName
+        )
+      }
+      trailing={
+        backgroundOnly ? (
+          <span
+            className="w-3.5 flex items-center justify-center shrink-0"
+            data-testid="group-mark"
+            data-state="background"
+          >
+            <BackgroundDots />
+          </span>
+        ) : (
+          state && <GroupMark state={state} />
+        )
+      }
       onClick={open}
     />
   );
@@ -101,13 +152,13 @@ export function ManagedTasks({ conversation }: { conversation: string }) {
   ));
   if (tasks.length === 1) {
     return (
-      <div aria-label="Tasks Chat is managing" className="mx-4 mb-2 p-0.5 rounded-[10px] bg-ink/[0.04]">
+      <div aria-label="Tasks Chat is managing" className="mx-4 mb-1.5 p-1 rounded-[11px] bg-ink/[0.04]">
         {rows}
       </div>
     );
   }
   return (
-    <div aria-label="Tasks Chat is managing" className="mx-4 mb-2 p-0.5 rounded-[10px] bg-ink/[0.04]">
+    <div aria-label="Tasks Chat is managing" className="mx-4 mb-1.5 p-1 rounded-[11px] bg-ink/[0.04]">
       <button
         type="button"
         aria-expanded={open}
