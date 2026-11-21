@@ -145,7 +145,7 @@ export function refreshProjectData(projectPath: string, resource: string): void 
   const { configByProject, scriptsByProject } = useProjectDataStore.getState();
   if (resource === 'scripts') {
     if (scriptsByProject[projectPath]) void loadScripts(projectPath);
-  } else if (resource === 'hooks' || resource === 'sandbox') {
+  } else if (resource === 'hooks' || resource === 'sandbox' || resource === 'chat-start') {
     if (configByProject[projectPath]) void loadProjectConfig(projectPath);
   } else {
     void loadTasks(projectPath);

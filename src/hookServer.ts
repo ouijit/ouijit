@@ -384,6 +384,10 @@ ouijit hook get <type>
 ouijit hook set <type> --name "<name>" --command "<cmd>" [--description "<desc>"] [--sandbox host|nono|custom]
                                               # omitting --sandbox follows the project default
 ouijit hook delete <type>
+ouijit hook chat-start get                    # → {setup, firstMessage}: what replaces the start hook where tasks open as chats
+ouijit hook chat-start set [--setup "<cmd>"] [--first-message "<text>"]
+                                              # setup runs before a new task chat; the first message, with $OUIJIT_ variables
+                                              # filled in, is sent once it succeeds; --first-message - reads stdin
 
 ## Sandbox (host terminals only)
 Run one command in the project's sandbox; the rest of the line stays on the host.

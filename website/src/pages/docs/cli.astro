@@ -94,6 +94,11 @@ ouijit hook delete done</code></pre>
     sandbox. <code>hook set</code> replaces the whole hook, so leaving <code>--sandbox</code> out makes the hook
     follow the project default.
   </p>
+  <p>
+    Where tasks open as chats, a project's start hook gives way to a setup command and the task chat's first message.
+  </p>
+  <pre class="glass-bevel"><code>ouijit hook chat-start get
+ouijit hook chat-start set --setup "npm install" --first-message 'Read PLAN.md, then: $OUIJIT_TASK_DESCRIPTION'</code></pre>
 
   <h2>Sandbox command</h2>
   <p>

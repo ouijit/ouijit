@@ -4,7 +4,7 @@
 
 import type { Command } from 'commander';
 import { get, put, del, projectQuery } from '../api';
-import { printJson, printError } from '../output';
+import { printJson, printError, readBody } from '../output';
 import { SANDBOX_FLAG, parseSandboxFlag, sandboxFlagHelp } from '../sandboxFlag';
 import { SANDBOXABLE_HOOK_TYPES, isActiveSandbox } from '../../sandbox/types';
 
@@ -31,7 +31,8 @@ Examples:
   ouijit hook set start --name "Install deps" --command "npm install"
   ouijit hook set start --name "Claude" --command "claude" --sandbox custom
   ouijit hook get review
-  ouijit hook delete done`,
+  ouijit hook delete done
+  ouijit hook chat-start set --setup "npm install" --first-message 'Read PLAN.md, then: $OUIJIT_TASK_DESCRIPTION'`,
     );
 
   hook
@@ -101,5 +102,37 @@ Examples:
       const project = await requireProject();
       const result = await del(`/api/hooks/${t}${projectQuery(project)}`);
       printJson(result);
+    });
+
+  const chatStart = hook
+    .command('chat-start')
+    .description('What stands in for the start hook where tasks open as chats: a setup command and a first message');
+
+  chatStart
+    .command('get')
+    .description("Show the project's task chat setup and first message")
+    .action(async () => {
+      printJson(await get(`/api/chat-start${projectQuery(await requireProject())}`));
+    });
+
+  chatStart
+    .command('set')
+    .description('Set the setup command, the first message, or both; what is left out stays as it was')
+    .option('--setup <cmd>', 'shell command run before a new task chat starts; "" for none')
+    .option(
+      '--first-message <text>',
+      'sent to the task chat once setup succeeds, with $OUIJIT_ variables filled in; - reads stdin, "" sends nothing',
+    )
+    .action(async (opts: { setup?: string; firstMessage?: string }) => {
+      if (opts.setup === undefined && opts.firstMessage === undefined) {
+        return printError('Give --setup, --first-message, or both');
+      }
+      const firstMessage = opts.firstMessage === undefined ? undefined : await readBody(opts.firstMessage);
+      printJson(
+        await put(`/api/chat-start${projectQuery(await requireProject())}`, {
+          ...(opts.setup !== undefined && { setup: opts.setup }),
+          ...(firstMessage !== undefined && { firstMessage }),
+        }),
+      );
     });
 }
