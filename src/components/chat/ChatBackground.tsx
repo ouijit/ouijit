@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../terminal/Icon';
 import { EndedMark, Span, useNow } from './ChatNodes';
 import type { ChatBackgroundTask, ChatNode, NoticeNode } from '../../chat/model';
@@ -191,16 +191,9 @@ export function useBackgroundBar(cardId: string, tasks: ChatBackgroundTask[], no
   return { cardId, tasks, leaving, stopping, stop, shown };
 }
 
-/**
- * What the agent left running between turns: each with how long it has run,
- * its latest output a click away, and a way to stop it. More than one folds
- * behind a count, so a fan-out does not push the transcript off the card.
- */
-export function ChatBackground({ bar }: { bar: BackgroundBar }) {
+function useRows(bar: BackgroundBar): ReactNode[] {
   const { cardId, tasks, leaving, stopping, stop } = bar;
-  const [open, setOpen] = useState(false);
-  const now = useNow(tasks.length > 1);
-  const rows = [
+  return [
     ...tasks.map((task) => (
       <TaskRow key={task.id} cardId={cardId} task={task} stopping={stopping.has(task.id)} onStop={() => stop(task)} />
     )),
@@ -208,15 +201,57 @@ export function ChatBackground({ bar }: { bar: BackgroundBar }) {
       <TaskRow key={task.id} cardId={cardId} task={task} ended={ended} leaving={leaving} onStop={() => {}} />
     )),
   ];
-  if (rows.length === 0) return null;
+}
 
-  if (rows.length === 1) {
-    return (
-      <ul aria-label="Running in the background" className="border-b border-separator">
-        {rows}
-      </ul>
-    );
-  }
+function List({ rows }: { rows: ReactNode[] }) {
+  return (
+    <ul aria-label="Running in the background" className="-mx-3 max-h-40 overflow-y-auto">
+      {rows}
+    </ul>
+  );
+}
+
+/**
+ * The background beside the working line while a turn runs: a count that
+ * opens to the tasks under the line.
+ */
+export function useBackgroundToggle(bar: BackgroundBar): { toggle: ReactNode; list: ReactNode } {
+  const [open, setOpen] = useState(false);
+  const rows = useRows(bar);
+  if (rows.length === 0) return { toggle: null, list: null };
+  const { tasks } = bar;
+  return {
+    toggle: (
+      <button
+        type="button"
+        aria-expanded={open}
+        className="shrink-0 h-[22px] flex items-center gap-1.5 text-[13px] text-text-tertiary hover:text-text-primary transition-colors duration-100"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {tasks.length > 0 ? <BackgroundDots /> : null}
+        <span className="whitespace-nowrap">{tasks.length > 0 ? `${tasks.length} in background` : 'Finished'}</span>
+        <Icon
+          name="caret-down"
+          className={`w-3 h-3 shrink-0 transition-transform duration-150 ${open ? '' : '-rotate-90'}`}
+        />
+      </button>
+    ),
+    list: open ? <List rows={rows} /> : null,
+  };
+}
+
+/**
+ * What the agent left running once its turn is over, as the transcript's last
+ * line: each with how long it has run, its latest output a click away, and a
+ * way to stop it. More than one folds behind a count.
+ */
+export function ChatBackground({ bar }: { bar: BackgroundBar }) {
+  const { tasks } = bar;
+  const [open, setOpen] = useState(false);
+  const now = useNow(tasks.length > 1);
+  const rows = useRows(bar);
+  if (rows.length === 0) return null;
+  if (rows.length === 1) return <List rows={rows} />;
 
   const newest = tasks.reduce<ChatBackgroundTask | undefined>(
     (latest, task) => (!latest || task.startedAt > latest.startedAt ? task : latest),
@@ -224,30 +259,26 @@ export function ChatBackground({ bar }: { bar: BackgroundBar }) {
   );
   const oldest = Math.min(...tasks.map((task) => task.startedAt));
   return (
-    <div className="border-b border-separator">
+    <div className="flex flex-col">
       <button
         type="button"
         aria-expanded={open}
-        className="w-full flex items-center gap-2.5 px-3 h-8 text-[13px] text-text-secondary hover:text-text-primary transition-colors duration-100"
+        className="w-full h-[22px] flex items-center gap-2 text-[13px] text-text-tertiary hover:text-text-primary transition-colors duration-100"
         onClick={() => setOpen((v) => !v)}
       >
         {tasks.length > 0 ? <BackgroundDots /> : <span className="w-3.5 shrink-0" />}
         <span className="min-w-0 overflow-hidden whitespace-nowrap text-left">
-          {tasks.length > 0 ? `${tasks.length} running` : 'Finished'}
+          {tasks.length > 0 ? `${tasks.length} in background` : 'Finished'}
           {newest && ` · ${newest.description}`}
         </span>
-        {tasks.length > 0 && <Span ms={now - oldest} className="text-text-tertiary" />}
+        {tasks.length > 0 && <Span ms={now - oldest} />}
         <span className="flex-1" />
         <Icon
           name="caret-down"
-          className={`w-3 h-3 text-text-tertiary shrink-0 transition-transform duration-150 ${open ? '' : '-rotate-90'}`}
+          className={`w-3 h-3 shrink-0 transition-transform duration-150 ${open ? '' : '-rotate-90'}`}
         />
       </button>
-      {open && (
-        <ul aria-label="Running in the background" className="max-h-40 overflow-y-auto border-t border-separator">
-          {rows}
-        </ul>
-      )}
+      {open && <List rows={rows} />}
     </div>
   );
 }

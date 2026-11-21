@@ -4,7 +4,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { type NodeContext } from './ChatNodes';
 import { ChatTurns, RevealHeld } from './ChatTurns';
-import { ChatBackground, useBackgroundBar } from './ChatBackground';
+import { useBackgroundBar } from './ChatBackground';
 import { ChatComposer } from './ChatComposer';
 import { sendHeldPrompt } from './chatActions';
 import { CHAT_AGENT_LABELS } from '../../chat/preferences';
@@ -233,6 +233,7 @@ export function ChatView({
             stopping={info.stopping === true}
             compacting={info.compacting}
             onHeld={setHeld}
+            background={bar}
           />
           <StatusLine info={info} cardId={cardId} quiet={surface === 'page'} />
           <RevealHeld.Provider value={held}>{footer}</RevealHeld.Provider>
@@ -246,7 +247,7 @@ export function ChatView({
       )}
       <div className="mx-auto w-full max-w-[52rem]">
         {aboveComposer}
-        <ChatComposer cardId={cardId} info={info} focusRef={setFocus} header={<ChatBackground bar={bar} />} />
+        <ChatComposer cardId={cardId} info={info} focusRef={setFocus} />
       </div>
     </div>
   );

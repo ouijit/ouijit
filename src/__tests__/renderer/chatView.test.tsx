@@ -394,7 +394,7 @@ describe('chat view', () => {
       }),
     );
     expect(screen.queryByRole('button', { name: 'Stop Survey 5' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /^5 running · Survey 5/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^5 in background · Survey 5/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Stop Survey 5' }));
     expect(window.api.chat.stopBackground).toHaveBeenCalledWith(ID, 'agent-5');
     act(() => host.emit({ type: 'session', patch: { background: [] } }));
@@ -613,8 +613,9 @@ describe('a background shell', () => {
     // The step that started it is what the agent did, the same before and after the task ends.
     fireEvent.click(screen.getAllByRole('button', { name: /^Ran / }).at(-1)!);
     const step = () =>
-      within(document.querySelector<HTMLElement>('.chat-turns')!).getByRole('button', { name: /^Build the app/ })
-        .textContent;
+      within(document.querySelector<HTMLElement>('.chat-turns')!)
+        .getAllByRole('button', { name: /^Build the app/ })
+        .find((button) => !button.closest('ul'))?.textContent;
     expect(step()).toBe('Build the app · 2s');
 
     const ended: ChatNode = {
@@ -627,8 +628,8 @@ describe('a background shell', () => {
       ended: { taskId: 'b1', status: 'failed', ms: 180_000 },
     };
     const inTranscript = (name: string) =>
-      [...document.querySelectorAll('.chat-turns div')].some((el) =>
-        new RegExp(`^${name}\\s?· \\d+m$`).test(el.textContent ?? ''),
+      [...document.querySelectorAll('.chat-turns div')].some(
+        (el) => !el.closest('ul') && new RegExp(`^${name}\\s?· \\d+m$`).test(el.textContent ?? ''),
       );
     const inBar = () => screen.queryByRole('list', { name: 'Running in the background' });
     // The ending can arrive while the task is still listed; the bar has it, so the transcript waits.

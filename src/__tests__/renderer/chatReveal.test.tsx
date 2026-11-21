@@ -257,6 +257,41 @@ describe("the working line's phrase", () => {
     );
     expect(line()).toBe('Thinking');
   });
+
+  test('stays up as long as it takes to read, so a longer one stays longer', () => {
+    vi.useFakeTimers();
+    const at = Date.now();
+    const context = { cardId: 'card-1', children: new Map(), canRewind: false, onRewind: () => {} };
+    const opener = {
+      kind: 'user_message',
+      id: 'u',
+      parentId: null,
+      createdAt: at,
+      text: 'Go',
+      attachments: [],
+      delivery: 'prompt',
+    } as ChatNode;
+    const remark = (id: string, text: string) =>
+      ({ kind: 'assistant_message', id, parentId: null, createdAt: at, text, status: 'completed' }) as ChatNode;
+    const line = () => screen.getByRole('status', { name: 'Working' }).textContent;
+    const phrase = (text: string) => new RegExp(`^${text.replace('.', '\\.')}`);
+    const said = (...nodes: ChatNode[]) => <ChatTurns nodes={[opener, ...nodes]} context={context} busy />;
+
+    const short = remark('a', 'Checking the tests.');
+    const long = remark('b', 'Now reading how the sandbox profile gets loaded.');
+    const { rerender } = render(said(short));
+    rerender(said(short, long));
+    expect(line()).toMatch(phrase('Checking the tests.'));
+    act(() => vi.advanceTimersByTime(1_600));
+    expect(line()).toMatch(phrase('Now reading how the sandbox profile gets loaded.'));
+
+    rerender(said(short, long, remark('c', 'Done reading.')));
+    act(() => vi.advanceTimersByTime(1_600));
+    expect(line()).toMatch(phrase('Now reading how the sandbox profile gets loaded.'));
+    act(() => vi.advanceTimersByTime(1_500));
+    expect(line()).toMatch(phrase('Done reading.'));
+    vi.useRealTimers();
+  });
 });
 
 describe('a step in an opened fold', () => {

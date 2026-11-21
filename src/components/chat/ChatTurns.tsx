@@ -15,6 +15,7 @@ import { StatusGlyph } from '../terminal/StatusDot';
 import { ChatMarkdown } from './ChatMarkdown';
 import { ChatNodeList, ChatNodeView, Span, foldSummary, isEmptyThought, useNow, type NodeContext } from './ChatNodes';
 import { ChatRequestView, SettledLine, allowed, approvedByChat, firstLine, settledLabel } from './ChatRequest';
+import { ChatBackground, useBackgroundToggle, type BackgroundBar } from './ChatBackground';
 import type {
   AssistantMessageNode,
   ChatNode,
@@ -24,6 +25,15 @@ import type {
   WakeNote,
   WakeRequest,
 } from '../../chat/model';
+
+const NO_BACKGROUND: BackgroundBar = {
+  cardId: '',
+  tasks: [],
+  leaving: [],
+  stopping: new Set(),
+  stop: () => {},
+  shown: new Set(),
+};
 
 type Piece =
   | { kind: 'work'; nodes: ChatNode[] }
@@ -145,15 +155,26 @@ function doingNow(work: ChatNode[], cardId: string): { phrase: string; since: nu
   return null;
 }
 
-/** Each phrase stays up long enough to read before the next replaces it; ones in between are skipped. */
-const HOLD_MS = 2000;
+/**
+ * Each phrase stays up long enough to read before the next replaces it, at
+ * about 250 words a minute plus a moment to notice it changed; ones in
+ * between are skipped.
+ */
+const NOTICE_MS = 800;
+const MS_PER_WORD = 240;
+const MAX_HOLD_MS = 6000;
+
+function holdFor(phrase: string): number {
+  const words = phrase.trim().split(/\s+/).length;
+  return Math.min(MAX_HOLD_MS, NOTICE_MS + words * MS_PER_WORD);
+}
 
 function useHeld(phrase: string): string {
   const [shown, setShown] = useState(phrase);
   const since = useRef(Date.now());
   useEffect(() => {
     if (phrase === shown) return;
-    const wait = Math.max(0, HOLD_MS - (Date.now() - since.current));
+    const wait = Math.max(0, holdFor(shown) - (Date.now() - since.current));
     const timer = setTimeout(() => {
       since.current = Date.now();
       setShown(phrase);
@@ -178,7 +199,21 @@ interface Live {
  * under the turn's total, and stays open as the turn ends and it becomes the
  * fold, so nothing moves under the reader.
  */
-function WorkFold({ work, context, live }: { work: ChatNode[]; context: NodeContext; live?: Live }) {
+function WorkFold({
+  work,
+  context,
+  live,
+  aside,
+  under,
+}: {
+  work: ChatNode[];
+  context: NodeContext;
+  live?: Live;
+  /** Beside the line: what runs in the background. */
+  aside?: ReactNode;
+  /** Under the line, above the steps: that background opened. */
+  under?: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const now = useNow(Boolean(live));
   const latest = useRef<{ phrase: string; since: number }>({ phrase: 'Thinking', since: live?.started ?? 0 });
@@ -213,16 +248,20 @@ function WorkFold({ work, context, live }: { work: ChatNode[]; context: NodeCont
   }
 
   return (
-    <div className="flex flex-col" {...(live && { role: 'status', 'aria-label': 'Working' })}>
-      <button
-        type="button"
-        className="w-full min-h-[22px] flex items-center gap-2 text-left text-[13px] text-text-tertiary enabled:hover:text-text-primary transition-colors duration-100"
-        onClick={() => setOpen(!open)}
-        disabled={!expandable}
-        aria-expanded={expanded}
-      >
-        {summary}
-      </button>
+    <div className="flex flex-col">
+      <div className="flex items-start gap-3" {...(live && { role: 'status', 'aria-label': 'Working' })}>
+        <button
+          type="button"
+          className="flex-1 min-w-0 min-h-[22px] flex items-center gap-2 text-left text-[13px] text-text-tertiary enabled:hover:text-text-primary transition-colors duration-100"
+          onClick={() => setOpen(!open)}
+          disabled={!expandable}
+          aria-expanded={expanded}
+        >
+          {summary}
+        </button>
+        {aside}
+      </div>
+      {under}
       {expanded && (
         <FoldBody>
           <ChatNodeList nodes={work} context={context} thoughtsAsText />
@@ -439,6 +478,7 @@ export function ChatTurns({
   stopping = false,
   compacting = null,
   onHeld,
+  background,
 }: {
   nodes: ChatNode[];
   context: NodeContext;
@@ -449,7 +489,10 @@ export function ChatTurns({
   compacting?: number | null;
   /** Whether something said is still being revealed, so what comes after it waits. */
   onHeld?: (held: boolean) => void;
+  /** What the agent left running in the background: beside the working line, or the last line once the turn is over. */
+  background?: BackgroundBar;
 }) {
+  const fromBackground = useBackgroundToggle(background ?? NO_BACKGROUND);
   // Whether each message is paced, decided the first time it is seen and kept:
   // only what first appears during a turn is arriving now. A conversation
   // opened, or its history re-sent as its agent resumes, shows whole.
@@ -503,6 +546,7 @@ export function ChatTurns({
   });
 
   let held = false;
+  let working = false;
   const shown = layouts.map(({ turn, pieces, doing }, index) => {
     if (held) return null;
     const routineRun = runs[index];
@@ -550,12 +594,15 @@ export function ChatTurns({
     }
     if (!held) {
       if (doing) {
+        working = true;
         items.push(
           <WorkFold
             key={doing[0]?.id ?? 'doing'}
             work={doing}
             context={context}
             live={{ started: turn.opener?.createdAt ?? turn.body[0]?.createdAt ?? Date.now(), stopping }}
+            aside={fromBackground.toggle}
+            under={fromBackground.list}
           />,
         );
       }
@@ -576,8 +623,15 @@ export function ChatTurns({
     <div className="chat-turns min-w-0 flex flex-col gap-5">
       {shown}
       {compacting && !held && (
-        <WorkFold work={[]} context={context} live={{ started: compacting, stopping, what: 'Compacting' }} />
+        <WorkFold
+          work={[]}
+          context={context}
+          live={{ started: compacting, stopping, what: 'Compacting' }}
+          aside={fromBackground.toggle}
+          under={fromBackground.list}
+        />
       )}
+      {!working && !compacting && !held && background && <ChatBackground bar={background} />}
     </div>
   );
 }
