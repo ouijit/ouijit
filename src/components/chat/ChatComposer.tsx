@@ -16,6 +16,7 @@ import {
   type ChatNode,
   type ChatOption,
   type ChatSessionInfo,
+  type UserMessageNode,
 } from '../../chat/model';
 import type { ChatDelivery } from '../../chat/startOptions';
 
@@ -386,6 +387,7 @@ export function ChatComposer({
   const nodes = useChatStore((s) => s.sessions[cardId]?.nodes);
   const recent = useMemo(() => recentCommands(nodes ?? []), [nodes]);
   const setDraft = useChatStore((s) => s.setDraft);
+  const editing = useChatStore((s) => s.editing[cardId]);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [commandIndex, setCommandIndex] = useState(0);
   const [terminalCommand, setTerminalCommand] = useState<string | null>(null);
@@ -402,6 +404,19 @@ export function ChatComposer({
   }, [focusRef]);
 
   useEffect(() => growToFit(textarea.current), [draft]);
+
+  // An edited message brings its attachments along, and the caret to the end of its text.
+  const editedId = editing?.messageId;
+  useEffect(() => {
+    if (!editedId) return;
+    const edited = nodes?.find((node): node is UserMessageNode => node.id === editedId && node.kind === 'user_message');
+    setAttachments(edited?.attachments ?? []);
+    const field = textarea.current;
+    field?.focus();
+    field?.setSelectionRange(field.value.length, field.value.length);
+    // The message is read once, when its edit begins.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editedId]);
 
   // Escape closes the menu for the draft it was open on; typing more opens it again.
   const [dismissedFor, setDismissedFor] = useState<string | null>(null);
@@ -420,15 +435,27 @@ export function ChatComposer({
       setTerminalCommand(command.name);
       return;
     }
+    if (editing) {
+      try {
+        await window.api.chat.rewind(cardId, editing.messageId);
+      } catch (error) {
+        report(error);
+        return;
+      }
+      useChatStore.getState().endEdit(cardId);
+    }
     // A message sent mid-turn steers it wherever the agent can take one.
     const chosen: ChatDelivery = busy && caps.steer ? 'steer' : 'auto';
+    const after = editing?.setAside ?? '';
     setDraft(cardId, '');
     const sent = attachments;
     setAttachments([]);
     if (!(await sendChat(cardId, text, sent, chosen, true))) {
       setDraft(cardId, text);
       setAttachments(sent);
+      return;
     }
+    if (after) setDraft(cardId, after);
   };
 
   /**
@@ -471,6 +498,18 @@ export function ChatComposer({
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       void send();
+    } else if (event.key === 'ArrowUp' && !draft && attachments.length === 0) {
+      const last = nodes?.findLast(
+        (node): node is UserMessageNode => node.kind === 'user_message' && !node.wake && node.parentId === null,
+      );
+      if (!last) return;
+      event.preventDefault();
+      if (caps.rewind && info.status === 'idle') useChatStore.getState().startEdit(cardId, last);
+      else setDraft(cardId, last.text);
+    } else if (event.key === 'Escape' && editing) {
+      event.preventDefault();
+      useChatStore.getState().endEdit(cardId);
+      setAttachments([]);
     } else if (event.key === 'Escape' && busy && caps.interrupt) {
       event.preventDefault();
       void window.api.chat.interrupt(cardId).catch(report);
@@ -586,6 +625,23 @@ export function ChatComposer({
             onClick={() => setTerminalCommand(null)}
           >
             <Icon name="x" className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+      {editing && (
+        <div className="flex items-center gap-2 px-3 h-8 border-b border-separator text-[13px] text-text-secondary">
+          <Icon name="pencil-simple" className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+          <span className="flex-1 min-w-0 truncate">Editing · sending replaces it and everything after</span>
+          <button
+            type="button"
+            className="shrink-0 text-text-tertiary hover:text-text-primary transition-colors duration-100"
+            onClick={() => {
+              useChatStore.getState().endEdit(cardId);
+              setAttachments([]);
+              textarea.current?.focus();
+            }}
+          >
+            Cancel <kbd className="ml-1 font-sans opacity-60">esc</kbd>
           </button>
         </div>
       )}

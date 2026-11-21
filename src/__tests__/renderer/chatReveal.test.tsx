@@ -74,7 +74,7 @@ describe('several things said while you watch', () => {
       },
       { kind: 'assistant_message', id: 'a2', parentId: null, createdAt: at, text: second, status: 'completed' },
     ] as ChatNode[];
-    const context = { cardId: 'home-1', children: new Map(), canRewind: false, onRewind: () => {} };
+    const context = { cardId: 'home-1', children: new Map(), canEdit: false, onEdit: () => {} };
     // The turn is under way when what it says arrives.
     const { rerender } = render(<ChatTurns nodes={nodes.slice(0, 1)} context={context} busy />);
     rerender(<ChatTurns nodes={nodes} context={context} busy />);
@@ -127,7 +127,7 @@ describe('opening a conversation', () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'performance', 'Date'] });
     const said = (id: string, text: string) =>
       ({ kind: 'assistant_message', id, parentId: null, createdAt: Date.now(), text, status: 'completed' }) as ChatNode;
-    const context = { cardId: 'home-1', children: new Map(), canRewind: false, onRewind: () => {} };
+    const context = { cardId: 'home-1', children: new Map(), canEdit: false, onEdit: () => {} };
     const { rerender } = render(
       <ChatTurns nodes={[said('a1', 'Already said before you opened it.')]} context={context} busy={false} />,
     );
@@ -181,7 +181,7 @@ describe('a turn still working', () => {
     } as ChatNode;
     const lint = step('t1', 'Run lint', 0, { status: 'completed', endedAt: at + 300_000 });
     const tests = (extra: object) => step('t2', 'Run driver tests', 300_000, extra);
-    const context = { cardId: 'card-1', children: new Map(), canRewind: false, onRewind: () => {} };
+    const context = { cardId: 'card-1', children: new Map(), canEdit: false, onEdit: () => {} };
     const running = [opener, lint, tests({ status: 'running', output: 'one\ntwo\nthree\nfour\n ✓ codex compacted\n' })];
     act(() => vi.setSystemTime(at + 420_000));
     const { rerender } = render(<ChatTurns nodes={running} context={context} busy />);
@@ -210,7 +210,7 @@ describe('a turn still working', () => {
 describe("the working line's phrase", () => {
   test('names steps and short remarks, and never quotes a thought or a remark that runs on', () => {
     const at = Date.now();
-    const context = { cardId: 'card-1', children: new Map(), canRewind: false, onRewind: () => {} };
+    const context = { cardId: 'card-1', children: new Map(), canEdit: false, onEdit: () => {} };
     const opener = {
       kind: 'user_message',
       id: 'u',
@@ -261,7 +261,7 @@ describe("the working line's phrase", () => {
   test('stays up as long as it takes to read, so a longer one stays longer', () => {
     vi.useFakeTimers();
     const at = Date.now();
-    const context = { cardId: 'card-1', children: new Map(), canRewind: false, onRewind: () => {} };
+    const context = { cardId: 'card-1', children: new Map(), canEdit: false, onEdit: () => {} };
     const opener = {
       kind: 'user_message',
       id: 'u',
@@ -297,7 +297,7 @@ describe("the working line's phrase", () => {
 describe('a step in an opened fold', () => {
   test('reads as its title with its time right after, and shows trouble in place of its tool icon', () => {
     const at = Date.now();
-    const context = { cardId: 'card-1', children: new Map(), canRewind: false, onRewind: () => {} };
+    const context = { cardId: 'card-1', children: new Map(), canEdit: false, onEdit: () => {} };
     const step = (id: string, title: string, status: string, ms: number) =>
       ({
         kind: 'tool_call',
@@ -396,7 +396,7 @@ describe('subagents in an opened fold', () => {
     ] as ChatNode[];
     const children = new Map<string | null, ChatNode[]>();
     for (const node of all) children.set(node.parentId, [...(children.get(node.parentId) ?? []), node]);
-    const context = { cardId: 'card-1', children, canRewind: false, onRewind: () => {} };
+    const context = { cardId: 'card-1', children, canEdit: false, onEdit: () => {} };
     render(<ChatTurns nodes={children.get(null)!} context={context} busy={false} />);
     fireEvent.click(screen.getByRole('button', { name: /^3 subagents/ }));
 

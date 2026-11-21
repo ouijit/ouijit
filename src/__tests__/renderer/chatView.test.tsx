@@ -760,3 +760,79 @@ describe("the context's fill", () => {
     expect(screen.getByText('12k tokens')).toBeTruthy();
   });
 });
+
+describe('editing a message already sent', () => {
+  test('loads it into the composer, fades what it replaces, and rewinds only once the edit is sent', async () => {
+    const user = (id: string, text: string): ChatNode => ({
+      id,
+      kind: 'user_message',
+      parentId: null,
+      createdAt: 0,
+      text,
+      attachments: [],
+      delivery: 'prompt',
+    });
+    const reply = (id: string, text: string): ChatNode => ({
+      id,
+      kind: 'assistant_message',
+      parentId: null,
+      createdAt: 0,
+      text,
+      status: 'completed',
+    });
+    const nodes = [
+      user('e1', 'Run the tests'),
+      reply('e2', 'All pass.'),
+      user('e3', 'Open a PR'),
+      reply('e4', 'Opened #352.'),
+    ];
+    const live = (rewind: boolean) =>
+      act(() =>
+        useChatStore.getState().adopt({
+          info: { ...INFO, capabilities: { ...INFO.capabilities, rewind } },
+          nodes,
+          seq: 0,
+        }),
+      );
+    live(true);
+    render(<ChatView cardId={ID} />);
+    const composer = screen.getByLabelText('Message') as HTMLTextAreaElement;
+    const turnOf = (text: string) => screen.getByText(text).closest('.min-w-0.flex.flex-col.gap-3')!;
+
+    // ↑ in an empty composer picks up the last message; Esc puts back what was there.
+    fireEvent.keyDown(composer, { key: 'ArrowUp' });
+    expect(composer.value).toBe('Open a PR');
+    expect(screen.getByText('Editing · sending replaces it and everything after')).toBeTruthy();
+    expect(turnOf('Opened #352.').className).toContain('opacity-40');
+    expect(turnOf('All pass.').className).not.toContain('opacity-40');
+    fireEvent.keyDown(composer, { key: 'Escape' });
+    expect(composer.value).toBe('');
+    expect(screen.queryByText(/^Editing/)).toBeNull();
+
+    // An earlier one, from its own Edit: a half-written draft waits aside until the edit is done.
+    fireEvent.change(composer, { target: { value: 'half a thought' } });
+    fireEvent.click(within(turnOf('Run the tests')).getByRole('button', { name: 'Edit' }));
+    expect(composer.value).toBe('Run the tests');
+    expect(window.api.chat.rewind).not.toHaveBeenCalled();
+    fireEvent.change(composer, { target: { value: 'Run only the unit tests' } });
+    fireEvent.keyDown(composer, { key: 'Enter' });
+    await waitFor(() => expect(window.api.chat.rewind).toHaveBeenCalledWith(ID, 'e1'));
+    await waitFor(() =>
+      expect(window.api.chat.prompt).toHaveBeenCalledWith(
+        ID,
+        expect.objectContaining({ text: 'Run only the unit tests' }),
+        expect.anything(),
+      ),
+    );
+    // Sent, the half-written draft comes back.
+    await waitFor(() => expect(composer.value).toBe('half a thought'));
+    fireEvent.change(composer, { target: { value: '' } });
+
+    // An agent that cannot rewind offers no Edit, and ↑ only brings the last message back as a new draft.
+    live(false);
+    expect(within(turnOf('Open a PR')).queryByRole('button', { name: 'Edit' })).toBeNull();
+    fireEvent.keyDown(composer, { key: 'ArrowUp' });
+    expect(composer.value).toBe('Open a PR');
+    expect(screen.queryByText(/^Editing/)).toBeNull();
+  });
+});

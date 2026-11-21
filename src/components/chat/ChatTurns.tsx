@@ -547,6 +547,7 @@ export function ChatTurns({
 
   let held = false;
   let working = false;
+  const editedFrom = context.editingFrom ? turns.findIndex((turn) => turn.opener?.id === context.editingFrom) : -1;
   const shown = layouts.map(({ turn, pieces, doing }, index) => {
     if (held) return null;
     const routineRun = runs[index];
@@ -612,7 +613,7 @@ export function ChatTurns({
     return (
       <div
         key={turn.opener?.id ?? turn.body[0]?.id ?? turn.kept[0]?.id ?? `turn-${index}`}
-        className="min-w-0 flex flex-col gap-3"
+        className={`min-w-0 flex flex-col gap-3 transition-opacity duration-150 ${editedFrom !== -1 && index >= editedFrom ? 'opacity-40' : ''}`}
       >
         {items}
       </div>

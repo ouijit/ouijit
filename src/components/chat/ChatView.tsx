@@ -185,20 +185,18 @@ export function ChatView({
   );
 
   const info = session?.info;
+  const editing = useChatStore((s) => s.editing[cardId]);
   const bar = useBackgroundBar(cardId, info?.background ?? NO_TASKS, nodes ?? NO_NODES);
   const context: NodeContext = useMemo(
     () => ({
       cardId,
       children,
-      canRewind: Boolean(info?.capabilities.rewind && info.status === 'idle'),
+      canEdit: Boolean(info?.capabilities.rewind && info.status === 'idle'),
       inBar: bar.shown,
-      onRewind: (nodeId) => {
-        void window.api.chat
-          .rewind(cardId, nodeId)
-          .catch((error: unknown) => useProjectStore.getState().addToast(String(error), 'error'));
-      },
+      onEdit: (node) => useChatStore.getState().startEdit(cardId, node),
+      editingFrom: editing?.messageId,
     }),
-    [cardId, children, info?.capabilities.rewind, info?.status, bar.shown],
+    [cardId, children, info?.capabilities.rewind, info?.status, bar.shown, editing?.messageId],
   );
 
   if (!session || !info) {

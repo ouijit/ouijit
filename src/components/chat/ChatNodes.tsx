@@ -15,6 +15,7 @@ import type {
   UserMessageNode,
 } from '../../chat/model';
 import { relativeToCard } from './cardPaths';
+import { Tooltip } from '../ui/Tooltip';
 
 const TOOL_ICONS: Record<ToolKind, string> = {
   command: 'terminal',
@@ -506,15 +507,23 @@ function ReasoningView({ text, running, ms }: { text: string; running: boolean; 
   );
 }
 
-function UserMessageView({
-  node,
-  waiting,
-  onRewind,
-}: {
-  node: UserMessageNode;
-  waiting?: boolean;
-  onRewind?: () => void;
-}) {
+function MessageAction({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
+  return (
+    <Tooltip text={label} placement="bottom">
+      <button
+        type="button"
+        aria-label={label}
+        className="w-6 h-6 flex items-center justify-center rounded-md text-text-tertiary hover:text-text-primary hover:bg-ink/[0.08] transition-colors duration-100"
+        onClick={onClick}
+      >
+        <Icon name={icon} className="w-3.5 h-3.5" />
+      </button>
+    </Tooltip>
+  );
+}
+
+function UserMessageView({ node, waiting, onEdit }: { node: UserMessageNode; waiting?: boolean; onEdit?: () => void }) {
+  const [copied, setCopied] = useState(false);
   if (node.wake) {
     return <div className="text-[13px] text-text-tertiary whitespace-pre-wrap break-words">{node.text}</div>;
   }
@@ -533,18 +542,22 @@ function UserMessageView({
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2 text-[11px] text-text-tertiary min-h-4">
+      <div className="flex items-center gap-2 text-[11px] text-text-tertiary min-h-6">
         {node.delivery === 'queued' && <span>Queued</span>}
         {node.delivery === 'steer' && <span>{waiting ? 'Waiting for the current step' : 'Sent mid-turn'}</span>}
-        {onRewind && (
-          <button
-            type="button"
-            className="opacity-0 group-hover/user:opacity-100 hover:text-text-primary transition-opacity duration-100"
-            onClick={onRewind}
-          >
-            Rewind to here
-          </button>
-        )}
+        <span className="flex items-center gap-0.5 opacity-0 group-hover/user:opacity-100 focus-within:opacity-100 transition-opacity duration-100">
+          <MessageAction
+            icon={copied ? 'check' : 'copy'}
+            label={copied ? 'Copied' : 'Copy'}
+            onClick={() =>
+              void navigator.clipboard.writeText(node.text).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1200);
+              })
+            }
+          />
+          {onEdit && <MessageAction icon="pencil-simple" label="Edit" onClick={onEdit} />}
+        </span>
       </div>
     </div>
   );
@@ -553,8 +566,11 @@ function UserMessageView({
 export interface NodeContext {
   cardId: string;
   children: Map<string | null, ChatNode[]>;
-  canRewind: boolean;
-  onRewind: (nodeId: string) => void;
+  /** Whether a sent message can be edited: the agent rewinds, and is not in a turn. */
+  canEdit: boolean;
+  onEdit: (node: UserMessageNode) => void;
+  /** The sent message being edited: it and what follows go once the edit is sent. */
+  editingFrom?: string;
   /** Background tasks the bar is showing, whose endings wait until it lets them go. */
   inBar?: ReadonlySet<string>;
 }
@@ -577,7 +593,7 @@ export const ChatNodeView = memo(function ChatNodeView({
         <UserMessageView
           node={node}
           waiting={waiting}
-          onRewind={context.canRewind && node.parentId === null ? () => context.onRewind(node.id) : undefined}
+          onEdit={context.canEdit && node.parentId === null ? () => context.onEdit(node) : undefined}
         />
       );
     case 'assistant_message':

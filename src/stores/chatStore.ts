@@ -36,11 +36,17 @@ interface ChatStore {
   drafts: Record<string, string>;
   /** Each project's task chats, as the main process last listed them. */
   taskChats: Record<string, TaskChatSummary[]>;
+  /** A message sent earlier, being edited in the composer, and the draft it set aside. */
+  editing: Record<string, { messageId: string; setAside: string }>;
   adopt: (snapshot: ChatSnapshot) => void;
   apply: (id: string, event: SequencedChatEvent) => void;
   forget: (id: string) => void;
   setSetup: (id: string, setup: SetupState | null) => void;
   setDraft: (id: string, text: string) => void;
+  /** Loads a sent message into the composer; nothing is rewound until it is sent. */
+  startEdit: (id: string, message: { id: string; text: string }) => void;
+  /** Puts back the draft the edit set aside. */
+  endEdit: (id: string) => void;
 }
 
 export const useChatStore = create<ChatStore>()((set, get) => ({
@@ -48,6 +54,7 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
   setup: {},
   drafts: {},
   taskChats: {},
+  editing: {},
 
   adopt: (snapshot) =>
     set((s) => ({
@@ -84,6 +91,22 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
     }),
 
   setDraft: (id, text) => set((s) => ({ drafts: { ...s.drafts, [id]: text } })),
+
+  startEdit: (id, message) =>
+    set((s) => ({
+      editing: {
+        ...s.editing,
+        [id]: { messageId: message.id, setAside: s.editing[id]?.setAside ?? s.drafts[id] ?? '' },
+      },
+      drafts: { ...s.drafts, [id]: message.text },
+    })),
+
+  endEdit: (id) =>
+    set((s) => {
+      const { [id]: was, ...editing } = s.editing;
+      if (!was) return {};
+      return { editing, drafts: { ...s.drafts, [id]: was.setAside } };
+    }),
 }));
 
 const resyncing = new Set<string>();
