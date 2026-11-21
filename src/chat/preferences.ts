@@ -114,6 +114,8 @@ export interface HomeChatSummary {
   id: string;
   title: string;
   createdAt: string;
+  /** When its last turn began, or it started if none has: what the list is ordered by. */
+  activeAt: number;
 }
 
 /** A task, as news about it is routed: to the conversation that started it. */

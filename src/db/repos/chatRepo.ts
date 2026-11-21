@@ -46,7 +46,7 @@ export class ChatRepo {
       .all(projectPath) as ChatSessionRow[];
   }
 
-  /** The app-wide chat's conversations, newest started first. */
+  /** The app-wide chat's conversations. */
   listHome(): ChatSessionRow[] {
     return this.db
       .prepare("SELECT * FROM chat_sessions WHERE role = 'home' ORDER BY created_at DESC")
@@ -104,6 +104,16 @@ export class ChatRepo {
         subject: string;
       }[]
     ).map((row) => row.subject);
+  }
+
+  /** When its last turn began: the latest message sent to it, typed or a wake. Null with none. */
+  lastTurnAt(id: string): number | null {
+    const row = this.db
+      .prepare(
+        "SELECT MAX(json_extract(body, '$.createdAt')) AS at FROM chat_nodes WHERE session_id = ? AND json_extract(body, '$.kind') = 'user_message'",
+      )
+      .get(id) as { at: number | null } | undefined;
+    return row?.at ?? null;
   }
 
   nodes(id: string): string[] {

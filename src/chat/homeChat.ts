@@ -87,7 +87,9 @@ function newId(): string {
 }
 
 function summary(id: string, info: ChatSessionInfo, createdAt: string): HomeChatSummary {
-  return { id, title: info.label || UNTITLED_HOME_CHAT, createdAt };
+  const live = chatHost.snapshot(id)?.nodes.findLast((node) => node.kind === 'user_message')?.createdAt;
+  const activeAt = live ?? getChatRepo().lastTurnAt(id) ?? Date.parse(createdAt);
+  return { id, title: info.label || UNTITLED_HOME_CHAT, createdAt, activeAt };
 }
 
 /** Stored rows lag a running session by a flush, so a live session's own info wins. */
@@ -104,8 +106,10 @@ export async function homeChatState(): Promise<HomeChatState> {
     );
   const live = chatHost.snapshot(currentId);
   if (live && !chats.some((chat) => chat.id === currentId)) {
-    chats.unshift(summary(currentId, live.info, new Date().toISOString()));
+    chats.push(summary(currentId, live.info, new Date().toISOString()));
   }
+  // Most recently active first, so a conversation still going does not sink as new ones start.
+  chats.sort((a, b) => b.activeAt - a.activeAt);
   const owners = Object.fromEntries(
     getChatRepo()
       .taskOwners()
@@ -236,7 +240,10 @@ export function installHomeChat(): void {
   chatHost.subscribe((sessionId, { event }) => {
     if (event.type !== 'node' || !isHomeChat(sessionId)) return;
     const node = event.node;
-    if (node.kind !== 'user_message' || node.wake) return;
+    if (node.kind !== 'user_message') return;
+    // A turn beginning, typed or woken, moves its conversation up the list.
+    void announce();
+    if (node.wake) return;
     const info = chatHost.snapshot(sessionId)?.info;
     if (!info || (info.label && info.label !== UNTITLED_HOME_CHAT)) return;
     const placeholder = titleFromMessage(node.text);
