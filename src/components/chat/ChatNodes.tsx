@@ -506,7 +506,15 @@ function ReasoningView({ text, running, ms }: { text: string; running: boolean; 
   );
 }
 
-function UserMessageView({ node, onRewind }: { node: UserMessageNode; onRewind?: () => void }) {
+function UserMessageView({
+  node,
+  waiting,
+  onRewind,
+}: {
+  node: UserMessageNode;
+  waiting?: boolean;
+  onRewind?: () => void;
+}) {
   if (node.wake) {
     return <div className="text-[13px] text-text-tertiary whitespace-pre-wrap break-words">{node.text}</div>;
   }
@@ -527,7 +535,7 @@ function UserMessageView({ node, onRewind }: { node: UserMessageNode; onRewind?:
       </div>
       <div className="flex items-center gap-2 text-[11px] text-text-tertiary min-h-4">
         {node.delivery === 'queued' && <span>Queued</span>}
-        {node.delivery === 'steer' && <span>Sent mid-turn</span>}
+        {node.delivery === 'steer' && <span>{waiting ? 'Waiting for the current step' : 'Sent mid-turn'}</span>}
         {onRewind && (
           <button
             type="button"
@@ -551,7 +559,16 @@ export interface NodeContext {
   inBar?: ReadonlySet<string>;
 }
 
-export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node: ChatNode; context: NodeContext }) {
+export const ChatNodeView = memo(function ChatNodeView({
+  node,
+  context,
+  waiting,
+}: {
+  node: ChatNode;
+  context: NodeContext;
+  /** A message sent mid-turn the agent has not read yet: it takes one in only between steps. */
+  waiting?: boolean;
+}) {
   const nested = context.children.get(node.id);
   const childViews = nested && <ChatNodeList nodes={nested} context={context} />;
   switch (node.kind) {
@@ -559,6 +576,7 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
       return (
         <UserMessageView
           node={node}
+          waiting={waiting}
           onRewind={context.canRewind && node.parentId === null ? () => context.onRewind(node.id) : undefined}
         />
       );

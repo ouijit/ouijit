@@ -409,6 +409,10 @@ interface Layout {
   doing: ChatNode[] | null;
 }
 
+function stillRunning(nodes: ChatNode[]): boolean {
+  return nodes.some((node) => (node.kind === 'tool_call' || node.kind === 'subagent') && node.status === 'running');
+}
+
 /** `steered` is a turn a message sent mid-turn cut short: it went on after that message, so it has no last word here. */
 function layoutOf(turn: Turn, running: boolean, steered: boolean): Layout {
   const pieces = piecesOf(turn.body, !running && !steered);
@@ -466,9 +470,25 @@ export function ChatTurns({
   for (const node of nodes) if (node.kind === 'assistant_message') pacedFor(node.id);
   const turns = turnsOf(nodes);
   const open = busy && !compacting;
-  const layouts = turns.map((turn, index) =>
-    layoutOf(turn, open && index === turns.length - 1, turns[index + 1]?.opener?.delivery === 'steer'),
-  );
+  // Messages sent mid-turn the agent has not read: it takes one in only once the step it is on ends.
+  let unread = 0;
+  while (
+    open &&
+    unread < turns.length - 1 &&
+    turns[turns.length - 1 - unread].opener?.delivery === 'steer' &&
+    turns[turns.length - 1 - unread].body.length === 0
+  ) {
+    unread++;
+  }
+  const cutShort = turns.length - 1 - unread;
+  const stepRunning = unread > 0 && stillRunning(turns[cutShort].body);
+  const layouts = turns.map((turn, index) => {
+    const last = index === turns.length - 1;
+    // The step the agent is on stays live above what waits for it; the waiting turn has nothing of its own to show.
+    if (stepRunning && index === cutShort) return layoutOf(turn, true, true);
+    if (stepRunning && index > cutShort) return { turn, pieces: [], doing: null };
+    return layoutOf(turn, open && last, turns[index + 1]?.opener?.delivery === 'steer');
+  });
   const pending = (node: AssistantMessageNode) => !stopping && pacedFor(node.id) && !revealedIds.has(node.id);
 
   // Each run of routine turns shows as one line, from where it starts.
@@ -494,7 +514,12 @@ export function ChatTurns({
         turn.opener.wake ? (
           <WakeOpener key={turn.opener.id} node={turn.opener} settled={!(open && index === turns.length - 1)} />
         ) : (
-          <ChatNodeView key={turn.opener.id} node={turn.opener} context={context} />
+          <ChatNodeView
+            key={turn.opener.id}
+            node={turn.opener}
+            context={context}
+            waiting={index > turns.length - 1 - unread}
+          />
         ),
       );
     }

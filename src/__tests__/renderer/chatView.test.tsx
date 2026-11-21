@@ -689,7 +689,7 @@ describe('a background shell', () => {
 });
 
 describe('a message sent mid-turn', () => {
-  test('leaves a remark before it folded into the work, as it would be had the turn gone on unbroken', () => {
+  test('waits under the step the agent is on, then the turn reads as if never broken', () => {
     const user = (id: string, text: string, delivery: 'prompt' | 'steer'): ChatNode => ({
       id,
       kind: 'user_message',
@@ -699,7 +699,7 @@ describe('a message sent mid-turn', () => {
       attachments: [],
       delivery,
     });
-    const step = (id: string): ChatNode => ({
+    const step = (id: string, status: 'running' | 'completed' = 'completed'): ChatNode => ({
       id,
       kind: 'tool_call',
       parentId: null,
@@ -711,25 +711,34 @@ describe('a message sent mid-turn', () => {
       command: 'npm test',
       output: '3 passing',
       files: [],
-      status: 'completed',
+      status,
     });
     const remark = 'Using the store flag here instead.';
-    act(() =>
-      useChatStore.getState().adopt({
-        info: { ...INFO, status: 'idle' },
-        nodes: [
-          user('m1', 'Merge the settings', 'prompt'),
-          step('m2'),
-          { id: 'm3', kind: 'assistant_message', parentId: null, createdAt: 0, text: remark, status: 'completed' },
-          step('m4'),
-          user('m5', 'Pull main too', 'steer'),
-          step('m6'),
-          { id: 'm7', kind: 'assistant_message', parentId: null, createdAt: 0, text: 'Done.', status: 'completed' },
-        ],
-        seq: 0,
-      }),
-    );
+    const before = [
+      user('m1', 'Merge the settings', 'prompt'),
+      step('m2'),
+      { id: 'm3', kind: 'assistant_message', parentId: null, createdAt: 0, text: remark, status: 'completed' },
+    ] as ChatNode[];
+    const live = (status: ChatSessionInfo['status'], nodes: ChatNode[]) =>
+      act(() => useChatStore.getState().adopt({ info: { ...INFO, status }, nodes, seq: 0 }));
+
+    // The agent reads it only once its step ends: until then the step stays live above it, and it says it waits.
+    live('running', [...before, step('m4', 'running'), user('m5', 'Pull main too', 'steer')]);
     render(<ChatView cardId={ID} />);
+    expect(screen.getAllByRole('status', { name: 'Working' })).toHaveLength(1);
+    expect(screen.getByRole('status', { name: 'Working' }).textContent).toContain('Run the tests');
+    expect(screen.getByText('Waiting for the current step')).toBeTruthy();
+
+    // Once it moves on, it has been read; finished, a remark before it folds as it would in an unbroken turn.
+    live('idle', [
+      ...before,
+      step('m4'),
+      user('m5', 'Pull main too', 'steer'),
+      step('m6'),
+      { id: 'm7', kind: 'assistant_message', parentId: null, createdAt: 0, text: 'Done.', status: 'completed' },
+    ]);
+    expect(screen.queryByText('Waiting for the current step')).toBeNull();
+    expect(screen.getByText('Sent mid-turn')).toBeTruthy();
     expect(screen.queryByText(remark)).toBeNull();
     expect(screen.getByText('Done.')).toBeTruthy();
   });
