@@ -634,12 +634,6 @@ export const ChatNodeView = memo(function ChatNodeView({ node, context }: { node
         </div>
       );
     case 'compaction':
-      return (
-        <div className="flex items-center gap-3 text-[11px] text-text-tertiary">
-          <div className="flex-1 border-t border-separator" />
-          Context compacted
-          <div className="flex-1 border-t border-separator" />
-        </div>
-      );
+      return <div className="text-[13px] text-text-tertiary">Context compacted</div>;
   }
 });
