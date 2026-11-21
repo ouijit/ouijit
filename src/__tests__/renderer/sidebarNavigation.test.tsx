@@ -8,7 +8,7 @@ import { useTerminalShortcuts } from '../../components/terminal/terminalShortcut
 import { addProjectTerminal } from '../../components/terminal/terminalActions';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import { useAppStore } from '../../stores/appStore';
-import { useUIStore } from '../../stores/uiStore';
+import { hydrateUIPreferences, useUIStore } from '../../stores/uiStore';
 import { DEFAULT_DISPLAY_STATE, useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useWaitingStore } from '../../stores/waitingStore';
 import { loadChatSettings } from '../../services/chatSettings';
@@ -847,4 +847,28 @@ test('on a first launch the sidebar stays closed until there is a project, then 
   fireEvent.click(within(sidebar()).getByRole('button', { name: 'Hide sidebar' }));
   expect(showSidebar()).toBeTruthy();
   expect(window.api.globalSettings.set).toHaveBeenCalledWith('ui:sidebar-shown', '0');
+});
+
+test('a section hidden or shown stays that way across a relaunch', async () => {
+  const stored = new Map<string, string>();
+  vi.mocked(window.api.globalSettings.set).mockImplementation(async (key, value) => {
+    stored.set(key, value);
+    return { success: true };
+  });
+  vi.mocked(window.api.globalSettings.get).mockImplementation(async (key) => stored.get(key));
+  render(<App />);
+  fireEvent.click(within(sidebar()).getByLabelText('Hide Alpha'));
+  expect(within(sidebar()).getByLabelText('Show Alpha')).toBeTruthy();
+
+  // Everything the store held is gone; only what reached settings comes back.
+  act(() => useUIStore.setState({ collapsedGroups: {} }));
+  expect(within(sidebar()).getByLabelText('Hide Alpha')).toBeTruthy();
+  await act(() => hydrateUIPreferences());
+  expect(within(sidebar()).getByLabelText('Show Alpha')).toBeTruthy();
+
+  fireEvent.click(within(sidebar()).getByLabelText('Show Alpha'));
+  act(() => useUIStore.setState({ collapsedGroups: { [ALPHA.path]: true } }));
+  await act(() => hydrateUIPreferences());
+  expect(within(sidebar()).getByLabelText('Hide Alpha')).toBeTruthy();
+  vi.mocked(window.api.globalSettings.get).mockResolvedValue(undefined);
 });

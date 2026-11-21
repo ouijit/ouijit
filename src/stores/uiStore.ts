@@ -119,13 +119,13 @@ export const useUIStore = create<UIStore>()((set, get) => ({
 
   toggleGroupCollapsed: (key) => {
     const { [key]: collapsed, ...rest } = get().collapsedGroups;
-    set({ collapsedGroups: collapsed ? rest : { ...rest, [key]: true } });
+    saveCollapsedGroups(collapsed ? rest : { ...rest, [key]: true });
   },
 
   expandGroups: (keys) => {
     const collapsed = get().collapsedGroups;
     if (!keys.some((key) => collapsed[key])) return;
-    set({ collapsedGroups: Object.fromEntries(Object.entries(collapsed).filter(([key]) => !keys.includes(key))) });
+    saveCollapsedGroups(Object.fromEntries(Object.entries(collapsed).filter(([key]) => !keys.includes(key))));
   },
 
   setGitDropdownVisible: (visible) => set({ gitDropdownVisible: visible }),
@@ -168,13 +168,31 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   },
 }));
 
+const COLLAPSED_GROUPS_KEY = 'ui:sidebar-collapsed';
+
+function saveCollapsedGroups(collapsedGroups: Record<string, true>): void {
+  useUIStore.setState({ collapsedGroups });
+  void window.api.globalSettings.set(COLLAPSED_GROUPS_KEY, JSON.stringify(Object.keys(collapsedGroups)));
+}
+
+function parseCollapsedGroups(raw: string | undefined): Record<string, true> | null {
+  try {
+    const keys: unknown = JSON.parse(raw ?? '');
+    if (!Array.isArray(keys)) return null;
+    return Object.fromEntries(keys.filter((key) => typeof key === 'string').map((key) => [key, true as const]));
+  } catch {
+    return null;
+  }
+}
+
 export async function hydrateUIPreferences(): Promise<void> {
-  const [shown, groupMode, sidebarWidth, collapsed, width] = await Promise.all([
+  const [shown, groupMode, sidebarWidth, collapsed, width, collapsedGroups] = await Promise.all([
     window.api.globalSettings.get('ui:sidebar-shown'),
     window.api.globalSettings.get('ui:sidebar-group'),
     window.api.globalSettings.get('ui:sidebar-width'),
     window.api.globalSettings.get('ui:diff-file-list-collapsed'),
     window.api.globalSettings.get('ui:diff-file-list-width'),
+    window.api.globalSettings.get(COLLAPSED_GROUPS_KEY),
   ]);
 
   const next: Partial<UIStoreState> = {};
@@ -185,6 +203,8 @@ export async function hydrateUIPreferences(): Promise<void> {
   if (collapsed === '0' || collapsed === '1') next.diffFileListCollapsed = collapsed === '1';
   const parsedWidth = Number(width);
   if (width && Number.isFinite(parsedWidth)) next.diffFileListWidth = clampFileListWidth(parsedWidth);
+  const groups = parseCollapsedGroups(collapsedGroups);
+  if (groups) next.collapsedGroups = groups;
 
   useUIStore.setState(next);
 }
