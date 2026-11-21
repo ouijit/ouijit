@@ -284,6 +284,49 @@ describe('what an agent leaves for the user', () => {
     expect(screen.queryByText(/Runs on your computer/)).toBeNull();
   });
 
+  test('several from one terminal list down the side of its dialog, taken in any order, with no other terminal’s among them', async () => {
+    vi.mocked(startRunner).mockResolvedValue('panel-1');
+    runner('');
+    render(<Card ptyId="pty-agent" />);
+    const { ask, reply } = cliAsks();
+
+    ask('npm test');
+    await screen.findByRole('dialog');
+    expect(screen.queryByRole('navigation', { name: 'Waiting' })).toBeNull();
+
+    const sign = ask('./scripts/sign.sh', { message: 'Signing needs the keychain' });
+    ask('rm -rf dist', { from: 'pty-shell' });
+    act(() => {
+      useWaitingStore.getState().add({
+        kind: 'move',
+        from: 'pty-agent',
+        projectPath: PROJECT,
+        taskNumber: 15,
+        hookType: 'start',
+        hookName: 'Agent',
+        command: 'claude',
+        outsideSandbox: false,
+        run: vi.fn(),
+      });
+    });
+    const list = await screen.findByRole('navigation', { name: 'Waiting' });
+    within(list).getByText('3 waiting on you');
+    expect(within(list).queryByText('rm -rf dist')).toBeNull();
+    within(list).getByText('Start Write docs');
+    expect(command()).toBe('npm test');
+
+    fireEvent.click(within(list).getByText('Signing needs the keychain'));
+    expect(command()).toBe('./scripts/sign.sh');
+    fireEvent.click(screen.getByTestId('waiting-decline'));
+    await waitFor(() => expect(reply(sign)).toEqual({ ok: true, answer: { status: 'declined' } }));
+    expect(command()).toBe('npm test');
+    within(screen.getByRole('navigation', { name: 'Waiting' })).getByText('2 waiting on you');
+
+    fireEvent.click(screen.getByTestId('waiting-run'));
+    await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Waiting' })).toBeNull());
+    expect(command()).toBe('claude');
+  });
+
   test('one from a terminal that closes is declined', async () => {
     render(<ToastContainer />);
     const { ask, reply } = cliAsks();
