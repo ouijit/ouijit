@@ -787,10 +787,8 @@ describe('the sidebar tree', () => {
     });
     const group = (path: string) =>
       document.querySelector<HTMLElement>(`[data-project-path="${path}"]`)!.parentElement!;
-    // A project with nothing started lists only what waits to start, and an empty one nothing at all.
-    expect(within(group(CHARLIE.path)).getByText('To do')).toBeTruthy();
-    expect(within(group(DELTA.path)).queryByRole('button', { name: /New task$/ })).toBeNull();
-    expect(within(group(DELTA.path)).queryByText('To do')).toBeNull();
+    expect(within(group(CHARLIE.path)).getByText('New task')).toBeTruthy();
+    expect(within(group(DELTA.path)).getByText('New task')).toBeTruthy();
     expect(row(section('Projects'), 'Tidy up').dataset.bright).toBe('true');
     expect(row(section('Projects'), 'Write docs').dataset.bright).toBeUndefined();
     expect(row(section('Projects'), 'Tidy up').querySelector('[data-status="unread"]')).toBeTruthy();

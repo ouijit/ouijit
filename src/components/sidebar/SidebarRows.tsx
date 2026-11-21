@@ -24,6 +24,7 @@ import { StageGlyph, StageIcon, TodoStackGlyph } from './StageIcon';
 import { formatSince, groupByTask, listedOrder, unitsFor, type TaskGroup } from './sidebarTree';
 import { isModKey } from '../../utils/modKey';
 import { selectionEntries, TagPrompt } from './SelectionMenu';
+import { openTaskSheet } from '../../utils/openTaskComposer';
 
 const NO_BACKENDS: SandboxBackendId[] = [];
 
@@ -572,6 +573,19 @@ function TodoMenuRow({ projectPath, todos }: { projectPath: string; todos: TaskW
   );
 }
 
+function NewTaskRow({ projectPath }: { projectPath: string }) {
+  return (
+    <button
+      type="button"
+      className={`${ROW} ${ROW_IDLE} text-text-tertiary hover:text-text-secondary`}
+      onClick={() => openTaskSheet(projectPath)}
+    >
+      <Icon name="plus" className="w-3.5 h-3.5" />
+      <span className="truncate">New task</span>
+    </button>
+  );
+}
+
 function ShellRow({ ptyId, underTag, shown, onScreen, now, at, pick, rowMenu }: PlacedRowProps & { ptyId: string }) {
   const [menu, openMenu, closeMenu] = useRowMenu();
   const [renaming, setRenaming] = useState(false);
@@ -645,7 +659,14 @@ export function GroupRows({
   const todos = idleIn ? waitingTodos(tasksByProject[idleIn] ?? [], tasks) : [];
   const todoRow = idleIn && todos.length > 0 && <TodoMenuRow projectPath={idleIn} todos={todos} />;
 
-  if (idleIn && tasks.length === 0 && shells.length === 0) return todoRow || null;
+  if (idleIn && tasks.length === 0 && shells.length === 0) {
+    return (
+      <>
+        {todoRow}
+        <NewTaskRow projectPath={idleIn} />
+      </>
+    );
+  }
 
   // Every row in the order drawn, each with the terminals clicking it picks.
   const rows: { ptyIds: string[]; idle?: TaskGroup }[] = [];
