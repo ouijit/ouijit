@@ -1,4 +1,3 @@
-import { presentWaiting } from './presentWaiting';
 import { useWaitingStore } from '../stores/waitingStore';
 import type { ChatDecision } from '../chat/preferences';
 
@@ -25,19 +24,20 @@ function show(decisions: ChatDecision[]): void {
     if (shown.has(decision.id)) continue;
     const decline = () => decide(decision.id, { kind: 'decline' });
     const run = (privately = false) => decide(decision.id, { kind: 'run', privately });
-    const waitingId = store.add({
-      kind: 'ask',
-      from: decision.from,
-      ask: {
-        ...decision.ask,
-        ...(decision.message && { message: decision.message }),
-        ...(decision.sandboxed && { outsideSandbox: true }),
-        run,
-        decline,
-      },
-    });
-    shown.set(decision.id, waitingId);
-    presentWaiting(waitingId, decision.from);
+    shown.set(
+      decision.id,
+      store.add({
+        kind: 'ask',
+        from: decision.from,
+        ask: {
+          ...decision.ask,
+          ...(decision.message && { message: decision.message }),
+          ...(decision.sandboxed && { outsideSandbox: true }),
+          run,
+          decline,
+        },
+      }),
+    );
   }
 }
 

@@ -7,6 +7,7 @@ import { RunnerPanel } from './RunnerPanel';
 import { DiffPanel } from '../diff/DiffPanel';
 import { PlanPanel } from '../plan/PlanPanel';
 import { WebPreviewPanel } from '../webPreview/WebPreviewPanel';
+import { WaitingDialog } from '../waiting/WaitingDialog';
 import { useTerminalPanels } from './useTerminalPanels';
 import { terminalInstances } from './terminalRegistry';
 import type { TerminalPanel } from './panelTypes';
@@ -29,7 +30,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
         surface: d?.surface ?? 'terminal',
         panels: d?.panels ?? EMPTY_PANELS,
         activePanelId: d?.activePanelId ?? null,
-        panelFullWidth: d?.panelFullWidth ?? true,
+        panelFullWidth: d?.panelFullWidth ?? false,
         diffPanelOpen: d?.diffPanelOpen ?? false,
       };
     }),
@@ -226,6 +227,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
           </div>
         )}
       </div>
+      <WaitingDialog ptyId={ptyId} />
     </div>
   );
 }

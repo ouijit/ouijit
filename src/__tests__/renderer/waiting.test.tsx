@@ -2,7 +2,8 @@ import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Terminal } from '@xterm/headless';
 
-import { WaitingQueue } from '../../components/waiting/WaitingQueue';
+import { WaitingDialog } from '../../components/waiting/WaitingDialog';
+import { ToastContainer } from '../../components/ui/ToastContainer';
 import { installCliAskListener } from '../../services/cliAskListener';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import type { OuijitTerminal } from '../../components/terminal/terminalReact';
@@ -34,7 +35,17 @@ function codeIn(preview: HTMLElement): string {
 }
 
 const command = () => codeIn(screen.getByTestId('waiting-command'));
-const list = () => screen.queryByRole('navigation', { name: 'Waiting' });
+const toasts = () => screen.queryAllByRole('status');
+
+/** A terminal's card on screen: the xterm it would type into, with what its agent left over it. */
+function Card({ ptyId }: { ptyId: string }) {
+  return (
+    <div>
+      <textarea aria-label={`xterm ${ptyId}`} />
+      <WaitingDialog ptyId={ptyId} />
+    </div>
+  );
+}
 
 function cliAsks() {
   let send: (op: CliAskOp) => void = () => {};
@@ -95,7 +106,7 @@ function runner(line: string) {
 
 beforeEach(() => {
   vi.mocked(startRunner).mockReset();
-  useWaitingStore.setState({ items: [], open: false, selected: null });
+  useWaitingStore.setState({ items: [], shownOn: {} });
   useAppStore.setState({
     projects: [{ path: PROJECT, name: 'alpha' } as never],
     taskCacheByProject: { [PROJECT]: tasks },
@@ -121,10 +132,15 @@ beforeEach(() => {
 afterEach(() => terminalInstances.delete('pty-agent'));
 
 describe('what an agent leaves for the user', () => {
-  test('one ask opens on its own from the terminal on screen, script and all, and runs the copy that was read', async () => {
+  test('from a terminal whose card is open, it shows over that card, script and all, and only answering closes it', async () => {
     const finish = runner('signed 3 binaries');
     vi.mocked(startRunner).mockResolvedValue('panel-1');
-    render(<WaitingQueue />);
+    render(
+      <>
+        <Card ptyId="pty-agent" />
+        <ToastContainer />
+      </>,
+    );
     const { ask, reply } = cliAsks();
 
     const sign = ask('./scripts/sign.sh --all', {
@@ -140,14 +156,11 @@ describe('what an agent leaves for the user', () => {
     expect(command()).toBe('./scripts/sign.sh --all');
     expect(codeIn(screen.getByTestId('ask-file'))).toBe('codesign --deep "$@"');
     screen.getByText(/Runs on your computer, outside its sandbox\. The script runs as it was when asked/);
-    expect(list()).toBeNull();
+    expect(toasts()).toEqual([]);
 
-    // Closed, it still waits behind the count, which opens it again.
     fireEvent.keyDown(document, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByTestId('waiting-command')).toBeNull());
-    fireEvent.click(screen.getByRole('button', { name: '1 waiting' }));
     finish('running');
-    fireEvent.click(await screen.findByTestId('waiting-run'));
+    fireEvent.click(screen.getByTestId('waiting-run'));
     await waitFor(() =>
       expect(startRunner).toHaveBeenCalledWith('pty-agent', {
         name: './scripts/sign.sh --all',
@@ -156,7 +169,7 @@ describe('what an agent leaves for the user', () => {
         private: false,
       }),
     );
-    await waitFor(() => expect(screen.queryByRole('button', { name: /waiting$/ })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     finish('success', 0);
     await waitFor(() =>
       expect(reply(sign)).toEqual({
@@ -184,19 +197,27 @@ describe('what an agent leaves for the user', () => {
         answer: { status: 'exited', panelId: 'panel-1', exitCode: 0, private: true },
       }),
     );
+
+    // The run shortcut answers only from the card the keyboard is in.
+    finish('running');
+    ask('npm test');
+    await screen.findByRole('dialog');
+    fireEvent.keyDown(document, { key: 'Enter', metaKey: true, ctrlKey: true });
+    expect(startRunner).toHaveBeenCalledTimes(2);
+    screen.getByLabelText('xterm pty-agent').focus();
+    fireEvent.keyDown(document, { key: 'Enter', metaKey: true, ctrlKey: true });
+    await waitFor(() => expect(startRunner).toHaveBeenCalledTimes(3));
   });
 
-  test('several show as a list beside the one in view, taken in any order, each answered moving to the next', async () => {
+  test('from a terminal with no card open, it is a toast until answered, and still waits on its card once the toast is closed', async () => {
     vi.mocked(startRunner).mockResolvedValue('panel-1');
     runner('');
-    useAppStore.setState({ selection: { kind: 'none' } });
-    render(<WaitingQueue />);
-    const { ask, reply } = cliAsks();
+    const { rerender } = render(<ToastContainer />);
+    const { ask } = cliAsks();
     const startHook = vi.fn();
 
-    const lint = ask('npm run lint');
-    const publish = ask('npm publish', { message: 'Ship it' });
-    const scratch = ask('rm -rf node_modules', { from: 'pty-shell' });
+    ask('npm run lint', { from: 'pty-shell' });
+    ask('./scripts/sign.sh', { file: { path: 'scripts/sign.sh', contents: 'codesign "$@"', size: 13 } });
     act(() => {
       useWaitingStore.getState().add({
         kind: 'move',
@@ -210,44 +231,39 @@ describe('what an agent leaves for the user', () => {
         run: startHook,
       });
     });
+    await waitFor(() => expect(toasts()).toHaveLength(3));
+    const [lint, sign, move] = toasts();
 
-    // Nothing opened over another terminal: the count waits for the user.
-    await screen.findByRole('button', { name: '4 waiting' });
-    expect(screen.queryByTestId('waiting-command')).toBeNull();
-    fireEvent.keyDown(document, { key: 'j', metaKey: true, ctrlKey: true });
-    const nav = await screen.findByRole('navigation', { name: 'Waiting' });
-    within(nav).getByText('4 waiting on you');
-    within(nav).getByText('Start Write docs');
-    within(nav).getByText('Agent, from Rate limit login');
-    expect(command()).toBe('npm run lint');
+    // A plain command runs from its toast.
+    within(lint).getByText('Scratch');
+    within(lint).getByText('npm run lint');
+    fireEvent.click(within(lint).getByRole('button', { name: 'Run' }));
+    await waitFor(() => expect(startRunner).toHaveBeenCalledWith('pty-shell', expect.anything()));
 
-    // Picked out of order: the held hook reads as what it does.
-    fireEvent.click(within(nav).getByText('Start Write docs'));
-    expect(screen.getByTestId('dialog-title').textContent).toBe('Start Write docs');
-    expect(screen.getAllByText('Rate limit login').filter((el) => !nav.contains(el))).toHaveLength(1);
-    screen.getByText('T-14');
-    screen.getByText('Runs on your computer, outside the sandbox.');
-    expect(command()).toBe('claude "$OUIJIT_TASK_DESCRIPTION"');
-    fireEvent.click(screen.getByTestId('waiting-decline'));
+    // A held hook reads as what it does, and can be skipped there.
+    within(move).getByText('Start Write docs');
+    within(move).getByText('Agent, from Rate limit login');
+    fireEvent.click(within(move).getByRole('button', { name: 'Skip' }));
     expect(startHook).not.toHaveBeenCalled();
 
-    // Answering moves to the one in its place.
-    expect(command()).toBe('rm -rf node_modules');
-    fireEvent.click(screen.getByTestId('waiting-decline'));
-    await waitFor(() => expect(reply(scratch)).toEqual({ ok: true, answer: { status: 'declined' } }));
-    expect(command()).toBe('npm publish');
-
-    // Run all takes the rest, and the dialog goes with the last of them.
-    fireEvent.click(screen.getByRole('button', { name: 'Run all 2' }));
-    await waitFor(() => expect(startRunner).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(list()).toBeNull());
-    expect(screen.queryByRole('button', { name: /waiting$/ })).toBeNull();
-    expect([reply(lint), reply(publish)].every((r) => r === undefined || r.ok)).toBe(true);
+    // A script is read before it runs, so its toast only leads to it. Closed, it still waits on its card.
+    within(sign).getByText('Rate limit login');
+    expect(within(sign).queryByRole('button', { name: 'Run' })).toBeNull();
+    within(sign).getByRole('button', { name: 'Go to' });
+    fireEvent.click(within(sign).getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(toasts()).toEqual([]));
+    rerender(
+      <>
+        <Card ptyId="pty-agent" />
+        <ToastContainer />
+      </>,
+    );
+    expect(command()).toBe('./scripts/sign.sh');
+    expect(codeIn(screen.getByTestId('ask-file'))).toBe('codesign "$@"');
   });
 
   test('a hook an agent holds for its own task names the task once, and says nothing of where it runs inside the sandbox', async () => {
-    useAppStore.setState({ selection: { kind: 'none' } });
-    render(<WaitingQueue />);
+    render(<Card ptyId="pty-agent" />);
     act(() => {
       useWaitingStore.getState().add({
         kind: 'move',
@@ -261,7 +277,6 @@ describe('what an agent leaves for the user', () => {
         run: vi.fn(),
       });
     });
-    fireEvent.keyDown(document, { key: 'j', metaKey: true, ctrlKey: true });
     await waitFor(() => expect(command()).toBe('gh pr create --fill'));
     expect(screen.getByTestId('dialog-title').textContent).toBe('Review Rate limit login');
     expect(screen.queryByText('Rate limit login')).toBeNull();
@@ -270,10 +285,10 @@ describe('what an agent leaves for the user', () => {
   });
 
   test('one from a terminal that closes is declined', async () => {
-    render(<WaitingQueue />);
+    render(<ToastContainer />);
     const { ask, reply } = cliAsks();
     const scratch = ask('rm -rf node_modules', { from: 'pty-shell' });
-    await screen.findByRole('button', { name: '1 waiting' });
+    await waitFor(() => expect(toasts()).toHaveLength(1));
     act(() =>
       useTerminalStore.setState((s) => {
         const { 'pty-shell': _, ...rest } = s.displayStates;
@@ -281,28 +296,6 @@ describe('what an agent leaves for the user', () => {
       }),
     );
     await waitFor(() => expect(reply(scratch)).toEqual({ ok: true, answer: { status: 'declined' } }));
-    expect(screen.queryByRole('button', { name: /waiting$/ })).toBeNull();
-  });
-});
-
-describe("Chat's asks", () => {
-  test('say they leave its sandbox only when Chat runs in one', async () => {
-    render(<WaitingQueue />);
-    for (const [outsideSandbox, said] of [
-      [false, /^Runs on your computer\. Run privately/],
-      [true, /^Runs on your computer, outside its sandbox\./],
-    ] as const) {
-      // Chat's asks reach the queue as decisions the main process holds, not through a terminal.
-      act(() => {
-        useWaitingStore.getState().add({
-          kind: 'ask',
-          from: 'chat-home',
-          ask: { command: 'gh pr list', cwd: PROJECT, wait: true, outsideSandbox, run: vi.fn(), decline: vi.fn() },
-        });
-        useWaitingStore.setState({ open: true });
-      });
-      await screen.findByText(said);
-      act(() => useWaitingStore.setState({ items: [], open: false, selected: null }));
-    }
+    expect(toasts()).toEqual([]);
   });
 });

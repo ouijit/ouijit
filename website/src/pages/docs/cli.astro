@@ -47,7 +47,7 @@ ouijit task start 5 --surface chat            # open it as a chat, whatever the 
 ouijit task create-and-start "Add 2FA"        # create + start in one step
 ouijit task create-and-start "Add 2FA" --prompt "..." --branch custom --skip-hook
 ouijit task spawn "Add 2FA"                   # alias for create-and-start
-ouijit task set-status 5 in_review            # the review hook waits in your queue by default
+ouijit task set-status 5 in_review            # the review hook waits for you by default
 ouijit task set-status 5 in_review --run-hook # run the review hook, no dialog
 ouijit task set-status 5 in_review --skip-hook
 ouijit task set-status 5 done --hook-command "npm run deploy"
@@ -58,8 +58,8 @@ ouijit task set-merge-target 5 develop
 ouijit task trash 5                           # worktree goes to the system trash</code></pre>
   <p>
     <code>--run-hook</code>, <code>--skip-hook</code>, and <code>--hook-command</code> are mutually exclusive.
-    By default a status change whose hook would ask first waits in your <a href="#queue">queue</a>, and the
-    hook's dialog opens when you take it, so an agent never puts a dialog over what you're doing. These flags
+    By default a status change whose hook would ask first <a href="#queue">waits for you</a>, so an agent
+    never puts a dialog over what you're doing. These flags
     run without waiting for you. They apply to <code>task start</code> and <code>create-and-start</code> (the
     start hook) and to <code>set-status</code> into <code>in_progress</code>, <code>in_review</code> or
     <code>done</code> (the continue, review and done hooks). <code>bulk-set-status</code> takes the same flags.
@@ -151,18 +151,17 @@ ouijit link issue ENG-231                     # or a GitHub issue number
 ouijit link board
 ouijit link project</code></pre>
 
-  <h2 id="queue">Your queue</h2>
+  <h2 id="queue">Waiting for you</h2>
   <p>
     An agent can leave two things for you to decide: a command it asks to run, and a task move whose hook would
-    open a dialog. Either opens as a dialog when its terminal is on screen. Otherwise a count in the title bar
-    shows it waiting. Click the count or press <kbd>⌘J</kbd>. With several waiting, the dialog lists them beside
-    the one in view, to take in any order or run all at once.
+    open a dialog. Either opens over its terminal's card, and stays until you answer it. While you're looking
+    elsewhere it also shows as a toast you can run from or close. A closed toast leaves it waiting on the card.
   </p>
 
   <h2 id="ask">Asking you to run something</h2>
   <p>
-    An agent can ask you to run a command on your computer, outside its sandbox. The ask opens when its terminal
-    is on screen, and otherwise waits in your <a href="#queue">queue</a>. It shows the exact command, where it
+    An agent can ask you to run a command on your computer, outside its sandbox. The ask
+    <a href="#queue">waits for you</a> on its terminal's card. It shows the exact command, where it
     runs and the script file it runs, then Run or Decline. Nothing runs until you press Run. A script the
     command runs, from the agent's worktree or a temp folder, is shown in full, and the copy you read is what
     runs. The command runs in a runner panel on the agent's terminal, without a pager. With <code>--wait</code>

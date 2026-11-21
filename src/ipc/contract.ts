@@ -161,6 +161,7 @@ export interface IpcInvokeContract {
     return: { success: boolean };
   };
   'get-home-path': { args: []; return: string };
+  'get-hostname': { args: []; return: string };
 
   // ── Git ──────────────────────────────────────────────────────────────
   'get-git-status': { args: [projectPath: string]; return: GitStatus | null };

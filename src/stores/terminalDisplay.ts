@@ -52,7 +52,7 @@ export const DEFAULT_DISPLAY_STATE: Omit<
   hookStatus: null,
   panels: [],
   activePanelId: null,
-  panelFullWidth: true,
+  panelFullWidth: false,
   diffPanelOpen: false,
   diffReveal: null,
   taskId: null,

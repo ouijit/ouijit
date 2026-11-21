@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useWaitingStore, type Waiting } from '../../stores/waitingStore';
 import { useTerminalStore } from '../../stores/terminalStore';
@@ -7,7 +7,7 @@ import { useAppStore } from '../../stores/appStore';
 import { isHomeChat, useHomeChatStore, useIsHomeChat } from '../../stores/homeChatStore';
 import { taskKey } from '../../chat/preferences';
 import { pendingRequests, type RequestNode } from '../../chat/model';
-import { runWaiting } from '../waiting/WaitingQueue';
+import { runWaiting } from '../waiting/WaitingDialog';
 import { useRevealGate } from './ChatTurns';
 
 /** The conversation a queued item came from: Chat itself, or a task one of its conversations started. */
@@ -182,6 +182,7 @@ function WorkerRequestCard({ worker, name, request }: WorkerRequest) {
 
 /** What a conversation is waiting on the user for, as cards at the end of its transcript. */
 export function HomeChatDecisions({ conversation }: { conversation: string }) {
+  useEffect(() => useWaitingStore.getState().cardMounted(conversation), [conversation]);
   const ownerOf = useOwnerOf();
   const queued = useWaitingStore(useShallow((s) => s.items.filter((item) => ownerOf(item) === conversation)));
   const left = useLeftToYou(conversation);

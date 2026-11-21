@@ -43,6 +43,7 @@ async function removeProjectWithCleanup(folderPath: string): Promise<void> {
 export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   typedHandle('get-projects', () => getProjectList());
   typedHandle('get-home-path', () => os.homedir());
+  typedHandle('get-hostname', () => os.hostname());
   typedHandle('refresh-projects', () => getProjectList());
 
   // Both open-project and open-in-finder use shell.openPath — they share the same

@@ -258,18 +258,18 @@ ouijit task get <number>                      # → single task object
 ouijit task current                           # → task owning this terminal (resolves via OUIJIT_PTY_ID)
 ouijit task create "<name>"                   # → {success, task: {taskNumber, ...}}
 ouijit task create "<name>" --prompt "<text>" # set description at creation
-ouijit task start <number>                    # creates git worktree, sets in_progress; default: the start hook waits in the user's queue
+ouijit task start <number>                    # creates git worktree, sets in_progress; default: the start hook waits for the user
 ouijit task start <number> --branch <name>    # use a custom branch name for the worktree
 ouijit task start <number> --run-hook         # run the configured start hook immediately, no dialog
 ouijit task start <number> --skip-hook        # spawn the terminal but run no hook
 ouijit task start <number> --hook-command "<cmd>"  # spawn the terminal running a one-off command instead of the configured hook
 ouijit task create-and-start "<name>"         # create + start in one step (accepts --prompt, --branch, and the same --run-hook / --skip-hook / --hook-command flags); aliased as "task spawn"
 ouijit task set-status <number> <status>      # status: todo | in_progress | in_review | done
-ouijit task set-status <number> in_review                    # default: the review hook waits in the user's queue
+ouijit task set-status <number> in_review                    # default: the review hook waits for the user
 ouijit task set-status <number> in_review --run-hook         # run the configured review hook immediately, no dialog
 ouijit task set-status <number> in_review --skip-hook        # change status, run no hook
 ouijit task set-status <number> in_review --hook-command "<cmd>" # run a one-off command instead of the review hook
-ouijit task set-status <number> done                         # default: the done hook waits in the user's queue
+ouijit task set-status <number> done                         # default: the done hook waits for the user
 ouijit task set-status <number> done --run-hook              # run the configured done hook immediately, no dialog
 ouijit task set-status <number> done --skip-hook            # change status, run no hook
 ouijit task set-status <number> done --hook-command "<cmd>" # run a one-off command instead of the done hook
@@ -330,8 +330,8 @@ ouijit ask run [-m "<why>"] [--wait] -- <command> [args]
 ouijit ask script <script> [-m "<why>"] [--wait]   # a project script, by id or name
                                               # → {command, cwd, status: pending | declined | exited, panelId?, exitCode?, output? | private?}
 
-The ask opens for the user if this terminal is on screen, and otherwise waits
-in their queue. They read the exact command and press Run
+The ask opens over this terminal's card, and while the user is elsewhere it
+shows as a toast. They read the exact command and press Run
 or Decline; nothing runs before that. It runs in a runner panel
 on this terminal, in its worktree. With --wait the reply comes once they
 decline or it finishes; without it, the reply is pending at once, and panel

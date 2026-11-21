@@ -4,7 +4,6 @@ import { bufferText } from '../components/terminal/terminalText';
 import { useAppStore } from '../stores/appStore';
 import { notifyUnfocused } from '../utils/notifications';
 import { useWaitingStore } from '../stores/waitingStore';
-import { presentWaiting } from './presentWaiting';
 import { useTerminalStore } from '../stores/terminalStore';
 import type { AskAnswer, AskRun, CliAskResponse } from '../types';
 import { ASK_OUTPUT_LINES, NO_PAGER, exitedAnswer } from '../askOutput';
@@ -37,7 +36,7 @@ function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
 }
 
 /**
- * Put `ouijit ask run` in the queue, opened at once when its terminal is the one on screen.
+ * Leave `ouijit ask run` on its terminal for the user to answer.
  * Approved, it runs on the host in a runner panel on that terminal. The reply
  * comes at once, or with `wait` once the user declines or the run ends.
  */
@@ -79,7 +78,6 @@ export function askToRun(fromPtyId: string, ask: AskRun, message: string | undef
         },
       },
     });
-    presentWaiting(id, fromPtyId);
     const display = useTerminalStore.getState().displayStates[fromPtyId];
     const project = useAppStore.getState().projects.find((p) => p.path === display.projectPath);
     notifyUnfocused(project?.name ?? 'Ouijit', `${display.label} asks to run ${ask.command}`);

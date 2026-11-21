@@ -442,7 +442,7 @@ export class OuijitTerminal {
   activePanelId: string | null = null;
   /** Shared across the active panel area: the active panel renders full-width
    *  or split alongside the xterm. */
-  panelFullWidth = true;
+  panelFullWidth = false;
   panelSplitRatio = 0.5;
   runnerChildren = new Map<string, OuijitTerminal>();
   /** Guards against double-spawn per runner panel. */

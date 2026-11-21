@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
+import { WaitingToasts } from '../waiting/WaitingToasts';
 
 /**
  * Per-type leading badge: a tinted circle with a Phosphor glyph. Success and
@@ -17,12 +18,11 @@ export function ToastContainer() {
   const toasts = useProjectStore((s) => s.toasts);
   const removeToast = useProjectStore((s) => s.removeToast);
 
-  if (toasts.length === 0) return null;
-
   return createPortal(
     // Bottom-center stack. The container ignores pointer events so it never
     // blocks the canvas behind it; each toast re-enables them for its buttons.
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1001] flex flex-col items-center gap-2 pointer-events-none">
+      <WaitingToasts />
       {toasts.map((toast) => {
         const badge = TYPE_BADGE[toast.type];
         return (

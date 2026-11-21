@@ -738,6 +738,7 @@ export interface ElectronAPI {
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
   homePath(): Promise<string>;
+  hostname(): Promise<string>;
   sandbox: SandboxAPI;
   globalSettings: GlobalSettingsAPI;
   onboarding: OnboardingAPI;
