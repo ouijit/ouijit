@@ -43,11 +43,30 @@ const ALLOWED_URI_REGEXP = /^(?:(?:(?:f|ht)tps?|mailto|tel|ouijit):|[^a-z]|[a-z+
 
 const marked = new Marked({ gfm: true, breaks: true, async: false, extensions: [ouijitAutolink] });
 
+/** A paragraph of nothing but images, so it shows as a set rather than as text. */
+function onlyImages(tokens: Tokens.Paragraph['tokens']): boolean {
+  const images = tokens.filter((token) => token.type === 'image');
+  return (
+    images.length > 0 && tokens.every((token) => token.type === 'image' || !('text' in token) || !token.text.trim())
+  );
+}
+
+/** Images on their own, one after another, are one set however many blank lines part them. */
+const ADJACENT_SETS = /<\/div>\s*<div class="chat-images">/g;
+
 function render(md: string, highlighter: Highlighter | null): string {
   if (!md.trim()) return '';
   const renderer = new marked.Renderer();
   renderer.code = ({ text, lang }: Tokens.Code) => codeBlock(text, lang?.split(/\s/)[0], highlighter);
-  const raw = marked.parse(md, { renderer }) as string;
+  const paragraph = renderer.paragraph.bind(renderer);
+  renderer.paragraph = (token: Tokens.Paragraph) =>
+    onlyImages(token.tokens)
+      ? `<div class="chat-images">${token.tokens
+          .filter((t): t is Tokens.Image => t.type === 'image')
+          .map((t) => renderer.image(t))
+          .join('')}</div>`
+      : paragraph(token);
+  const raw = (marked.parse(md, { renderer }) as string).replace(ADJACENT_SETS, '');
   return DOMPurify.sanitize(raw, { ADD_ATTR: ['target', 'rel', 'data-copy-code'], ALLOWED_URI_REGEXP });
 }
 

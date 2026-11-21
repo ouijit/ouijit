@@ -940,7 +940,39 @@ textarea,
 }
 
 .chat-markdown img {
-  @apply max-w-full;
+  display: block;
+  max-width: 100%;
+  max-height: min(420px, 55vh);
+  width: auto;
+  height: auto;
+  margin: 8px 0;
+  border: 1px solid var(--color-bezel);
+  border-radius: 10px;
+  cursor: zoom-in;
+}
+
+.chat-markdown .chat-images {
+  margin: 8px 0;
+}
+
+/* Two or more: equal tiles, each image whole inside its own, so they compare at the same weight. */
+.chat-markdown .chat-images:has(> img + img) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.chat-markdown .chat-images:has(> img:nth-child(3)) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.chat-markdown .chat-images:has(> img + img) > img {
+  width: 100%;
+  height: 220px;
+  max-height: none;
+  margin: 0;
+  object-fit: contain;
+  background: var(--color-terminal-bg);
 }
 
 .chat-markdown .chat-code pre {
