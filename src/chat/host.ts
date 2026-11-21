@@ -51,6 +51,8 @@ import {
   type TaskChatSummary,
 } from './model';
 
+const CHAT_SURFACE = `You are talking with the user in Ouijit Chat, which renders your replies as Markdown. To show the user an image, such as a screenshot or a diagram you made, put it in your reply as a Markdown image with an absolute path: ![what it shows](/absolute/path/to/image.png). An image you only read with a tool is seen by you, not by the user.`;
+
 const chatLog = getLogger().scope('chat');
 
 const FLUSH_DELAY_MS = 300;
@@ -521,7 +523,7 @@ export class ChatHost {
         spawn: (spawn) => this.spawn(session, token, spawn),
         sink: this.sink(session),
         preferences: { piApprovals: settings.piApprovals, acpCommand: settings.acpCommand },
-        instructions: [reference, session.instructions].filter(Boolean).join('\n\n'),
+        instructions: [reference, CHAT_SURFACE, session.instructions].filter(Boolean).join('\n\n'),
       });
       // For a driver that cannot launch in a mode, switch to it once started.
       if (chosenMode && session.driver.setMode && session.info.mode !== chosenMode) {
