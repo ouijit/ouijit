@@ -251,7 +251,7 @@ function ChatGroup() {
   const [collapsed, toggle] = useGroupCollapsed('home-chat');
   const currentId = useHomeChatStore((s) => s.currentId);
   const chats = useHomeChatStore((s) => s.chats);
-  const inChat = useAppStore((s) => s.selection.kind === 'chat' && s.selection.page === 'chat');
+  const inChat = useAppStore((s) => s.selection.kind === 'chat');
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   return (

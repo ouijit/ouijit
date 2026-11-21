@@ -183,7 +183,7 @@ function SandboxNote({ info, sandbox }: { info: ChatSessionInfo; sandbox: Sandbo
             className="self-start mt-1 btn-secondary btn-compact"
             onClick={() => {
               setOpen(false);
-              useAppStore.getState().select({ kind: 'chat', page: 'settings' });
+              useAppStore.getState().select({ kind: 'app-settings', section: 'main-chat' });
             }}
           >
             Change where Chat runs

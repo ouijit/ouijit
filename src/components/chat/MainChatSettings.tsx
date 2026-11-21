@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { useEscape } from '../../hooks/useEscape';
 import { SettingsDropdown, SettingsDropdownOption } from '../ui/SettingsDropdown';
 import { SegmentedGroup, segmentAccent, segmentBase, segmentQuiet } from '../ui/SegmentedGroup';
 import { DEFAULT_HOME_CHAT_INSTRUCTIONS } from '../../chat/homeChatInstructions';
@@ -25,7 +24,7 @@ import {
   type SandboxCliAccess,
   type SandboxProviderId,
 } from '../../sandbox/types';
-import type { DriverProbe } from '../../chat/driver';
+import { agentHint, type AgentProbes } from './chatAgentProbes';
 import { SandboxProfileRow } from '../scripts/SandboxProfileRow';
 import { CustomLauncherRow } from '../scripts/CustomLauncherRow';
 import { CliAccessRow } from '../scripts/SandboxSection';
@@ -51,12 +50,18 @@ function Row({ label, description, children }: { label: string; description?: st
   );
 }
 
-const PANEL =
+export const PANEL =
   'glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-separator bg-terminal-bg';
 
-export function HomeChatSettingsPanel() {
+export function MainChatSettings({
+  probes,
+  onAgentChange,
+}: {
+  probes: AgentProbes;
+  onAgentChange: (agent: ChatAgentId) => void;
+}) {
   const [settings, setSettings] = useState<HomeChatSettings>(DEFAULT_HOME_CHAT_SETTINGS);
-  const [probes, setProbes] = useState<Partial<Record<ChatAgentId, DriverProbe>>>({});
+  const ref = useRef<HTMLElement>(null);
   const [agentOpen, setAgentOpen] = useState(false);
   const [instructions, setInstructions] = useState('');
 
@@ -64,14 +69,13 @@ export function HomeChatSettingsPanel() {
     void loadHomeChatSettings().then((loaded) => {
       setSettings(loaded);
       setInstructions(loaded.instructions);
+      onAgentChange(loaded.agent);
+      const { selection } = useAppStore.getState();
+      if (selection.kind === 'app-settings' && selection.section === 'main-chat') {
+        ref.current?.scrollIntoView({ block: 'start' });
+      }
     });
-    for (const agent of CHAT_AGENT_IDS) {
-      if (agent === 'acp') continue;
-      void window.api.chat.probe(agent).then((probe) => setProbes((current) => ({ ...current, [agent]: probe })));
-    }
-  }, []);
-
-  useEscape(useCallback(() => useAppStore.getState().leaveSettings(), []));
+  }, [onAgentChange]);
 
   const [chatDir, setChatDir] = useState<string | null>(null);
   const [cliAccess, setCliAccess] = useState<SandboxCliAccess>('read');
@@ -99,6 +103,7 @@ export function HomeChatSettingsPanel() {
 
   const setAgent = (agent: ChatAgentId) => {
     setSettings((current) => ({ ...current, agent }));
+    onAgentChange(agent);
     void save('agent', agent, true);
   };
   const setSandbox = (sandbox: SandboxProviderId) => {
@@ -124,142 +129,125 @@ export function HomeChatSettingsPanel() {
   const probe = probes[settings.agent];
 
   return (
-    <div
-      className="flex flex-col h-full transition-[margin-left] duration-200 ease-out"
-      style={{ marginLeft: 'var(--sidebar-offset, 0px)' }}
-    >
-      <div
-        className="pointer-events-none h-6 shrink-0 -mb-6 relative z-10"
-        style={{ background: 'linear-gradient(to bottom, var(--color-background), transparent)' }}
-      />
-      <div className="flex-1 overflow-y-auto settings-scrollable">
-        <div className="px-6 pt-4 pb-16 min-w-full max-w-2xl space-y-8">
-          <div>
-            <h1 className="text-base font-semibold text-text-primary">Chat settings</h1>
-            <p className="text-xs text-text-tertiary mt-1">
-              Changing the agent, where it runs, or its instructions restarts the agent on the same conversation.
-            </p>
-          </div>
+    <section ref={ref} aria-label="Main chat" className="scroll-mt-6 space-y-6">
+      <div>
+        <h3 className="text-sm font-semibold text-text-primary">Main chat</h3>
+        <p className="text-xs text-text-tertiary mt-1">
+          Changing its agent, where it runs, or its instructions restarts it on the same conversation.
+        </p>
+      </div>
 
-          <section className={PANEL}>
-            <Row
-              label="Agent"
-              description={
-                probe?.problem ?? (probe?.version ? `${CHAT_AGENT_LABELS[settings.agent]} ${probe.version}` : undefined)
-              }
-            >
-              <SettingsDropdown
-                open={agentOpen}
-                onOpenChange={setAgentOpen}
-                widthClass="w-[13rem]"
-                ariaLabel="Choose the chat agent"
-                triggerLabel={CHAT_AGENT_LABELS[settings.agent]}
-              >
-                {CHAT_AGENT_IDS.map((agent) => (
-                  <SettingsDropdownOption
-                    key={agent}
-                    label={CHAT_AGENT_LABELS[agent]}
-                    hint={
-                      agent === 'acp'
-                        ? undefined
-                        : probes[agent]?.installed === false
-                          ? 'Not installed'
-                          : probes[agent]?.version
-                    }
-                    selected={settings.agent === agent}
-                    onClick={() => {
-                      setAgentOpen(false);
-                      setAgent(agent);
-                    }}
-                  />
-                ))}
-              </SettingsDropdown>
-            </Row>
-            <Row
-              label="Run in"
-              description={
-                settings.sandbox === 'none'
-                  ? 'On your computer.'
-                  : settings.sandbox === 'nono'
-                    ? 'Reads every project, and changes only what its profile allows.'
-                    : 'Inside your launcher.'
-              }
-            >
-              <SegmentedGroup>
-                {SANDBOX_PROVIDER_IDS.map((provider) => (
-                  <button
-                    key={provider}
-                    type="button"
-                    aria-pressed={settings.sandbox === provider}
-                    className={`${segmentBase} ${settings.sandbox === provider ? segmentAccent : segmentQuiet}`}
-                    onClick={() => setSandbox(provider)}
-                  >
-                    {SANDBOX_LABELS[provider]}
-                  </button>
-                ))}
-              </SegmentedGroup>
-            </Row>
-            {settings.sandbox === 'nono' && chatDir && (
-              <SandboxProfileRow projectPath={chatDir} onChange={() => void restart()} />
-            )}
-            {settings.sandbox === 'custom' && chatDir && (
-              <CustomLauncherRow projectPath={chatDir} onChange={() => void restart()} />
-            )}
-            {settings.sandbox !== 'none' && chatDir && (
-              <CliAccessRow
-                value={cliAccess}
-                levels={['read', 'all']}
-                onChange={(level) => {
-                  setCliAccess(level);
-                  void window.api.globalSettings.set(sandboxCliAccessSettingKey(chatDir), level).then(() => restart());
+      <div className={PANEL}>
+        <Row
+          label="Agent"
+          description={
+            probe?.problem ?? (probe?.version ? `${CHAT_AGENT_LABELS[settings.agent]} ${probe.version}` : undefined)
+          }
+        >
+          <SettingsDropdown
+            open={agentOpen}
+            onOpenChange={setAgentOpen}
+            widthClass="w-[13rem]"
+            ariaLabel="Choose the main chat's agent"
+            triggerLabel={CHAT_AGENT_LABELS[settings.agent]}
+          >
+            {CHAT_AGENT_IDS.map((agent) => (
+              <SettingsDropdownOption
+                key={agent}
+                label={CHAT_AGENT_LABELS[agent]}
+                hint={agentHint(agent, probes)}
+                selected={settings.agent === agent}
+                onClick={() => {
+                  setAgentOpen(false);
+                  setAgent(agent);
                 }}
               />
-            )}
-          </section>
+            ))}
+          </SettingsDropdown>
+        </Row>
+        <Row
+          label="Run in"
+          description={
+            settings.sandbox === 'none'
+              ? 'On your computer.'
+              : settings.sandbox === 'nono'
+                ? 'Reads every project, and changes only what its profile allows.'
+                : 'Inside your launcher.'
+          }
+        >
+          <SegmentedGroup>
+            {SANDBOX_PROVIDER_IDS.map((provider) => (
+              <button
+                key={provider}
+                type="button"
+                aria-pressed={settings.sandbox === provider}
+                className={`${segmentBase} ${settings.sandbox === provider ? segmentAccent : segmentQuiet}`}
+                onClick={() => setSandbox(provider)}
+              >
+                {SANDBOX_LABELS[provider]}
+              </button>
+            ))}
+          </SegmentedGroup>
+        </Row>
+        {settings.sandbox === 'nono' && chatDir && (
+          <SandboxProfileRow projectPath={chatDir} onChange={() => void restart()} />
+        )}
+        {settings.sandbox === 'custom' && chatDir && (
+          <CustomLauncherRow projectPath={chatDir} onChange={() => void restart()} />
+        )}
+        {settings.sandbox !== 'none' && chatDir && (
+          <CliAccessRow
+            value={cliAccess}
+            levels={['read', 'all']}
+            onChange={(level) => {
+              setCliAccess(level);
+              void window.api.globalSettings.set(sandboxCliAccessSettingKey(chatDir), level).then(() => restart());
+            }}
+          />
+        )}
+      </div>
 
-          <section>
-            <div className="flex items-center gap-3 mb-1">
-              <h2 className="flex-1 text-sm font-semibold text-text-primary">Instructions</h2>
-              {instructions.trim() !== DEFAULT_HOME_CHAT_INSTRUCTIONS && (
-                <button
-                  type="button"
-                  className="text-xs text-text-tertiary hover:text-text-primary transition-colors duration-100"
-                  onClick={restoreInstructions}
-                >
-                  Restore default
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-text-tertiary mb-3">
-              Read at the start of every conversation, after what Ouijit tells it about running work here.
-            </p>
-            <textarea
-              aria-label="Chat instructions"
-              className="field w-full min-h-[16rem] font-mono text-[12px] leading-relaxed resize-y"
-              value={instructions}
-              onChange={(event) => setInstructions(event.target.value)}
-              onBlur={() => commitInstructions()}
+      <div>
+        <div className="flex items-center gap-3 mb-1">
+          <h4 className="flex-1 text-sm text-text-primary">Instructions</h4>
+          {instructions.trim() !== DEFAULT_HOME_CHAT_INSTRUCTIONS && (
+            <button
+              type="button"
+              className="text-xs text-text-tertiary hover:text-text-primary transition-colors duration-100"
+              onClick={restoreInstructions}
+            >
+              Restore default
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-text-tertiary mb-3">
+          Read at the start of every conversation, after what Ouijit tells it about running work here.
+        </p>
+        <textarea
+          aria-label="Main chat instructions"
+          className="field w-full min-h-[16rem] font-mono text-[12px] leading-relaxed resize-y"
+          value={instructions}
+          onChange={(event) => setInstructions(event.target.value)}
+          onBlur={() => commitInstructions()}
+        />
+      </div>
+
+      <div>
+        <h4 className="text-sm text-text-primary mb-1">Wake on</h4>
+        <p className="text-xs text-text-tertiary mb-3">
+          What arrives in the chat as a message without you asking. All off, it speaks only when spoken to.
+        </p>
+        <div className={PANEL}>
+          {WAKE_EVENTS.map((event) => (
+            <ToggleRow
+              key={event}
+              label={WAKE_EVENT_LABELS[event]}
+              checked={settings.wake[event]}
+              onChange={() => toggleWake(event)}
             />
-          </section>
-
-          <section>
-            <h2 className="text-sm font-semibold text-text-primary mb-1">Wake on</h2>
-            <p className="text-xs text-text-tertiary mb-3">
-              What arrives in the chat as a message without you asking. All off, it speaks only when spoken to.
-            </p>
-            <div className={PANEL}>
-              {WAKE_EVENTS.map((event) => (
-                <ToggleRow
-                  key={event}
-                  label={WAKE_EVENT_LABELS[event]}
-                  checked={settings.wake[event]}
-                  onChange={() => toggleWake(event)}
-                />
-              ))}
-            </div>
-          </section>
+          ))}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

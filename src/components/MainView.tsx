@@ -16,7 +16,6 @@ import { AnalysisPanel } from './analysis/AnalysisPanel';
 import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
 import { GlobalSettingsPanel } from './GlobalSettingsPanel';
 import { HomeChatView } from './chat/HomeChatView';
-import { HomeChatSettingsPanel } from './chat/HomeChatSettingsPanel';
 import { CloningProjectView } from './CloningProjectView';
 import { ProjectSourceList, openAddProject } from './projectSources';
 import { RecentTasksPanel } from './RecentTasksPanel';
@@ -160,7 +159,7 @@ function Selected({
   const chatEnabled = useHomeChatStore((s) => s.enabled);
   if (selection.kind === 'app-settings') return <GlobalSettingsPanel />;
   if (selection.kind === 'chat' && chatEnabled) {
-    return selection.page === 'settings' ? <HomeChatSettingsPanel /> : <HomeChatView />;
+    return <HomeChatView />;
   }
   if (selection.kind === 'terminal') {
     return onCanvas && projectPath ? (

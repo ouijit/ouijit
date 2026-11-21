@@ -92,22 +92,13 @@ export function TitleBar() {
   const listView = usePanelStore((s) => s.listView);
   const pageTitle = (page: ProjectPage) => (page === 'pull-requests' ? LIST_TITLES[listView] : PAGE_TITLES[page]);
   const page =
-    selection.kind === 'page' && !cloning
-      ? pageTitle(selection.page)
-      : selection.kind === 'chat'
-        ? selection.page === 'settings'
-          ? 'Chat settings'
-          : 'Chat'
-        : stackName;
+    selection.kind === 'page' && !cloning ? pageTitle(selection.page) : selection.kind === 'chat' ? 'Chat' : stackName;
   const showsTerminal = selection.kind === 'terminal';
   const onBoard = selection.kind === 'page' && selection.page === 'board' && !cloning;
   const hasTerminals = useTerminalStore(
     (s) => project != null && (s.terminalsByProject[project.path]?.length ?? 0) > 0,
   );
-  const onSettings =
-    selection.kind === 'app-settings' ||
-    (selection.kind === 'page' && selection.page === 'settings') ||
-    (selection.kind === 'chat' && selection.page === 'settings');
+  const onSettings = selection.kind === 'app-settings' || (selection.kind === 'page' && selection.page === 'settings');
   const onChat = selection.kind === 'chat';
   const chatTitle = useHomeChatStore((s) => currentHomeChatTitle(s)) ?? UNTITLED_HOME_CHAT;
   const offersCreation = !cloning && !onSettings && !onChat;
@@ -146,13 +137,7 @@ export function TitleBar() {
         {onChat && (
           <div className="flex items-center ml-1.5 min-w-0">
             <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">
-              {onSettings ? 'Chat' : chatTitle}
-              {onSettings && (
-                <>
-                  <Icon name="caret-right" className="inline-block w-3 h-3 mx-1.5 align-[-1px] text-text-tertiary" />
-                  <span className="font-normal text-text-tertiary">Settings</span>
-                </>
-              )}
+              {chatTitle}
             </span>
           </div>
         )}
@@ -234,12 +219,12 @@ export function TitleBar() {
             </button>
           </Tooltip>
         )}
-        {onChat && !onSettings && (
+        {onChat && (
           <Tooltip text="Chat settings" placement="bottom-end">
             <button
               className={raisedButton}
               aria-label="Chat settings"
-              onClick={() => useAppStore.getState().select({ kind: 'chat', page: 'settings' })}
+              onClick={() => useAppStore.getState().select({ kind: 'app-settings', section: 'main-chat' })}
             >
               <Icon name="gear" />
             </button>

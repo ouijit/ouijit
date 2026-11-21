@@ -255,7 +255,7 @@ describe('Chat', () => {
       status: 'idle',
     });
     render(<App />);
-    act(() => useAppStore.getState().select({ kind: 'chat', page: 'chat' }));
+    act(() => useAppStore.getState().select({ kind: 'chat' }));
     const composer = screen.getByLabelText('Message');
     fireEvent.change(composer, { target: { value: '/login' } });
     fireEvent.keyDown(composer, { key: 'Enter' });
@@ -274,7 +274,7 @@ describe('Chat', () => {
     render(<App />);
     const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
     expect(sidebar.querySelector('[data-group="home-chat"]')).toBeNull();
-    act(() => useAppStore.getState().select({ kind: 'chat', page: 'chat' }));
+    act(() => useAppStore.getState().select({ kind: 'chat' }));
     expect(document.querySelector('.chat-turns')).toBeNull();
 
     render(<ChatSettingsSection />);
@@ -301,7 +301,7 @@ describe('Chat', () => {
     const current = within(group).getByRole('button', { name: 'Ship the settings page.' });
     expect(current.closest('[data-sidebar-row]')!.querySelector('[data-status]')).toBeNull();
     fireEvent.click(current);
-    expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'chat' });
+    expect(useAppStore.getState().selection).toEqual({ kind: 'chat' });
     expect(window.api.homeChat.switch).not.toHaveBeenCalled();
     expect(current.getAttribute('aria-current')).toBe('true');
     expect(within(screen.getByRole('banner')).getByText('Ship the settings page.')).toBeTruthy();
@@ -399,53 +399,54 @@ describe('Chat', () => {
     expect(within(group).queryByRole('button', { name: 'Keychain recovery review' })).toBeNull();
     fireEvent.click(within(group).getByRole('button', { name: 'Show chats' }));
 
-    // The gear opens Chat's settings, where a change of where it runs restarts the agent.
+    // The gear opens Settings at the main chat's part, where a change of where it runs restarts the agent.
     expect(within(screen.getByRole('banner')).getByText('Ship the settings page.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Chat settings' }));
-    expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'settings' });
-    expect(await screen.findByRole('heading', { name: 'Chat settings' })).toBeTruthy();
+    expect(useAppStore.getState().selection).toEqual({ kind: 'app-settings', section: 'main-chat' });
+    const main = await screen.findByRole('region', { name: 'Main chat' });
+    expect(screen.getByRole('heading', { name: 'Task chats' })).toBeTruthy();
     // It runs on the host unless set otherwise, with no sandbox profile to show.
-    expect(screen.getByRole('button', { name: 'Host', pressed: true })).toBeTruthy();
-    expect(screen.queryByText('Sandbox profile')).toBeNull();
+    expect(within(main).getByRole('button', { name: 'Host', pressed: true })).toBeTruthy();
+    expect(within(main).queryByText('Sandbox profile')).toBeNull();
     // In the sandbox it has a profile of its own, and choosing another restarts it.
-    fireEvent.click(screen.getByRole('button', { name: 'Sandbox' }));
+    fireEvent.click(within(main).getByRole('button', { name: 'Sandbox' }));
     expect(window.api.globalSettings.set).toHaveBeenCalledWith(HOME_CHAT_SETTING_KEYS.sandbox, 'nono');
     await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText('Sandbox profile')).toBeTruthy();
+    expect(await within(main).findByText('Sandbox profile')).toBeTruthy();
     expect(window.api.sandbox.nonoProfile).toHaveBeenCalledWith(await window.api.homeChat.dir());
     vi.mocked(window.api.sandbox.chooseNonoProfile).mockResolvedValueOnce({
       path: '/Users/test/strict.json',
       own: false,
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Change…' }));
+    fireEvent.click(within(main).getByRole('button', { name: 'Change…' }));
     await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(2));
-    expect(screen.getByText('~/strict.json')).toBeTruthy();
-    fireEvent.click(screen.getByRole('switch', { name: 'A hook fails' }));
+    expect(within(main).getByText('~/strict.json')).toBeTruthy();
+    fireEvent.click(within(main).getByRole('switch', { name: 'A hook fails' }));
     expect(window.api.globalSettings.set).toHaveBeenCalledWith(
       HOME_CHAT_SETTING_KEYS.wake,
       JSON.stringify({ turnEnded: true, asked: true, taskMoved: true, hookFailed: false }),
     );
     expect(window.api.homeChat.restart).toHaveBeenCalledTimes(2);
     // In a custom sandbox it has a launcher of its own, and setting one restarts it.
-    fireEvent.click(screen.getByRole('button', { name: 'Custom' }));
+    fireEvent.click(within(main).getByRole('button', { name: 'Custom' }));
     await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(3));
-    fireEvent.click(await screen.findByRole('button', { name: '+ Configure' }));
-    fireEvent.change(screen.getByLabelText('Launcher command'), { target: { value: 'my-sandbox' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(await within(main).findByRole('button', { name: '+ Configure' }));
+    fireEvent.change(within(main).getByLabelText('Launcher command'), { target: { value: 'my-sandbox' } });
+    fireEvent.click(within(main).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(4));
     expect(window.api.sandbox.setCustomConfig).toHaveBeenCalledWith(await window.api.homeChat.dir(), {
       command: 'my-sandbox',
     });
 
     // Its instructions start as Ouijit's default, are the user's to rewrite or empty, and come back on request.
-    const instructions = screen.getByLabelText('Chat instructions') as HTMLTextAreaElement;
+    const instructions = within(main).getByLabelText('Main chat instructions') as HTMLTextAreaElement;
     expect(instructions.value).toBe(DEFAULT_HOME_CHAT_INSTRUCTIONS);
-    expect(screen.queryByRole('button', { name: 'Restore default' })).toBeNull();
+    expect(within(main).queryByRole('button', { name: 'Restore default' })).toBeNull();
     fireEvent.change(instructions, { target: { value: '' } });
     fireEvent.blur(instructions);
     expect(window.api.globalSettings.set).toHaveBeenCalledWith(HOME_CHAT_SETTING_KEYS.instructions, '');
     await waitFor(() => expect(window.api.homeChat.restart).toHaveBeenCalledTimes(5));
-    fireEvent.click(screen.getByRole('button', { name: 'Restore default' }));
+    fireEvent.click(within(main).getByRole('button', { name: 'Restore default' }));
     expect(instructions.value).toBe(DEFAULT_HOME_CHAT_INSTRUCTIONS);
     expect(window.api.globalSettings.set).toHaveBeenLastCalledWith(
       HOME_CHAT_SETTING_KEYS.instructions,
@@ -455,7 +456,7 @@ describe('Chat', () => {
 
     // Escape leaves settings for the chat.
     fireEvent.keyDown(document.body, { key: 'Escape' });
-    expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'chat' });
+    expect(useAppStore.getState().selection).toEqual({ kind: 'chat' });
   });
 
   test('shows what it waits on you for as cards, with the same answers as the queue, and marks the row', async () => {
@@ -521,7 +522,7 @@ describe('Chat', () => {
     ];
     act(() => pushDecisions(held));
     render(<App />);
-    act(() => useAppStore.getState().select({ kind: 'chat', page: 'chat' }));
+    act(() => useAppStore.getState().select({ kind: 'chat' }));
 
     const cards = () => [...document.querySelectorAll<HTMLElement>('[data-chat-decision]')];
     expect(cards()).toHaveLength(3);

@@ -143,12 +143,12 @@ describe('restoreSession', () => {
 
     // Quit on Chat, it comes back to Chat, with the projects' views still put back behind it; with Chat off, it can't.
     vi.mocked(window.api.globalSettings.get).mockImplementation(async (key: string) =>
-      key === 'lastActiveView' ? JSON.stringify({ type: 'chat', page: 'chat' }) : undefined,
+      key === 'lastActiveView' ? JSON.stringify({ type: 'chat' }) : undefined,
     );
     useHomeChatStore.getState().setEnabled(true);
     useAppStore.getState().select({ kind: 'none' });
     await restoreSession(snapshot, [entry({ source: shell }), entry({ source: task })]);
-    expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'chat' });
+    expect(useAppStore.getState().selection).toEqual({ kind: 'chat' });
     expect(useAppStore.getState().projectView(PROJECT)).toMatchObject({ kind: 'terminal' });
     useHomeChatStore.getState().setEnabled(false);
     await restoreSession(snapshot, [entry({ source: shell }), entry({ source: task })]);
@@ -157,7 +157,7 @@ describe('restoreSession', () => {
     useHomeChatStore.getState().setEnabled(true);
     useAppStore.getState().select({ kind: 'none' });
     await returnToLastAppView();
-    expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'chat' });
+    expect(useAppStore.getState().selection).toEqual({ kind: 'chat' });
   });
 });
 
@@ -173,7 +173,7 @@ describe('the resume banner', () => {
       key === SNAPSHOT_KEY
         ? JSON.stringify(snapshot)
         : key === 'lastActiveView'
-          ? JSON.stringify({ type: 'chat', page: 'chat' })
+          ? JSON.stringify({ type: 'chat' })
           : undefined,
     );
     useHomeChatStore.setState({
@@ -190,7 +190,7 @@ describe('the resume banner', () => {
     expect(screen.getByText('Build')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
-    await waitFor(() => expect(useAppStore.getState().selection).toEqual({ kind: 'chat', page: 'chat' }));
+    await waitFor(() => expect(useAppStore.getState().selection).toEqual({ kind: 'chat' }));
     expect(addProjectTerminal).toHaveBeenCalledTimes(1);
   });
 });

@@ -15,8 +15,8 @@ export type ProjectPage = 'board' | 'settings' | 'pull-requests' | 'analysis';
 export type Selection =
   | { kind: 'terminal'; stack: string; projectPath: string }
   | { kind: 'page'; projectPath: string; page: ProjectPage }
-  | { kind: 'chat'; page: 'chat' | 'settings' }
-  | { kind: 'app-settings' }
+  | { kind: 'chat' }
+  | { kind: 'app-settings'; section?: 'main-chat' }
   | { kind: 'none' };
 
 /** What a project goes back to when it is opened again. */
@@ -34,11 +34,7 @@ export function joinStack(selection: Selection, projectPath: string, unit: strin
 }
 
 function isSettings(selection: Selection): boolean {
-  return (
-    selection.kind === 'app-settings' ||
-    (selection.kind === 'page' && selection.page === 'settings') ||
-    (selection.kind === 'chat' && selection.page === 'settings')
-  );
+  return selection.kind === 'app-settings' || (selection.kind === 'page' && selection.page === 'settings');
 }
 
 function isProjectView(selection: Selection): selection is ProjectView {
@@ -158,7 +154,7 @@ function persistSelection(selection: Selection): void {
       : selection.kind === 'page'
         ? { type: 'page', path: selection.projectPath, page: selection.page }
         : selection.kind === 'chat'
-          ? { type: 'chat', page: selection.page }
+          ? { type: 'chat' }
           : { type: selection.kind };
   void window.api.globalSettings.set('lastActiveView', JSON.stringify(view));
 }
@@ -179,7 +175,7 @@ export function restoredSelection(saved: string | undefined, projects: Project[]
     return { kind: 'terminal', stack: front ? view.stack! : stackOf(display), projectPath: display.projectPath };
   }
   if (view.type === 'app-settings') return { kind: 'app-settings' };
-  if (view.type === 'chat') return { kind: 'chat', page: view.page === 'settings' ? 'settings' : 'chat' };
+  if (view.type === 'chat') return view.page === 'settings' ? { kind: 'app-settings' } : { kind: 'chat' };
   const path = view.path;
   if (!path || !projects.some((p) => p.path === path)) return null;
   const pages = ['board', 'settings', 'pull-requests', 'analysis'] as const;
