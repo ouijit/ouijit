@@ -273,16 +273,16 @@ function ChatGroup() {
         <button
           type="button"
           aria-label="Chat"
-          className="flex-1 min-w-0 h-7 flex items-center pl-0.5 text-text-secondary hover:text-text-primary"
+          className="flex-1 min-w-0 h-7 flex items-center pl-1 text-[13px] font-medium text-text-primary"
           onClick={() => void openHomeChat(currentId)}
         >
-          <Icon name="chat-circle" className="w-4 h-4" />
+          Chats
         </button>
         <Tooltip text="New chat" placement="bottom">
           <button
             type="button"
             aria-label="New chat"
-            className={`${ROW_BUTTON} ${rowButtonState(false)}`}
+            className={`${ROW_BUTTON} ${rowButtonState(false)} opacity-0 group-hover/header:opacity-100 focus-visible:opacity-100`}
             onClick={() => void newHomeChat()}
           >
             <Icon name="plus" className="w-3.5 h-3.5" />
@@ -597,7 +597,6 @@ function ProjectGroup({ project }: { project: Project }) {
   const openPage = useAppStore((s) =>
     s.selection.kind === 'page' && s.selection.projectPath === project.path ? s.selection.page : null,
   );
-  const onScreen = useAppStore((s) => s.activeProjectPath === project.path);
   const flags = useProjectFlags(project.path);
   const config = useProjectDataStore((s) => s.configByProject[project.path]);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -664,7 +663,7 @@ function ProjectGroup({ project }: { project: Project }) {
           <div
             // Hidden, they take no width either: the name has the whole row until they show.
             className={`flex gap-px shrink-0 overflow-hidden ${
-              onScreen || menu
+              menu
                 ? ''
                 : 'max-w-0 group-hover/header:max-w-none focus-within:max-w-none opacity-0 group-hover/header:opacity-100 focus-within:opacity-100'
             }`}

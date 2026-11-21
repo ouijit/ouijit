@@ -599,14 +599,12 @@ describe('creating from the sidebar', () => {
     fireEvent.keyDown(field, { key: 'Enter' });
     expect(display(second).label).toBe('review');
 
-    // A task in progress with nothing open stays listed, asleep, and wakes into a terminal.
-    const idle = row(section('Projects'), 'Tidy up').closest<HTMLElement>('[data-sidebar-row]')!;
-    expect(within(idle).getByLabelText('No terminal open')).toBeTruthy();
+    // A task in progress with nothing open stays listed, faint, and wakes into a terminal.
+    expect(row(section('Projects'), 'Tidy up').dataset.faint).toBe('true');
     expect(within(section('Projects')).queryByText('Plan it')).toBeNull();
     fireEvent.click(row(section('Projects'), 'Tidy up'));
     await waitFor(() => expect(display(front()!)).toMatchObject({ taskId: 11, projectPath: ALPHA.path }));
-    const woken = row(section('Projects'), 'Tidy up').closest<HTMLElement>('[data-sidebar-row]')!;
-    expect(within(woken).queryByLabelText('No terminal open')).toBeNull();
+    expect(row(section('Projects'), 'Tidy up').dataset.faint).toBeUndefined();
 
     // A to-do with nothing open waits behind one To do row, whose menu starts the one picked.
     const todos = within(section('Projects')).getByRole('button', { name: /^To do/ });
@@ -789,8 +787,10 @@ describe('the sidebar tree', () => {
     });
     const group = (path: string) =>
       document.querySelector<HTMLElement>(`[data-project-path="${path}"]`)!.parentElement!;
-    expect(within(group(CHARLIE.path)).getByText('New task')).toBeTruthy();
-    expect(within(group(DELTA.path)).getByText('New task')).toBeTruthy();
+    // A project with nothing started lists only what waits to start, and an empty one nothing at all.
+    expect(within(group(CHARLIE.path)).getByText('To do')).toBeTruthy();
+    expect(within(group(DELTA.path)).queryByRole('button', { name: /New task$/ })).toBeNull();
+    expect(within(group(DELTA.path)).queryByText('To do')).toBeNull();
     expect(row(section('Projects'), 'Tidy up').dataset.bright).toBe('true');
     expect(row(section('Projects'), 'Write docs').dataset.bright).toBeUndefined();
     expect(row(section('Projects'), 'Tidy up').querySelector('[data-status="unread"]')).toBeTruthy();

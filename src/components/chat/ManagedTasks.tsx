@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { Icon } from '../terminal/Icon';
 import { useAsking, wantsYou } from '../terminal/wantsYou';
-import { GroupMark, IdleMark, SidebarRow, mostUrgent, useProjectName, type GroupState } from '../sidebar/SidebarRows';
+import { GroupMark, SidebarRow, mostUrgent, useProjectName, type GroupState } from '../sidebar/SidebarRows';
 import { StageIcon } from '../sidebar/StageIcon';
 import { focusTerminal, openTaskTerminal } from '../navigation';
 import { useAppStore } from '../../stores/appStore';
@@ -55,9 +55,10 @@ function ManagedRow({ managed, state }: { managed: Managed; state: GroupState | 
       title={task.name || `T-${task.taskNumber}`}
       tooltip={`${task.name} · ${projectName}`}
       bright={false}
+      faint={!state}
       unread={state === 'unread'}
       detail={projectName}
-      trailing={state ? <GroupMark state={state} /> : <IdleMark />}
+      trailing={state && <GroupMark state={state} />}
       onClick={open}
     />
   );

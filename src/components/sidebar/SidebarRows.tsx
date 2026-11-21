@@ -6,7 +6,6 @@ import type { TerminalDisplayState } from '../../stores/terminalDisplay';
 import type { Project, SandboxBackendId, TaskWithWorkspace } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
 import { focusTerminal, openTaskChat, openTaskSession, openTaskTerminal } from '../navigation';
-import { openTaskSheet } from '../../utils/openTaskComposer';
 import { startTodo } from '../../services/taskStartService';
 import { MenuItem, MenuPopover } from '../ui/Menu';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
@@ -33,6 +32,8 @@ export const ROW =
 export const ROW_IDLE = 'hover:bg-ink/5';
 export const ROW_SELECTED = 'bg-accent/15';
 const DIM = 'color-mix(in srgb, var(--color-text-primary) 62%, transparent)';
+/** A task with no terminal open: there, but nothing is happening in it. */
+const FAINT = 'var(--color-text-tertiary)';
 
 /** Ticks often enough for "4m" to stay true. */
 function useNow(): number {
@@ -110,6 +111,7 @@ interface RowProps {
   title: string;
   tooltip: ReactNode;
   bright: boolean;
+  faint?: boolean;
   /** Set in weight too, so an unread row stands apart from the one on screen. */
   unread?: boolean;
   selected?: boolean;
@@ -159,6 +161,7 @@ export function SidebarRow({
   title,
   tooltip,
   bright,
+  faint = false,
   unread = false,
   selected = false,
   mono,
@@ -197,10 +200,14 @@ export function SidebarRow({
               className="flex-1 min-w-0 h-full flex items-center gap-2 bg-transparent border-none p-0 text-left outline-none"
               aria-current={selected ? 'true' : undefined}
               data-bright={bright ? 'true' : undefined}
+              data-faint={faint ? 'true' : undefined}
             >
               <span
                 className={`flex-1 min-w-0 truncate ${mono ? 'font-mono text-[11.5px]' : ''}`}
-                style={{ color: bright ? 'var(--color-text-primary)' : DIM, fontWeight: unread ? 600 : undefined }}
+                style={{
+                  color: bright ? 'var(--color-text-primary)' : faint ? FAINT : DIM,
+                  fontWeight: unread ? 600 : undefined,
+                }}
               >
                 {title}
               </span>
@@ -391,7 +398,7 @@ function TaskRows({ group, underTag, shown, onScreen, now, at, pick, rowMenu }: 
           title={taskTitle}
           tooltip={rowTooltip(taskTitle, projectName, 'No terminal open')}
           bright={false}
-          trailing={<IdleMark />}
+          faint
           onClick={pick(at, () => void openTaskTerminal(projectPath, task, undefined, ownStack))}
           onContextMenu={rowMenu(at, openMenu(null))}
           rename={commitAndClose(taskRename)}
@@ -565,28 +572,6 @@ function TodoMenuRow({ projectPath, todos }: { projectPath: string; todos: TaskW
   );
 }
 
-function NewTaskRow({ projectPath }: { projectPath: string }) {
-  return (
-    <button
-      type="button"
-      className={`${ROW} ${ROW_IDLE} text-text-tertiary hover:text-text-secondary`}
-      onClick={() => openTaskSheet(projectPath)}
-    >
-      <Icon name="plus" className="w-3.5 h-3.5" />
-      <span className="truncate">New task</span>
-    </button>
-  );
-}
-
-/** Where a task with no terminal open would show its status dot. */
-export function IdleMark() {
-  return (
-    <span aria-label="No terminal open" className="w-3.5 flex items-center justify-center shrink-0 text-text-tertiary">
-      <Icon name="moon" className="w-3 h-3" />
-    </span>
-  );
-}
-
 function ShellRow({ ptyId, underTag, shown, onScreen, now, at, pick, rowMenu }: PlacedRowProps & { ptyId: string }) {
   const [menu, openMenu, closeMenu] = useRowMenu();
   const [renaming, setRenaming] = useState(false);
@@ -660,14 +645,7 @@ export function GroupRows({
   const todos = idleIn ? waitingTodos(tasksByProject[idleIn] ?? [], tasks) : [];
   const todoRow = idleIn && todos.length > 0 && <TodoMenuRow projectPath={idleIn} todos={todos} />;
 
-  if (idleIn && tasks.length === 0 && shells.length === 0) {
-    return (
-      <>
-        {todoRow}
-        <NewTaskRow projectPath={idleIn} />
-      </>
-    );
-  }
+  if (idleIn && tasks.length === 0 && shells.length === 0) return todoRow || null;
 
   // Every row in the order drawn, each with the terminals clicking it picks.
   const rows: { ptyIds: string[]; idle?: TaskGroup }[] = [];
