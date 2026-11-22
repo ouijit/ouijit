@@ -55,7 +55,7 @@ function openAddMenu() {
       <MainPaneCorner ptyId={PTY} />
     </>,
   );
-  fireEvent.click(screen.getByLabelText('Open beside'));
+  fireEvent.click(screen.getByLabelText('New tab'));
 }
 
 describe("the terminal's + menu", () => {
@@ -83,7 +83,7 @@ describe("the terminal's + menu", () => {
       expect.objectContaining({ type: 'run', command: 'npm run dev' }),
     );
 
-    fireEvent.click(screen.getByLabelText('Open beside'));
+    fireEvent.click(screen.getByLabelText('New tab'));
     expect(screen.getByText('Run')).toBeTruthy();
     expect(screen.queryByText('Configure run command…')).toBeNull();
   });
@@ -131,7 +131,7 @@ describe("the terminal's + menu", () => {
     fireEvent.click(screen.getByText('Lint'));
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, 'custom'));
 
-    fireEvent.click(screen.getByLabelText('Open beside'));
+    fireEvent.click(screen.getByLabelText('New tab'));
     fireEvent.mouseEnter(screen.getByText('Run in').closest('div')!);
     fireEvent.click(await screen.findByRole('button', { name: 'Host' }));
     await waitFor(() => expect(runnerPlace(getProjectConfig(PROJECT))).toBe('none'));
@@ -142,19 +142,19 @@ describe("the terminal's + menu", () => {
     fireEvent.click(screen.getByText('Lint'));
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, undefined));
 
-    fireEvent.click(screen.getByLabelText('Open beside'));
+    fireEvent.click(screen.getByLabelText('New tab'));
     fireEvent.click(screen.getByText('Lint'));
     await waitFor(() => expect(startRunner).toHaveBeenCalledTimes(3));
     expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, undefined);
 
-    fireEvent.click(screen.getByLabelText('Open beside'));
+    fireEvent.click(screen.getByLabelText('New tab'));
     fireEvent.mouseEnter(screen.getByText('Run in').closest('div')!);
     fireEvent.click(await screen.findByRole('button', { name: 'Default (Custom)' }));
     await waitFor(() => expect(runnerPlace(getProjectConfig(PROJECT))).toBe('custom'));
     fireEvent.click(screen.getByText('Lint'));
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, 'custom'));
 
-    fireEvent.click(screen.getByLabelText('Open beside'));
+    fireEvent.click(screen.getByLabelText('New tab'));
     fireEvent.click(screen.getByLabelText('Edit Lint'));
     const command = await screen.findByLabelText('Command');
     expect(screen.getByText('Edit Script')).toBeTruthy();

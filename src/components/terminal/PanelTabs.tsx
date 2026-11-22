@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { Icon } from './Icon';
@@ -9,7 +9,6 @@ import { panelIcon, panelLabel, type RunnerStatus, type TerminalPanel } from './
 import { SANDBOX_LABELS } from '../../types';
 import { useTerminalPanels } from './useTerminalPanels';
 import { useAddPanelMenu } from './addPanelMenuStore';
-import { terminalInstances } from './terminalRegistry';
 
 const EMPTY: TerminalPanel[] = [];
 
@@ -149,7 +148,7 @@ export function PanelBar({ ptyId, actions }: { ptyId: string; actions?: ReactNod
             />
           );
         })}
-        <AddButton ptyId={ptyId} label="Open beside" />
+        <AddButton ptyId={ptyId} label="New tab" />
       </div>
       {actions}
       <FullWidthToggle fullWidth={panelFullWidth} onToggle={() => ops.setPanelFullWidth(!panelFullWidth)} />
@@ -158,30 +157,62 @@ export function PanelBar({ ptyId, actions }: { ptyId: string; actions?: ReactNod
   );
 }
 
+/** How long the tucked tabs take to spread; they take no clicks until they have. */
+const SPREAD_MS = 180;
+
 /**
- * Where the main pane's header ends: with panels hidden, what is open beside
- * and a way back to it; with none, a way to open one.
+ * What is hidden beside the main pane, tucked into a stack of its tabs'
+ * icons, and a new tab. Near the pointer the stack spreads out, each icon
+ * opening its tab. The area that spreads it reaches past it, so the icons are
+ * in place before the pointer is, and none takes a click while still moving.
  */
 export function PanelsAway({ ptyId }: { ptyId: string }) {
   const { panels, activePanelId, diffPanelOpen } = usePanels(ptyId);
   const ops = useTerminalPanels(ptyId);
+  const [near, setNear] = useState(false);
+  const [settled, setSettled] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => clearTimeout(timer.current ?? undefined), []);
   if (activePanelId || diffPanelOpen) return null;
-  if (panels.length === 0) return <AddButton ptyId={ptyId} label="Open beside" />;
-  const reopen = () => {
-    const last = terminalInstances.get(ptyId)?.lastActivePanelId;
-    ops.activatePanel(panels.some((p) => p.id === last) ? last! : panels[panels.length - 1].id);
+  const approach = () => {
+    setNear(true);
+    clearTimeout(timer.current ?? undefined);
+    timer.current = setTimeout(() => setSettled(true), SPREAD_MS);
+  };
+  const leave = () => {
+    setNear(false);
+    setSettled(false);
+    clearTimeout(timer.current ?? undefined);
   };
   return (
-    <button
-      type="button"
-      onClick={reopen}
-      className="h-7 flex items-center gap-1.5 px-2 rounded-md border-none bg-transparent text-[13px] text-ink/50 hover:text-ink/80 hover:bg-ink/[0.04] transition-colors duration-150"
-    >
-      {panels.map((panel) => (
-        <PanelMark key={panel.id} panel={panel} active={false} />
-      ))}
-      <span className="ml-0.5">{panels.length} open</span>
-    </button>
+    <div onMouseEnter={approach} onMouseLeave={leave} className="-m-6 p-6">
+      <div className="h-7 flex items-center gap-0.5">
+        {panels.map((panel, n) => (
+          <Tooltip key={panel.id} text={panelLabel(panel)} placement="bottom">
+            <button
+              type="button"
+              aria-label={panelLabel(panel)}
+              onClick={() => settled && ops.activatePanel(panel.id)}
+              className={`relative w-7 h-7 flex items-center justify-center rounded-md border-none ${
+                near ? 'bg-transparent hover:bg-ink/10' : ''
+              }`}
+              style={{
+                marginLeft: n === 0 ? 0 : near ? 2 : -5,
+                zIndex: panels.length - n,
+                ...(!near && {
+                  background: 'color-mix(in srgb, var(--color-ink) 7%, var(--color-terminal-bg))',
+                  boxShadow: '0 0 0 2px var(--color-terminal-bg)',
+                }),
+                transition: `margin-left ${SPREAD_MS}ms cubic-bezier(.2,.8,.2,1), background-color ${SPREAD_MS}ms, box-shadow ${SPREAD_MS}ms`,
+              }}
+            >
+              <PanelMark panel={panel} active />
+            </button>
+          </Tooltip>
+        ))}
+        <AddButton ptyId={ptyId} label="New tab" />
+      </div>
+    </div>
   );
 }
 
@@ -194,10 +225,10 @@ export function MainPaneCorner({ ptyId }: { ptyId: string }) {
   if (activePanelId || diffPanelOpen) return null;
   return (
     <div
-      className="absolute top-0 right-0 z-10 pl-10 pr-2 pt-1.5 pb-4 pointer-events-none [&>*]:pointer-events-auto"
+      className="absolute top-0 right-0 z-10 pl-10 pr-2 pt-1.5 pb-1 pointer-events-none [&>*]:pointer-events-auto"
       style={{
         background:
-          'radial-gradient(ellipse 100% 100% at 100% 0%, var(--color-terminal-bg) 55%, color-mix(in srgb, var(--color-terminal-bg) 0%, transparent) 100%)',
+          'linear-gradient(to right, color-mix(in srgb, var(--color-terminal-bg) 0%, transparent), var(--color-terminal-bg) 32px)',
       }}
     >
       <PanelsAway ptyId={ptyId} />

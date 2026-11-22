@@ -267,7 +267,7 @@ test('switching: going to another conversation and back shows the first one whol
   expect(shown).toBeGreaterThan(100);
 
   // What the conversation opens with the CLI sits beside it in a card of its
-  // own, under a tab naming it; hidden, the title bar says what is open.
+  // own, under a tab naming it; hidden, the title bar keeps its icon, a way back to it.
   const folder = await appPage.evaluate(async (cid) => (await window.api.chat.snapshot(cid))!.info.cwd, first);
   fs.writeFileSync(path.join(folder, 'calendar.md'), '# Content calendar\n\nWeek one: the sandbox post.\n');
   expect(
@@ -281,7 +281,11 @@ test('switching: going to another conversation and back shows the first one whol
   await expect(appPage.getByPlaceholder('Send a message')).toBeVisible();
   await appPage.getByRole('button', { name: 'Hide', exact: true }).click();
   await expect(tab).toHaveCount(0);
-  await appPage.getByRole('button', { name: '1 open' }).click();
+  // Its icon opens it again once the pointer has spread the icons out.
+  const icon = appPage.getByRole('button', { name: 'calendar.md' });
+  await icon.hover();
+  await appPage.waitForTimeout(300);
+  await icon.click();
   await expect(tab).toBeVisible();
 
   const sidebar = appPage.getByRole('complementary', { name: 'Sidebar' });
