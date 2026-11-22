@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
 import { normalizeUrl } from './urlHelpers';
@@ -10,8 +10,6 @@ interface WebPreviewPanelProps {
   onChangeUrl: (newUrl: string) => void;
   /** What the page says it is called, and its icon, for its tab. */
   onPageInfo: (info: { title?: string; favicon?: string }) => void;
-  /** The pane's tab bar; the address bar sits under it. */
-  bar: (actions: ReactNode) => ReactNode;
 }
 
 // Electron <webview> is a custom element. Declare the minimal API surface we use.
@@ -28,7 +26,7 @@ interface ElectronWebviewElement extends HTMLElement {
   openDevTools(): void;
 }
 
-export function WebPreviewPanel({ url, onChangeUrl, onPageInfo, bar }: WebPreviewPanelProps) {
+export function WebPreviewPanel({ url, onChangeUrl, onPageInfo }: WebPreviewPanelProps) {
   const pageInfo = useRef(onPageInfo);
   pageInfo.current = onPageInfo;
   const [loading, setLoading] = useState(false);
@@ -185,8 +183,7 @@ export function WebPreviewPanel({ url, onChangeUrl, onPageInfo, bar }: WebPrevie
   }, [editingUrl]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {bar(null)}
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       <div className="flex items-center gap-1 px-2 pb-1.5 shrink-0">
         <TooltipButton
           text="Back"

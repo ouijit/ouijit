@@ -20,14 +20,10 @@ test("a preview's tab is named for the page and wears its icon, and a page witho
     useTerminalStore.getState().updateDisplay(PTY, { panels: [{ ...current, ...info }] });
   };
   const { container } = render(
-    <WebPreviewPanel
-      ptyId={PTY}
-      panelId={panel.id}
-      url={panel.url!}
-      onChangeUrl={() => {}}
-      onPageInfo={update}
-      bar={(actions) => <PanelBar ptyId={PTY} actions={actions} />}
-    />,
+    <>
+      <PanelBar ptyId={PTY} />
+      <WebPreviewPanel ptyId={PTY} panelId={panel.id} url={panel.url!} onChangeUrl={() => {}} onPageInfo={update} />
+    </>,
   );
   const webview = container.querySelector('webview')!;
   const tab = () => screen.getByRole('tab');

@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances } from './terminalRegistry';
 import { XTermContainer } from './XTermContainer';
+import { PaneCorner } from './PanelTabs';
 import { Icon } from './Icon';
 import { Tooltip } from '../ui/Tooltip';
 
@@ -10,11 +10,9 @@ interface RunnerPanelProps {
   panelId: string;
   onRestart: () => void;
   onKill: () => void;
-  /** The pane's tab bar, with this panel's own actions in it. */
-  bar: (actions: ReactNode) => ReactNode;
 }
 
-export function RunnerPanel({ ptyId, panelId, onRestart, onKill, bar }: RunnerPanelProps) {
+export function RunnerPanel({ ptyId, panelId, onRestart, onKill }: RunnerPanelProps) {
   const panel = useTerminalStore((s) => s.displayStates[ptyId]?.panels.find((p) => p.id === panelId));
   const instance = terminalInstances.get(ptyId);
   const runner = instance?.runnerChildren.get(panelId);
@@ -23,9 +21,14 @@ export function RunnerPanel({ ptyId, panelId, onRestart, onKill, bar }: RunnerPa
   const command = panel?.kind === 'runner' && panel.scriptName ? panel.command || panel.scriptCommand : null;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {bar(
-        <>
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+      {command && (
+        <div className="px-4 pb-1.5 shrink-0 text-[12px] text-ink/45 font-mono truncate" title={command}>
+          {command}
+        </div>
+      )}
+      <div className="relative flex-1 overflow-hidden min-h-0 px-3 pb-3">
+        <PaneCorner>
           {runnerPtyId && (
             <Tooltip text="Kill" keepAxis>
               <button
@@ -50,14 +53,7 @@ export function RunnerPanel({ ptyId, panelId, onRestart, onKill, bar }: RunnerPa
               <Icon name="arrow-counter-clockwise" />
             </button>
           </Tooltip>
-        </>,
-      )}
-      {command && (
-        <div className="px-4 pb-1.5 shrink-0 text-[12px] text-ink/45 font-mono truncate" title={command}>
-          {command}
-        </div>
-      )}
-      <div className="flex-1 overflow-hidden min-h-0 px-3 pb-3">
+        </PaneCorner>
         {runnerPtyId ? (
           <XTermContainer ptyId={runnerPtyId} className="runner-xterm-container w-full h-full overflow-hidden" />
         ) : (

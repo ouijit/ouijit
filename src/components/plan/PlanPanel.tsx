@@ -1,17 +1,16 @@
-import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { renderPlanMarkdown } from '../../utils/renderPlanMarkdown';
 import { useResolvedTheme } from '../../hooks/useResolvedTheme';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
+import { PaneCorner } from '../terminal/PanelTabs';
 import { openFileInEditor } from '../../services/openInEditor';
 
 interface PlanPanelProps {
   ptyId: string;
   panelId: string;
   planPath: string;
-  /** The pane's tab bar, with this panel's own actions in it. */
-  bar: (actions: ReactNode) => ReactNode;
 }
 
 // ── File existence helpers ───────────────────────────────────────────
@@ -26,7 +25,7 @@ function applyFileExistence(container: HTMLElement, existence: Record<string, bo
   });
 }
 
-export function PlanPanel({ ptyId, planPath, bar }: PlanPanelProps) {
+export function PlanPanel({ ptyId, planPath }: PlanPanelProps) {
   const [content, setContent] = useState<string | null>(null);
   const [renderedHtml, setRenderedHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -189,32 +188,32 @@ export function PlanPanel({ ptyId, planPath, bar }: PlanPanelProps) {
   }, [content]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {bar(
-        <TooltipButton
-          text={copied ? 'Copied!' : 'Copy to clipboard'}
-          placement="bottom"
-          keepAxis
-          className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/40 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
-          onClick={handleCopy}
-        >
-          <Icon name={copied ? 'check' : 'clipboard-text'} className={copied ? 'text-ansi-green' : ''} />
-        </TooltipButton>,
-      )}
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-4" onClick={handleClick}>
-        {loading ? (
-          <div className="text-sm text-ink/40">Loading</div>
-        ) : content === null ? (
-          <div className="text-sm text-ink/40">Markdown file not found</div>
-        ) : (
-          <div
-            ref={contentRef}
-            className="app-markdown plan-markdown"
-            dangerouslySetInnerHTML={{ __html: renderedHtml }}
-          />
-        )}
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="relative flex-1 min-h-0 flex flex-col">
+        <PaneCorner>
+          <TooltipButton
+            text={copied ? 'Copied!' : 'Copy to clipboard'}
+            placement="bottom"
+            keepAxis
+            className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/40 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
+            onClick={handleCopy}
+          >
+            <Icon name={copied ? 'check' : 'clipboard-text'} className={copied ? 'text-ansi-green' : ''} />
+          </TooltipButton>
+        </PaneCorner>
+        <div className="flex-1 overflow-y-auto px-6 py-4" onClick={handleClick}>
+          {loading ? (
+            <div className="text-sm text-ink/40">Loading</div>
+          ) : content === null ? (
+            <div className="text-sm text-ink/40">Markdown file not found</div>
+          ) : (
+            <div
+              ref={contentRef}
+              className="app-markdown plan-markdown"
+              dangerouslySetInnerHTML={{ __html: renderedHtml }}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

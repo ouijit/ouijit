@@ -234,7 +234,12 @@ export function TerminalBody({ ptyId, projectPath, page }: TerminalBodyProps) {
                 onClose={() => terminalInstances.get(ptyId)?.setDiffPanelOpen(false)}
               />
             ) : (
-              activePanel && <ActivePanel ptyId={ptyId} panel={activePanel} ops={ops} />
+              activePanel && (
+                <>
+                  <PanelBar ptyId={ptyId} />
+                  <ActivePanel ptyId={ptyId} panel={activePanel} ops={ops} />
+                </>
+              )
             )}
           </div>
         )}
@@ -253,7 +258,6 @@ function ActivePanel({
   panel: TerminalPanel;
   ops: ReturnType<typeof useTerminalPanels>;
 }) {
-  const bar = (actions: ReactNode) => <PanelBar ptyId={ptyId} actions={actions} />;
   switch (panel.kind) {
     case 'runner':
       return (
@@ -262,7 +266,6 @@ function ActivePanel({
           panelId={panel.id}
           onRestart={() => ops.restartRunner(panel.id)}
           onKill={() => ops.killRunner(panel.id)}
-          bar={bar}
         />
       );
     case 'webPreview':
@@ -273,10 +276,9 @@ function ActivePanel({
           url={panel.url ?? ''}
           onChangeUrl={(url) => ops.changeWebPreviewUrl(panel.id, url)}
           onPageInfo={(info) => terminalInstances.get(ptyId)?.updatePanel(panel.id, info)}
-          bar={bar}
         />
       );
     case 'plan':
-      return <PlanPanel ptyId={ptyId} panelId={panel.id} planPath={panel.planPath} bar={bar} />;
+      return <PlanPanel ptyId={ptyId} panelId={panel.id} planPath={panel.planPath} />;
   }
 }

@@ -27,6 +27,8 @@ function usePanels(ptyId: string) {
 }
 
 /** A tab in a pane's header: quiet, the open one lifted, its close on hover. */
+const TITLE_FADE = 'linear-gradient(to right, black calc(100% - 16px), transparent)';
+
 function PaneTab({
   icon,
   label,
@@ -48,15 +50,12 @@ function PaneTab({
       onClick={onClick}
       // Equal shares of the row, as browser tabs are: a tab's width never
       // depends on its title or on which one is open.
-      className={`group/tab h-7 flex-[1_1_0] min-w-0 max-w-[200px] flex items-center gap-1.5 pl-2 ${onClose ? 'pr-1' : 'pr-2.5'} rounded-md border-none text-[13px] text-left transition-colors duration-150 ${
+      className={`h-7 flex-[1_1_0] min-w-0 max-w-[200px] flex items-center gap-1.5 pl-2 ${onClose ? 'pr-1' : 'pr-2.5'} rounded-md border-none text-[13px] text-left transition-colors duration-150 ${
         active ? 'bg-ink/[0.1] text-ink/90' : 'bg-ink/[0.04] text-ink/55 hover:text-ink/80 hover:bg-ink/[0.07]'
       }`}
     >
       {icon}
-      <span
-        className="flex-1 min-w-0 overflow-hidden whitespace-nowrap"
-        style={{ maskImage: 'linear-gradient(to right, black calc(100% - 20px), transparent)' }}
-      >
+      <span className="flex-1 min-w-0 overflow-hidden whitespace-nowrap" style={{ maskImage: TITLE_FADE }}>
         {label}
       </span>
       {onClose && (
@@ -67,8 +66,8 @@ function PaneTab({
             e.stopPropagation();
             onClose();
           }}
-          className={`w-5 h-5 flex items-center justify-center rounded shrink-0 hover:bg-ink/10 [&>svg]:w-3 [&>svg]:h-3 ${
-            active ? 'opacity-60' : 'opacity-0 group-hover/tab:opacity-60'
+          className={`w-5 h-5 shrink-0 flex items-center justify-center rounded-full hover:opacity-100 hover:bg-ink/10 [&>svg]:w-3 [&>svg]:h-3 ${
+            active ? 'opacity-70' : 'opacity-40'
           }`}
         >
           <Icon name="x" />
@@ -138,8 +137,8 @@ function AddButton({ ptyId, label }: { ptyId: string; label: string }) {
   );
 }
 
-/** The side pane's header: its tabs, then what the open one does, then the pane's own controls. */
-export function PanelBar({ ptyId, actions }: { ptyId: string; actions?: ReactNode }) {
+/** The side pane's header: its tabs, then the pane's own controls, the same whichever tab is open. */
+export function PanelBar({ ptyId }: { ptyId: string }) {
   const { panels, activePanelId, panelFullWidth } = usePanels(ptyId);
   const ops = useTerminalPanels(ptyId);
   return (
@@ -160,7 +159,6 @@ export function PanelBar({ ptyId, actions }: { ptyId: string; actions?: ReactNod
         })}
         <AddButton ptyId={ptyId} label="New tab" />
       </div>
-      {actions}
       <FullWidthToggle fullWidth={panelFullWidth} onToggle={() => ops.setPanelFullWidth(!panelFullWidth)} />
       <MinimizeButton onMinimize={ops.minimizePanel} />
     </div>
@@ -227,15 +225,12 @@ export function PanelsAway({ ptyId }: { ptyId: string }) {
 }
 
 /**
- * In the main pane's corner while nothing is open beside it, over a fade of
- * what is under it rather than a row of its own.
+ * Controls set in a pane's top right corner over what is under it, on a
+ * backing soft on both open sides so it has no edge.
  */
-export function MainPaneCorner({ ptyId }: { ptyId: string }) {
-  const { activePanelId, diffPanelOpen } = usePanels(ptyId);
-  if (activePanelId || diffPanelOpen) return null;
+export function PaneCorner({ children }: { children: ReactNode }) {
   return (
     <div className="absolute top-0 right-0 z-10 pl-12 pr-2 pt-1.5 pb-5 pointer-events-none [&>*]:pointer-events-auto">
-      {/* Soft on both open sides, so it sits over what is under it without an edge. */}
       <div
         aria-hidden
         className="absolute inset-0 !pointer-events-none"
@@ -246,9 +241,18 @@ export function MainPaneCorner({ ptyId }: { ptyId: string }) {
           maskComposite: 'intersect',
         }}
       />
-      <div className="relative">
-        <PanelsAway ptyId={ptyId} />
-      </div>
+      <div className="relative flex items-center">{children}</div>
     </div>
+  );
+}
+
+/** While nothing is open beside the main pane, what is hidden there sits in its corner. */
+export function MainPaneCorner({ ptyId }: { ptyId: string }) {
+  const { activePanelId, diffPanelOpen } = usePanels(ptyId);
+  if (activePanelId || diffPanelOpen) return null;
+  return (
+    <PaneCorner>
+      <PanelsAway ptyId={ptyId} />
+    </PaneCorner>
   );
 }
