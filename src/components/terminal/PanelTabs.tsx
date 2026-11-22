@@ -46,12 +46,14 @@ function PaneTab({
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`group/tab h-7 min-w-0 max-w-[220px] flex items-center gap-1.5 pl-2 ${onClose ? 'pr-1' : 'pr-2.5'} rounded-md border-none text-[13px] transition-colors duration-150 ${
-        active ? 'bg-ink/[0.07] text-ink/85' : 'bg-transparent text-ink/50 hover:text-ink/80 hover:bg-ink/[0.04]'
+      // Equal shares of the row, as browser tabs are: a tab's width never
+      // depends on its title or on which one is open.
+      className={`group/tab h-7 flex-[1_1_0] min-w-0 max-w-[200px] flex items-center gap-1.5 pl-2 ${onClose ? 'pr-1' : 'pr-2.5'} rounded-md border-none text-[13px] text-left transition-colors duration-150 ${
+        active ? 'bg-ink/[0.1] text-ink/90' : 'bg-ink/[0.04] text-ink/55 hover:text-ink/80 hover:bg-ink/[0.07]'
       }`}
     >
       {icon}
-      <span className="truncate">{label}</span>
+      <span className="flex-1 min-w-0 truncate">{label}</span>
       {onClose && (
         <span
           role="button"
@@ -134,7 +136,7 @@ export function PanelBar({ ptyId, actions }: { ptyId: string; actions?: ReactNod
   const ops = useTerminalPanels(ptyId);
   return (
     <div className="h-10 flex items-center gap-0.5 px-2 shrink-0">
-      <div role="tablist" aria-label="Panels" className="flex items-center gap-0.5 min-w-0 flex-1 overflow-hidden">
+      <div role="tablist" aria-label="Panels" className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
         {panels.map((panel) => {
           const active = panel.id === activePanelId;
           return (
