@@ -69,6 +69,11 @@ import Docs from '../../layouts/Docs.astro';
     Landlock on Linux). It is a kernel access policy on a host process rather than a separate machine, so it
     starts instantly with no file sync.
   </p>
+  <p>
+    Ouijit runs nono's default profile and nono's own agent packs unchanged. It adds only what a task needs: its
+    worktree, the repository's git history, a package cache, and the <code>ouijit</code> CLI. Everything else,
+    including whether the network is open, comes from the profile, which you own and can edit.
+  </p>
   <h3>What it grants</h3>
   <p>
     Filesystem access is limited to the worktree and the repository's git data. <code>.git</code> is read-only

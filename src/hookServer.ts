@@ -171,7 +171,7 @@ const ACCESS_NOTES: Record<SandboxCliAccess, string> = {
 function sandboxNote({ provider, access }: SandboxReference): string {
   const allowed =
     provider === 'nono'
-      ? "You can write this checkout, the repo's commits and branches, and a package cache. The project's sandbox profile decides the rest; most network access, other credentials and writes elsewhere are blocked. `nono why <path>` says why something was denied."
+      ? "You can write this checkout, the repo's commits and branches, and a package cache. The project's sandbox profile decides the rest. nono's default blocks other credentials and writes elsewhere, but leaves the network open unless the profile limits it. `nono why <path>` says why something was denied."
       : "This project's own launcher decides what you can reach; Ouijit doesn't know its rules.";
   return [
     '# This terminal is sandboxed',
