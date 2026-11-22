@@ -12,6 +12,7 @@ import { issueToken } from '../../apiAuth';
 import { initCliPanels } from '../../cliPanels';
 import { killPty, spawnPty } from '../../ptyManager';
 import { decide, decisions } from '../../decisions';
+import { _resetCacheForTesting } from '../../db';
 import type { CliAskOp, CliAskResponse, Decision } from '../../types';
 
 const sent: [string, ...unknown[]][] = [];
@@ -63,6 +64,7 @@ async function runsInTheWindow(answer: CliAskResponse): Promise<CliAskOp> {
 }
 
 beforeAll(async () => {
+  _resetCacheForTesting();
   tmpDir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'ouijit-asks-')));
   const repo = path.join(tmpDir, 'project');
   worktree = path.join(tmpDir, 'T-1');
