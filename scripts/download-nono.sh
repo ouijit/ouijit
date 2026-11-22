@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-NONO_VERSION="0.80.0"
+NONO_VERSION="0.82.0"
 RESOURCES="$(cd "$(dirname "$0")/.." && pwd)/resources"
 DEST="$RESOURCES/bin"
 
