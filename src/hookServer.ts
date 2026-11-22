@@ -541,7 +541,8 @@ A sandboxed terminal reaches Ouijit in its own project, at that project's CLI ac
   terminal read, tags and panels reach every sandboxed terminal on its task. A hook that
   runs on the host waits for the user even with --run-hook, and --hook-command
   and --sandbox are refused.
-- Everything: what a host terminal can.
+- Everything: what a host terminal can, though a hook or --hook-command that
+  runs on the host still waits for the user.
 It edits and discards only the drafts a sandbox wrote. Anything else is
 Forbidden, and the error names the ouijit ask that would run it outside the sandbox.
 

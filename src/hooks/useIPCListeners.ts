@@ -36,8 +36,9 @@ function hookOptions({ hookMode, hookCommand, sandbox, surface }: CliMove) {
  * the user picks it there, having read the command. Otherwise it runs at once,
  * its terminal behind the one on screen.
  *
- * A sandboxed caller's `--run-hook` waits for the user too when the hook runs
- * on the host, since it would run there in a worktree the caller wrote.
+ * A sandboxed caller's `--run-hook` or `--hook-command` waits for the user too
+ * when the command runs on the host, since it would run there in a worktree
+ * the caller wrote.
  */
 async function stageOrRun(
   projectPath: string,
@@ -45,22 +46,23 @@ async function stageOrRun(
   move: CliMove & { hookType: HookType | null },
   run: (background: boolean, control: CliMove) => void,
 ): Promise<void> {
-  const { fromPtyId } = move;
+  const { fromPtyId, hookMode } = move;
   const hook = await hookForMove(projectPath, move.hookType, move.surface);
-  const onHost =
-    !!hook && !placementProvider(hookSandbox(move.sandbox, hook, await projectDefaultSandbox(projectPath)));
-  const onHostUnseen = !!move.fromSandbox && move.hookMode === 'run' && onHost;
-  if (hook && move.hookType && (!move.hookMode || onHostUnseen) && fromPtyId) {
+  const command = hookMode === 'command' ? move.hookCommand : hookMode === 'skip' ? undefined : hook?.command;
+  const onHost = !placementProvider(hookSandbox(move.sandbox, hook, await projectDefaultSandbox(projectPath)));
+  const wouldOpenDialog = !!hook && !hookMode;
+  const onHostUnseen = !!move.fromSandbox && !!hookMode && onHost;
+  if (command && move.hookType && (wouldOpenDialog || onHostUnseen) && fromPtyId) {
     useWaitingStore.getState().add({
       kind: 'move',
       from: fromPtyId,
       projectPath,
       taskNumber: task.taskNumber,
       hookType: move.hookType,
-      hookName: hook.name,
-      command: hook.command,
+      hookName: hookMode === 'command' ? '' : (hook?.name ?? ''),
+      command,
       outsideSandbox: !!move.fromSandbox && onHost,
-      run: () => run(true, { ...move, hookMode: 'run', hookCommand: undefined }),
+      run: () => run(true, wouldOpenDialog ? { ...move, hookMode: 'run', hookCommand: undefined } : move),
     });
     return;
   }
