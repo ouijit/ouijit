@@ -3,8 +3,8 @@ import { renderPlanMarkdown } from '../../utils/renderPlanMarkdown';
 import { useResolvedTheme } from '../../hooks/useResolvedTheme';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { Icon } from '../terminal/Icon';
-import { TooltipButton } from '../ui/TooltipButton';
 import { PaneCorner } from '../terminal/PanelTabs';
+import { LabelTip, PanelTip } from '../terminal/PanelTips';
 import { openFileInEditor } from '../../services/openInEditor';
 
 interface PlanPanelProps {
@@ -191,15 +191,16 @@ export function PlanPanel({ ptyId, planPath }: PlanPanelProps) {
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       <div className="relative flex-1 min-h-0 flex flex-col">
         <PaneCorner>
-          <TooltipButton
-            text={copied ? 'Copied!' : 'Copy to clipboard'}
-            placement="bottom"
-            keepAxis
-            className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/40 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
-            onClick={handleCopy}
-          >
-            <Icon name={copied ? 'check' : 'clipboard-text'} className={copied ? 'text-ansi-green' : ''} />
-          </TooltipButton>
+          <PanelTip tip={<LabelTip text={copied ? 'Copied' : 'Copy'} />} placement="bottom-end">
+            <button
+              type="button"
+              aria-label="Copy"
+              className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/40 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
+              onClick={handleCopy}
+            >
+              <Icon name={copied ? 'check' : 'clipboard-text'} className={copied ? 'text-ansi-green' : ''} />
+            </button>
+          </PanelTip>
         </PaneCorner>
         <div className="flex-1 overflow-y-auto px-6 py-4" onClick={handleClick}>
           {loading ? (

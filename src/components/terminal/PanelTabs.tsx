@@ -3,8 +3,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { Icon } from './Icon';
 import { RunnerDot } from './StatusDot';
-import { Tooltip } from '../ui/Tooltip';
-import { FullWidthToggle, MinimizeButton, PANEL_HEADER_BUTTON } from './FullWidthToggle';
+import { PANEL_HEADER_BUTTON } from './FullWidthToggle';
+import { LabelTip, PanelTip, PanelTipGroup, TabTip } from './PanelTips';
 import { panelIcon, panelLabel, type RunnerStatus, type TerminalPanel } from './panelTypes';
 import { SANDBOX_LABELS } from '../../types';
 import { useTerminalPanels } from './useTerminalPanels';
@@ -35,15 +35,17 @@ function PaneTab({
   active,
   onClick,
   onClose,
+  ...rest
 }: {
   icon: ReactNode;
   label: string;
   active: boolean;
   onClick?: () => void;
   onClose?: () => void;
-}) {
+} & Omit<React.ComponentProps<'button'>, 'onClick'>) {
   return (
     <button
+      {...rest}
       type="button"
       role="tab"
       aria-selected={active}
@@ -84,24 +86,37 @@ const RUNNER_LABELS: Record<RunnerStatus, string> = {
   idle: 'Stopped',
 };
 
-function PanelMark({ panel, active, plain }: { panel: TerminalPanel; active: boolean; plain?: boolean }) {
-  if (panel.kind === 'runner' && plain)
-    return <RunnerDot status={panel.status} sandboxProvider={panel.sandboxProvider} />;
-  if (panel.kind === 'runner')
-    return (
-      <Tooltip
-        text={[RUNNER_LABELS[panel.status], panel.sandboxProvider && SANDBOX_LABELS[panel.sandboxProvider]]
-          .filter(Boolean)
-          .join(' · ')}
-        placement="top"
-        delay={300}
-        keepAxis
-      >
-        <RunnerDot status={panel.status} sandboxProvider={panel.sandboxProvider} />
-      </Tooltip>
-    );
+function PanelMark({ panel, active }: { panel: TerminalPanel; active: boolean }) {
+  if (panel.kind === 'runner') return <RunnerDot status={panel.status} sandboxProvider={panel.sandboxProvider} />;
   if (panel.kind === 'webPreview' && panel.favicon) return <Favicon src={panel.favicon} active={active} />;
   return <Icon name={panelIcon(panel)} className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-ink/70' : 'text-ink/40'}`} />;
+}
+
+/** The end of a folder's path, which names it, rather than its start, which says little. */
+function tailOfPath(dir: string, keep = 40): string {
+  if (dir.length <= keep) return dir;
+  const parts = dir.split('/');
+  let tail = parts.pop() ?? '';
+  while (parts.length && tail.length + parts[parts.length - 1].length + 1 <= keep - 2) tail = `${parts.pop()}/${tail}`;
+  return `…/${tail}`;
+}
+
+/** Where a tab points, under its title in its tip. */
+function panelDetail(panel: TerminalPanel): string | undefined {
+  if (panel.kind === 'webPreview') return panel.url?.replace(/^https?:\/\//, '') ?? undefined;
+  if (panel.kind === 'plan') return tailOfPath(panel.planPath.replace(/\/[^/]+$/, '').replace(/^\/Users\/[^/]+/, '~'));
+  const where = [RUNNER_LABELS[panel.status], panel.sandboxProvider && SANDBOX_LABELS[panel.sandboxProvider]];
+  return [panel.command || panel.scriptCommand, ...where].filter(Boolean).join(' · ');
+}
+
+function PanelTabTip({ panel, children }: { panel: TerminalPanel; children: React.ReactElement }) {
+  return (
+    <PanelTip
+      tip={<TabTip icon={<PanelMark panel={panel} active />} title={panelLabel(panel)} detail={panelDetail(panel)} />}
+    >
+      {children}
+    </PanelTip>
+  );
 }
 
 function Favicon({ src, active }: { src: string; active: boolean }) {
@@ -121,7 +136,7 @@ function Favicon({ src, active }: { src: string; active: boolean }) {
 function AddButton({ ptyId, label }: { ptyId: string; label: string }) {
   const show = useAddPanelMenu((s) => s.show);
   return (
-    <Tooltip text={label} placement="bottom" keepAxis>
+    <PanelTip tip={<LabelTip text={label} />}>
       <button
         type="button"
         className={PANEL_HEADER_BUTTON}
@@ -133,7 +148,25 @@ function AddButton({ ptyId, label }: { ptyId: string; label: string }) {
       >
         <Icon name="plus" />
       </button>
-    </Tooltip>
+    </PanelTip>
+  );
+}
+
+function BarButton({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
+  return (
+    <PanelTip tip={<LabelTip text={label} />} placement="bottom-end">
+      <button
+        type="button"
+        className={PANEL_HEADER_BUTTON}
+        aria-label={label}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+      >
+        <Icon name={icon} />
+      </button>
+    </PanelTip>
   );
 }
 
@@ -142,26 +175,33 @@ export function PanelBar({ ptyId }: { ptyId: string }) {
   const { panels, activePanelId, panelFullWidth } = usePanels(ptyId);
   const ops = useTerminalPanels(ptyId);
   return (
-    <div className="h-10 flex items-center gap-0.5 px-2 shrink-0">
-      <div role="tablist" aria-label="Panels" className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
-        {panels.map((panel) => {
-          const active = panel.id === activePanelId;
-          return (
-            <PaneTab
-              key={panel.id}
-              icon={<PanelMark panel={panel} active={active} />}
-              label={panelLabel(panel)}
-              active={active}
-              onClick={() => ops.activatePanel(panel.id)}
-              onClose={() => ops.closePanel(panel.id)}
-            />
-          );
-        })}
-        <AddButton ptyId={ptyId} label="New tab" />
+    <PanelTipGroup>
+      <div className="h-10 flex items-center gap-0.5 px-2 shrink-0">
+        <div role="tablist" aria-label="Panels" className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
+          {panels.map((panel) => {
+            const active = panel.id === activePanelId;
+            return (
+              <PanelTabTip key={panel.id} panel={panel}>
+                <PaneTab
+                  icon={<PanelMark panel={panel} active={active} />}
+                  label={panelLabel(panel)}
+                  active={active}
+                  onClick={() => ops.activatePanel(panel.id)}
+                  onClose={() => ops.closePanel(panel.id)}
+                />
+              </PanelTabTip>
+            );
+          })}
+          <AddButton ptyId={ptyId} label="New tab" />
+        </div>
+        <BarButton
+          icon={panelFullWidth ? 'square-split-horizontal' : 'arrows-out-line-horizontal'}
+          label={panelFullWidth ? 'Split view' : 'Full width'}
+          onClick={() => ops.setPanelFullWidth(!panelFullWidth)}
+        />
+        <BarButton icon="minus" label="Hide" onClick={ops.minimizePanel} />
       </div>
-      <FullWidthToggle fullWidth={panelFullWidth} onToggle={() => ops.setPanelFullWidth(!panelFullWidth)} />
-      <MinimizeButton onMinimize={ops.minimizePanel} />
-    </div>
+    </PanelTipGroup>
   );
 }
 
@@ -193,34 +233,36 @@ export function PanelsAway({ ptyId }: { ptyId: string }) {
     clearTimeout(timer.current ?? undefined);
   };
   return (
-    <div onMouseEnter={approach} onMouseLeave={leave} className="-m-6 p-6">
-      <div className="h-7 flex items-center gap-0.5">
-        {panels.map((panel, n) => (
-          <Tooltip key={panel.id} text={panelLabel(panel)} placement="bottom" keepAxis>
-            <button
-              type="button"
-              aria-label={panelLabel(panel)}
-              onClick={() => settled && ops.activatePanel(panel.id)}
-              className={`relative w-7 h-7 flex items-center justify-center rounded-md border-none ${
-                near ? 'bg-transparent hover:bg-ink/10' : ''
-              }`}
-              style={{
-                marginLeft: n === 0 ? 0 : near ? 2 : -5,
-                zIndex: panels.length - n,
-                ...(!near && {
-                  background: 'color-mix(in srgb, var(--color-ink) 7%, var(--color-terminal-bg))',
-                  boxShadow: '0 0 0 2px var(--color-terminal-bg)',
-                }),
-                transition: `margin-left ${SPREAD_MS}ms cubic-bezier(.2,.8,.2,1), background-color ${SPREAD_MS}ms, box-shadow ${SPREAD_MS}ms`,
-              }}
-            >
-              <PanelMark panel={panel} active plain />
-            </button>
-          </Tooltip>
-        ))}
-        <AddButton ptyId={ptyId} label="New tab" />
+    <PanelTipGroup>
+      <div onMouseEnter={approach} onMouseLeave={leave} className="-m-6 p-6">
+        <div className="h-7 flex items-center gap-0.5">
+          {panels.map((panel, n) => (
+            <PanelTabTip key={panel.id} panel={panel}>
+              <button
+                type="button"
+                aria-label={panelLabel(panel)}
+                onClick={() => settled && ops.activatePanel(panel.id)}
+                className={`relative w-7 h-7 flex items-center justify-center rounded-md border-none ${
+                  near ? 'bg-transparent hover:bg-ink/10' : ''
+                }`}
+                style={{
+                  marginLeft: n === 0 ? 0 : near ? 2 : -5,
+                  zIndex: panels.length - n,
+                  ...(!near && {
+                    background: 'color-mix(in srgb, var(--color-ink) 7%, var(--color-terminal-bg))',
+                    boxShadow: '0 0 0 2px var(--color-terminal-bg)',
+                  }),
+                  transition: `margin-left ${SPREAD_MS}ms cubic-bezier(.2,.8,.2,1), background-color ${SPREAD_MS}ms, box-shadow ${SPREAD_MS}ms`,
+                }}
+              >
+                <PanelMark panel={panel} active />
+              </button>
+            </PanelTabTip>
+          ))}
+          <AddButton ptyId={ptyId} label="New tab" />
+        </div>
       </div>
-    </div>
+    </PanelTipGroup>
   );
 }
 
@@ -241,7 +283,9 @@ export function PaneCorner({ children }: { children: ReactNode }) {
           maskComposite: 'intersect',
         }}
       />
-      <div className="relative flex items-center">{children}</div>
+      <PanelTipGroup>
+        <div className="relative flex items-center">{children}</div>
+      </PanelTipGroup>
     </div>
   );
 }

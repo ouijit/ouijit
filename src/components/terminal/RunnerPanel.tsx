@@ -3,7 +3,7 @@ import { terminalInstances } from './terminalRegistry';
 import { XTermContainer } from './XTermContainer';
 import { PaneCorner } from './PanelTabs';
 import { Icon } from './Icon';
-import { Tooltip } from '../ui/Tooltip';
+import { LabelTip, PanelTip } from './PanelTips';
 
 interface RunnerPanelProps {
   ptyId: string;
@@ -30,7 +30,7 @@ export function RunnerPanel({ ptyId, panelId, onRestart, onKill }: RunnerPanelPr
       <div className="relative flex-1 overflow-hidden min-h-0 px-3 pb-3">
         <PaneCorner>
           {runnerPtyId && (
-            <Tooltip text="Kill" keepAxis>
+            <PanelTip tip={<LabelTip text="Kill" />} placement="bottom-end">
               <button
                 className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/40 shrink-0 transition-all duration-150 ease-out hover:bg-error/20 hover:text-ansi-red [&>svg]:w-3.5 [&>svg]:h-3.5"
                 onClick={(e) => {
@@ -40,9 +40,9 @@ export function RunnerPanel({ ptyId, panelId, onRestart, onKill }: RunnerPanelPr
               >
                 <Icon name="prohibit" />
               </button>
-            </Tooltip>
+            </PanelTip>
           )}
-          <Tooltip text="Restart" keepAxis>
+          <PanelTip tip={<LabelTip text="Restart" />} placement="bottom-end">
             <button
               className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/60 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
               onClick={(e) => {
@@ -52,7 +52,7 @@ export function RunnerPanel({ ptyId, panelId, onRestart, onKill }: RunnerPanelPr
             >
               <Icon name="arrow-counter-clockwise" />
             </button>
-          </Tooltip>
+          </PanelTip>
         </PaneCorner>
         {runnerPtyId ? (
           <XTermContainer ptyId={runnerPtyId} className="runner-xterm-container w-full h-full overflow-hidden" />
