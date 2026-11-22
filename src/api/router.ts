@@ -110,6 +110,7 @@ import {
   type SessionListing,
 } from '../sessions';
 import { chatHost, ChatSessionNotFound } from '../chat/host';
+import { continuationPrompt } from '../chat/continuation';
 import { CHAT_AGENT_IDS, isChatAgentId, transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
 import { callerIsHomeChat, loadHomeChatSettings, ownTask, reconfigureHomeChats } from '../chat/homeChat';
 import { follow, following, quietMove, sessionSubject, taskSubject, unfollow, wakeForAsk } from '../chat/wake';
@@ -1281,7 +1282,13 @@ const routes: Route[] = [
       if (agent !== undefined && !isChatAgentId(agent)) {
         throw new HttpError(400, `Invalid agent: ${String(agent)}. Must be one of ${CHAT_AGENT_IDS.join(', ')}`);
       }
-      const prompt = typeof r.body.prompt === 'string' && r.body.prompt.trim() ? r.body.prompt : undefined;
+      const asked = typeof r.body.prompt === 'string' && r.body.prompt.trim() ? r.body.prompt : undefined;
+      const seeded =
+        r.body.from === undefined
+          ? { prompt: asked }
+          : continuationPrompt(String(r.body.from), { projectPath, taskNumber, name: task.name }, asked);
+      if ('error' in seeded) throw new HttpError(seeded.status, seeded.error);
+      const { prompt } = seeded;
       const { ptyId } = await runTerminalOp({
         action: 'open',
         projectPath,

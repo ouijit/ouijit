@@ -17,10 +17,12 @@ import { getApiPort } from '../../../apiPort';
 import { getCliReferencePath } from '../../../cliReferencePath';
 import { initCliPanels } from '../../../cliPanels';
 import { issueToken } from '../../../apiAuth';
-import { _resetCacheForTesting, createTask, setGlobalSetting } from '../../../db';
+import { _resetCacheForTesting, createTask, getChatRepo, setGlobalSetting } from '../../../db';
 import { chatHost } from '../../../chat/host';
 import { installHomeChat, startHomeChat } from '../../../chat/homeChat';
 import { HOME_CHAT_SETTING_KEYS } from '../../../chat/preferences';
+import { CONTINUATION_BUDGET_CHARS } from '../../../chat/continuation';
+import type { ChatNode } from '../../../chat/model';
 import type { ActiveSession } from '../../../ptyManager';
 import type { CliTerminalOp, CliTerminalResponse } from '../../../types';
 import { loadCassette, loadCassettes, replayingSpawn } from './cassette';
@@ -77,6 +79,37 @@ const window = {
     },
   },
 } as unknown as BrowserWindow;
+
+/** A task chat as Ouijit stored it once its agent had gone. */
+function storedChat(id: string, taskId: number, nodes: ChatNode[]): void {
+  const now = new Date().toISOString();
+  const cwd = path.join(repo, 'wt');
+  const info = { id, role: 'card', agent: 'claude', projectPath: repo, cwd, worktreePath: cwd, sandbox: null, taskId };
+  getChatRepo().save(
+    {
+      id,
+      project_path: repo,
+      task_id: taskId,
+      cwd,
+      worktree_path: cwd,
+      agent: 'claude',
+      agent_session_id: null,
+      sandbox: null,
+      role: 'card',
+      info: JSON.stringify({ ...info, status: 'exited' }),
+      seq: 0,
+      created_at: now,
+      updated_at: now,
+    },
+    nodes.map((node, position) => ({ nodeId: node.id, position, body: JSON.stringify(node) })),
+    [],
+  );
+}
+
+const said = (id: string, kind: 'user_message' | 'assistant_message', text: string): ChatNode =>
+  kind === 'user_message'
+    ? { id, kind, parentId: null, createdAt: 0, text, attachments: [], delivery: 'prompt' }
+    : { id, kind, parentId: null, createdAt: 0, text };
 
 async function ouijit(...args: string[]): Promise<unknown> {
   const chunks: string[] = [];
@@ -177,5 +210,69 @@ describe('ouijit chat open', () => {
     vi.stubEnv('OUIJIT_API_TOKEN', issueToken(chat, 'sandbox'));
     await expect(ouijit('chat', 'open', '--task', '2')).rejects.toThrow(/Forbidden/);
     expect(opened).toHaveLength(1);
+  });
+
+  test('opens a chat that carries on another chat of the task, trimmed to its most recent part', async () => {
+    vi.stubEnv('OUIJIT_API_TOKEN', issueToken(chat, 'host'));
+    await createTask(repo, 3, 'Other work', {
+      status: 'in_progress',
+      branch: 'T-3',
+      worktreePath: path.join(repo, 'wt3'),
+    });
+    storedChat('pty-earlier', 2, [
+      said('u1', 'user_message', 'the login times out after a minute'),
+      said('a1', 'assistant_message', 'The session timeout is hardcoded in auth.ts; I will make it configurable.'),
+      {
+        id: 't1',
+        kind: 'tool_call',
+        parentId: null,
+        createdAt: 0,
+        tool: 'execute',
+        name: 'Bash',
+        title: 'npm test',
+        input: {},
+        command: 'npm test',
+        output: 'FAIL auth.test.ts\n'.repeat(50),
+        exitCode: 1,
+        files: [],
+        status: 'failed',
+      },
+    ]);
+    storedChat('pty-other-task', 3, [said('o1', 'user_message', 'something else')]);
+    const long = Array.from({ length: 12 }, (_, i) =>
+      said(`l${i}`, 'assistant_message', `step ${i} ${'x'.repeat(CONTINUATION_BUDGET_CHARS / 10)}`),
+    );
+    storedChat('pty-long', 2, long);
+
+    const firstMessage = async (...args: string[]) => {
+      await ouijit('chat', 'open', '--task', '2', ...args);
+      return opened.at(-1)!.chat!.prompt!;
+    };
+
+    const seeded = await firstMessage('--from', 'pty-earlier', '--prompt', 'now add a test for it', '--agent', 'pi');
+    expect(seeded).toContain('task 2, "Fix auth", in this same worktree');
+    expect(seeded).toContain(
+      '> the login times out after a minute\n\nThe session timeout is hardcoded in auth.ts; I will make it configurable.\n\n[failed] npm test',
+    );
+    // A tool step is a line, not its output.
+    expect(seeded).not.toContain('FAIL auth.test.ts');
+    expect(seeded).not.toContain('were left out');
+    expect(seeded.endsWith('now add a test for it')).toBe(true);
+    expect(opened.at(-1)!.chat!.agent).toBe('pi');
+
+    const trimmed = await firstMessage('--from', 'pty-long');
+    expect(trimmed).toContain('Earlier parts of the conversation were left out');
+    expect(trimmed).toContain('step 11 ');
+    expect(trimmed).not.toContain('step 0 ');
+    expect(trimmed.length).toBeLessThan(CONTINUATION_BUDGET_CHARS + 1_000);
+
+    const before = opened.length;
+    await expect(ouijit('chat', 'open', '--task', '2', '--from', 'pty-other-task')).rejects.toThrow(
+      /Chat pty-other-task is not on task 2/,
+    );
+    await expect(ouijit('chat', 'open', '--task', '2', '--from', 'pty-missing')).rejects.toThrow(
+      /Chat pty-missing not found/,
+    );
+    expect(opened).toHaveLength(before);
   });
 });

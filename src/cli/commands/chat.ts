@@ -49,9 +49,10 @@ Examples:
     .description("Open a new chat on a started task, in its worktree, without changing what's on screen")
     .requiredOption('--task <number>', 'the task, which must already be started')
     .option('--prompt <text>', 'its first message, sent once the agent is up, or - to read it from stdin')
+    .option('--from <chat-id>', 'another chat on the task, whose conversation so far it starts from')
     .option('--agent <agent>', 'claude, codex, pi, opencode or acp; omitted, the chat setting')
     .option(SANDBOX_FLAG, sandboxFlagHelp('where it runs; omitted, as the task menu would open it'))
-    .action(async (opts: { task: string; prompt?: string; agent?: string; sandbox?: string }) => {
+    .action(async (opts: { task: string; prompt?: string; from?: string; agent?: string; sandbox?: string }) => {
       const parsed = parseSandboxFlag(opts.sandbox);
       if ('error' in parsed) return printError(parsed.error);
       const task = parseInt(opts.task, 10);
@@ -61,6 +62,7 @@ Examples:
         await post(`/api/chats${projectQuery(await requireProject())}`, {
           task,
           ...(prompt && { prompt }),
+          ...(opts.from && { from: opts.from }),
           ...(opts.agent && { agent: opts.agent }),
           ...(parsed.sandbox && { sandbox: parsed.sandbox }),
         }),

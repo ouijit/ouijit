@@ -218,6 +218,7 @@ ouijit tag clear                              # removes all of them</code></pre>
   </p>
   <pre class="glass-bevel"><code>ouijit chat list                              # running chats
 ouijit chat open --task 12 --prompt "add tests for the timeout"   # a new chat on a started task
+ouijit chat open --task 12 --from pty_abc123   # a new chat that carries on another chat's conversation
 ouijit chat read                              # this card's chat: status, transcript, pending approvals
 ouijit chat read pty_abc123 --after 42        # only what happened since sequence 42
 ouijit chat read pty_abc123 --after 42 --wait 25   # wait for the next event

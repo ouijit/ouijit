@@ -360,6 +360,7 @@ ouijit chat list                              # → running chats [{id, agent, s
 ouijit chat open --task <n> [--prompt "<first message>"]  # a new chat on a started task, behind what's on screen → {ptyId, ...}
                                               # --prompt - reads it from stdin; --agent claude|codex|pi|opencode|acp
                                               # and --sandbox host|nono|custom, omitted, as the task menu's New chat
+                                              # --from <chat-id> starts it on that chat's conversation so far, to carry it on
 ouijit chat read [pty-id]                     # → {info, nodes, seq, text, pending} — defaults to this card
 ouijit chat read <pty-id> --after <seq>       # → {id, events} after a sequence number, for following along
                                               # add --wait <seconds> to wait for the next one (long poll)
