@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TerminalHeader } from '../../components/terminal/TerminalHeader';
-import { MainPaneHeader } from '../../components/terminal/PanelTabs';
+import { MainPaneCorner } from '../../components/terminal/PanelTabs';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import { startRunner } from '../../components/terminal/terminalActions';
 import { getProjectConfig, runnerPlace, useProjectDataStore } from '../../stores/projectDataStore';
@@ -52,7 +52,7 @@ function openAddMenu() {
   render(
     <>
       <TerminalHeader ptyId={PTY} isActive onClose={() => {}} />
-      <MainPaneHeader ptyId={PTY} surface="terminal" />
+      <MainPaneCorner ptyId={PTY} />
     </>,
   );
   fireEvent.click(screen.getByLabelText('Open beside'));

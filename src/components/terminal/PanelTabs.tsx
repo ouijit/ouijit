@@ -28,7 +28,7 @@ function usePanels(ptyId: string) {
 }
 
 /** A tab in a pane's header: quiet, the open one lifted, its close on hover. */
-export function PaneTab({
+function PaneTab({
   icon,
   label,
   active,
@@ -185,18 +185,21 @@ export function PanelsAway({ ptyId }: { ptyId: string }) {
   );
 }
 
-/** A card's main pane names what it holds, like any tab, so the two sides read alike. */
-export function MainPaneHeader({ ptyId, surface }: { ptyId: string; surface: 'terminal' | 'chat' }) {
+/**
+ * In the main pane's corner while nothing is open beside it, over a fade of
+ * what is under it rather than a row of its own.
+ */
+export function MainPaneCorner({ ptyId }: { ptyId: string }) {
+  const { activePanelId, diffPanelOpen } = usePanels(ptyId);
+  if (activePanelId || diffPanelOpen) return null;
   return (
-    <div className="h-10 flex items-center gap-0.5 px-2 shrink-0">
-      <PaneTab
-        icon={
-          <Icon name={surface === 'chat' ? 'chat-circle' : 'terminal'} className="w-3.5 h-3.5 shrink-0 text-ink/70" />
-        }
-        label={surface === 'chat' ? 'Chat' : 'Terminal'}
-        active
-      />
-      <span className="flex-1" />
+    <div
+      className="absolute top-0 right-0 z-10 pl-10 pr-2 pt-1.5 pb-4 pointer-events-none [&>*]:pointer-events-auto"
+      style={{
+        background:
+          'radial-gradient(ellipse 100% 100% at 100% 0%, var(--color-terminal-bg) 55%, color-mix(in srgb, var(--color-terminal-bg) 0%, transparent) 100%)',
+      }}
+    >
       <PanelsAway ptyId={ptyId} />
     </div>
   );

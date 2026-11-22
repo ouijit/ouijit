@@ -9,7 +9,7 @@ import { PlanPanel } from '../plan/PlanPanel';
 import { WebPreviewPanel } from '../webPreview/WebPreviewPanel';
 import { WaitingDialog } from '../waiting/WaitingDialog';
 import { useTerminalPanels } from './useTerminalPanels';
-import { MainPaneHeader, PanelBar } from './PanelTabs';
+import { MainPaneCorner, PanelBar } from './PanelTabs';
 import { terminalInstances } from './terminalRegistry';
 import type { TerminalPanel } from './panelTypes';
 
@@ -178,7 +178,7 @@ export function TerminalBody({ ptyId, projectPath, page }: TerminalBodyProps) {
             background: page ? undefined : 'var(--color-terminal-bg)',
           }}
         >
-          {!page && <MainPaneHeader ptyId={ptyId} surface={surface === 'chat' ? 'chat' : 'terminal'} />}
+          {!page && <MainPaneCorner ptyId={ptyId} />}
           {page ? (
             <ChatView cardId={ptyId} surface="page" footer={page.footer} aboveComposer={page.aboveComposer} />
           ) : surface === 'chat' ? (
