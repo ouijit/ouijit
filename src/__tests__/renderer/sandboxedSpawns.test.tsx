@@ -3,6 +3,9 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { addProjectTerminal, restartRunner, startRunner } from '../../components/terminal/terminalActions';
 import { OuijitTerminal } from '../../components/terminal/terminalReact';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
+import { runApprovedAsk } from '../../services/askRun';
+import { useHomeChatStore } from '../../stores/homeChatStore';
+import type { ChatSnapshot } from '../../chat/model';
 import type { PtySpawnOptions, SandboxPlacement } from '../../types';
 
 vi.mock('electron-log/renderer', () => ({
@@ -99,6 +102,35 @@ describe('sandboxed spawns', () => {
     await restartRunner('parent', panelId!);
     expect(sandboxOfLastSpawn()).toBe('nono');
     expect(vi.mocked(window.api.pty.spawn).mock.lastCall?.[0]).toMatchObject({ cwd: '/wt/T-7', isRunner: true });
+  });
+
+  test("a sandboxed Chat's panels run what they start in Chat's sandbox, except an ask approved for the host", async () => {
+    const chatsSandbox = { provider: 'nono' as const, settings: '/chat' };
+    useHomeChatStore.setState({ currentId: 'home-1' });
+    vi.mocked(window.api.chat.snapshot).mockResolvedValue({
+      info: { id: 'home-1', role: 'home', sandbox: chatsSandbox },
+    } as unknown as ChatSnapshot);
+    const host = new (OuijitTerminal as unknown as new (o: object) => OuijitTerminal)({ projectPath: '/chat' });
+    terminalInstances.set('home-1', host);
+    const script = { name: 'Dev', command: 'npm run dev' };
+
+    const started = await startRunner('home-1', script);
+    expect(sandboxOfLastSpawn()).toEqual(chatsSandbox);
+    await startRunner('home-1', script, 'custom');
+    expect(sandboxOfLastSpawn()).toEqual(chatsSandbox);
+    await restartRunner('home-1', started!);
+    expect(sandboxOfLastSpawn()).toEqual(chatsSandbox);
+
+    await runApprovedAsk('home-1', { command: 'git push', cwd: '/chat' }, false);
+    expect(sandboxOfLastSpawn()).toBeUndefined();
+
+    vi.mocked(window.api.chat.snapshot).mockResolvedValue({
+      info: { id: 'home-1', role: 'home', sandbox: null },
+    } as unknown as ChatSnapshot);
+    await startRunner('home-1', script);
+    expect(sandboxOfLastSpawn()).toBeUndefined();
+    useHomeChatStore.setState({ currentId: null });
+    vi.mocked(window.api.chat.snapshot).mockResolvedValue(null);
   });
 
   test("reopening a task runs its continue hook in that hook's sandbox, and an explicit choice wins", async () => {

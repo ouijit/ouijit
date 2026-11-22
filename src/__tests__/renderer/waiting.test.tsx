@@ -218,12 +218,16 @@ describe('what an agent leaves for the user', () => {
     finish('running');
     const sign = run({ command: './scripts/sign.sh --all', runCommand: '/data/ask-runs/1/sign.sh --all' });
     await waitFor(() =>
-      expect(startRunner).toHaveBeenCalledWith('pty-agent', {
-        name: './scripts/sign.sh --all',
-        command: '/data/ask-runs/1/sign.sh --all',
-        env: expect.objectContaining({ PAGER: 'cat', GH_PAGER: 'cat', GIT_PAGER: 'cat' }),
-        private: false,
-      }),
+      expect(startRunner).toHaveBeenCalledWith(
+        'pty-agent',
+        {
+          name: './scripts/sign.sh --all',
+          command: '/data/ask-runs/1/sign.sh --all',
+          env: expect.objectContaining({ PAGER: 'cat', GH_PAGER: 'cat', GIT_PAGER: 'cat' }),
+          private: false,
+        },
+        'none',
+      ),
     );
     finish('success', 0);
     await waitFor(() =>
@@ -242,7 +246,7 @@ describe('what an agent leaves for the user', () => {
     finish('running');
     const token = run({ command: 'gh auth token' }, true);
     await waitFor(() =>
-      expect(startRunner).toHaveBeenLastCalledWith('pty-agent', expect.objectContaining({ private: true })),
+      expect(startRunner).toHaveBeenLastCalledWith('pty-agent', expect.objectContaining({ private: true }), 'none'),
     );
     finish('success', 0);
     await waitFor(() =>

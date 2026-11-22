@@ -16,8 +16,17 @@ import type { Decision } from '../../types';
 import { listenForDecisions } from '../../services/decisions';
 import { NO_CAPABILITIES, type ChatNode, type ChatSessionInfo, type ChatSnapshot } from '../../chat/model';
 
+// xterm cannot construct under jsdom. Chat's panel host is one of these, so the
+// fake keeps what that reads: its panels, and fitting it to the page.
 vi.mock('../../components/terminal/terminalReact', () => ({
-  OuijitTerminal: class {},
+  OuijitTerminal: class {
+    panels = [];
+    activePanelId = null;
+    fit() {}
+    getActivePanel() {
+      return undefined;
+    }
+  },
   resolveTerminalLabel: () => '',
   refreshTerminalsGitStatus: vi.fn(),
   refreshTerminalGitStatus: vi.fn(),
@@ -129,6 +138,11 @@ beforeEach(() => {
   vi.mocked(window.api.globalSettings.get).mockReset().mockResolvedValue(undefined);
   vi.mocked(window.api.globalSettings.set).mockClear();
   vi.mocked(window.api.homeChat.reconfigure).mockClear();
+  vi.mocked(window.api.chat.snapshot).mockImplementation(async (id) => ({
+    info: { ...INFO, id },
+    nodes: [],
+    seq: 0,
+  }));
 });
 
 function approvalWake(

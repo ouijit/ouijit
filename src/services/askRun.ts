@@ -41,12 +41,16 @@ function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
 export async function runApprovedAsk(fromPtyId: string, ask: AskRun, privately: boolean): Promise<AskAnswer> {
   // One of Chat's conversations runs it beside itself, in its own folder.
   if (isHomeChat(fromPtyId)) await homePanelHost(fromPtyId);
-  const panelId = await startRunner(fromPtyId, {
-    name: ask.scriptName ?? ask.command,
-    command: ask.runCommand ?? ask.command,
-    env: NO_PAGER,
-    private: privately,
-  });
+  const panelId = await startRunner(
+    fromPtyId,
+    {
+      name: ask.scriptName ?? ask.command,
+      command: ask.runCommand ?? ask.command,
+      env: NO_PAGER,
+      private: privately,
+    },
+    'none',
+  );
   if (!panelId) return { status: 'declined' };
   return ask.wait ? outcome(fromPtyId, panelId) : { status: 'pending', panelId };
 }

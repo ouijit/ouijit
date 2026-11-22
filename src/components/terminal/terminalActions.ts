@@ -13,12 +13,13 @@ import type {
   SnapshotTerminalUi,
   TaskWithWorkspace,
   SandboxPlacement,
-  SandboxBackendId,
+  SandboxSpec,
 } from '../../types';
 import { placementProvider } from '../../types';
 import { useTerminalStore, type TerminalDisplayState, type TerminalStatus } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { loadTaskChats } from '../../stores/chatStore';
+import { loadTaskChats, useChatStore } from '../../stores/chatStore';
+import { isHomeChat } from '../../stores/homeChatStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore } from '../../stores/appStore';
 import { OuijitTerminal, resolveTerminalLabel } from './terminalReact';
@@ -497,14 +498,26 @@ async function resolveRunnable(
   };
 }
 
+/** One of Chat's conversations runs what its panels start in its own sandbox, if it has one. */
+async function homeChatSandbox(ptyId: string): Promise<SandboxSpec | undefined> {
+  if (!isHomeChat(ptyId)) return undefined;
+  const info = useChatStore.getState().sessions[ptyId]?.info ?? (await window.api.chat.snapshot(ptyId))?.info;
+  return info?.sandbox ?? undefined;
+}
+
+/**
+ * `sandbox` absent is wherever the card runs its runners; 'none' is the host
+ * even beside a sandboxed Chat, for an ask the user approved to run there.
+ */
 export async function startRunner(
   ptyId: string,
   script?: RunnerScript,
-  sandboxProvider?: SandboxBackendId,
+  sandbox?: SandboxPlacement,
   replacing?: string,
 ): Promise<string | null> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return null;
+  const placement = sandbox === 'none' ? sandbox : ((await homeChatSandbox(ptyId)) ?? sandbox);
 
   const resolved = await resolveRunnable(instance.projectPath, script);
   if (!resolved) {
@@ -515,7 +528,7 @@ export async function startRunner(
   }
 
   const panelId = instance.addRunnerPanel(
-    { ...resolved.runnable, source: resolved.source, sandbox: sandboxProvider },
+    { ...resolved.runnable, source: resolved.source, sandbox: placement },
     true,
     replacing,
   );
