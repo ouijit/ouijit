@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useShallow } from 'zustand/react/shallow';
 import { XTermContainer } from './XTermContainer';
@@ -9,12 +9,19 @@ import { PlanPanel } from '../plan/PlanPanel';
 import { WebPreviewPanel } from '../webPreview/WebPreviewPanel';
 import { WaitingDialog } from '../waiting/WaitingDialog';
 import { useTerminalPanels } from './useTerminalPanels';
+import { MainPaneHeader, PanelBar } from './PanelTabs';
 import { terminalInstances } from './terminalRegistry';
 import type { TerminalPanel } from './panelTypes';
 
 interface TerminalBodyProps {
   ptyId: string;
   projectPath: string;
+  /**
+   * The main chat's page rather than a card: no frame around the two sides, so
+   * the side is a card of its own docked beside the transcript, and the title
+   * bar names the conversation in place of a pane header.
+   */
+  page?: { footer?: ReactNode; aboveComposer?: ReactNode };
 }
 
 const EMPTY_PANELS: TerminalPanel[] = [];
@@ -22,7 +29,7 @@ const EMPTY_PANELS: TerminalPanel[] = [];
 const XTERM_CLASS =
   'terminal-xterm-container flex-1 min-h-0 min-w-0 rounded-none border-none pt-4 pl-4 pr-2 pb-2 overflow-hidden';
 
-export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
+export function TerminalBody({ ptyId, projectPath, page }: TerminalBodyProps) {
   const { panels, activePanelId, panelFullWidth, diffPanelOpen, surface } = useTerminalStore(
     useShallow((s) => {
       const d = s.displayStates[ptyId];
@@ -156,7 +163,10 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
 
   return (
     <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
-      <div ref={rowRef} className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
+      <div
+        ref={rowRef}
+        className={`relative flex-1 flex flex-row min-h-0 ${page && slotOpen ? 'pr-4 pb-4 pt-1' : 'overflow-hidden'}`}
+      >
         <div
           data-card-main
           className="relative flex flex-col min-h-0 min-w-0 overflow-hidden"
@@ -165,10 +175,13 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
             flexShrink: 1,
             flexBasis: xtermBasis,
             transition,
-            background: 'var(--color-terminal-bg)',
+            background: page ? undefined : 'var(--color-terminal-bg)',
           }}
         >
-          {surface === 'chat' ? (
+          {!page && <MainPaneHeader ptyId={ptyId} surface={surface === 'chat' ? 'chat' : 'terminal'} />}
+          {page ? (
+            <ChatView cardId={ptyId} surface="page" footer={page.footer} aboveComposer={page.aboveComposer} />
+          ) : surface === 'chat' ? (
             <ChatView cardId={ptyId} />
           ) : (
             <XTermContainer
@@ -186,7 +199,11 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
         {split && (
           <div
             ref={handleRef}
-            className="pane-seam relative w-px shrink-0 after:content-[''] after:absolute after:z-[1] after:top-0 after:bottom-0 after:-left-2 after:-right-2"
+            className={
+              page
+                ? 'w-3 shrink-0'
+                : "pane-seam relative w-px shrink-0 after:content-[''] after:absolute after:z-[1] after:top-0 after:bottom-0 after:-left-2 after:-right-2"
+            }
             style={{ cursor: 'col-resize' }}
           />
         )}
@@ -195,13 +212,16 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
           // outer corners.
           <div
             ref={panelRef}
-            className="relative flex flex-col min-h-0 overflow-hidden"
+            className={`relative flex flex-col min-h-0 overflow-hidden ${
+              page ? 'glass-bevel rounded-[14px] border border-bezel-panel' : ''
+            }`}
             style={{
               flexGrow: 0,
               flexShrink: 1,
               flexBasis: panelBasis,
               transition,
               background: 'var(--color-terminal-bg)',
+              ...(page && { boxShadow: 'var(--shadow-panel)' }),
               ...(dragging ? { pointerEvents: 'none' } : {}),
             }}
           >
@@ -214,20 +234,12 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
                 onClose={() => terminalInstances.get(ptyId)?.setDiffPanelOpen(false)}
               />
             ) : (
-              activePanel && (
-                <ActivePanel
-                  ptyId={ptyId}
-                  panel={activePanel}
-                  ops={ops}
-                  fullWidth={panelFullWidth}
-                  onToggleFullWidth={() => ops.setPanelFullWidth(!panelFullWidth)}
-                />
-              )
+              activePanel && <ActivePanel ptyId={ptyId} panel={activePanel} ops={ops} />
             )}
           </div>
         )}
       </div>
-      <WaitingDialog ptyId={ptyId} />
+      {!page && <WaitingDialog ptyId={ptyId} />}
     </div>
   );
 }
@@ -236,15 +248,12 @@ function ActivePanel({
   ptyId,
   panel,
   ops,
-  fullWidth,
-  onToggleFullWidth,
 }: {
   ptyId: string;
   panel: TerminalPanel;
   ops: ReturnType<typeof useTerminalPanels>;
-  fullWidth: boolean;
-  onToggleFullWidth: () => void;
 }) {
+  const bar = (actions: ReactNode) => <PanelBar ptyId={ptyId} actions={actions} />;
   switch (panel.kind) {
     case 'runner':
       return (
@@ -253,10 +262,7 @@ function ActivePanel({
           panelId={panel.id}
           onRestart={() => ops.restartRunner(panel.id)}
           onKill={() => ops.killRunner(panel.id)}
-          fullWidth={fullWidth}
-          onToggleFullWidth={onToggleFullWidth}
-          onMinimize={() => ops.minimizePanel()}
-          onClose={() => ops.closePanel(panel.id)}
+          bar={bar}
         />
       );
     case 'webPreview':
@@ -266,24 +272,10 @@ function ActivePanel({
           panelId={panel.id}
           url={panel.url ?? ''}
           onChangeUrl={(url) => ops.changeWebPreviewUrl(panel.id, url)}
-          fullWidth={fullWidth}
-          onToggleFullWidth={onToggleFullWidth}
-          onMinimize={() => ops.minimizePanel()}
-          onClose={() => ops.closePanel(panel.id)}
+          bar={bar}
         />
       );
     case 'plan':
-      return (
-        <PlanPanel
-          ptyId={ptyId}
-          panelId={panel.id}
-          planPath={panel.planPath}
-          onChangePlanFile={(path) => ops.changePlanFile(panel.id, path)}
-          fullWidth={fullWidth}
-          onToggleFullWidth={onToggleFullWidth}
-          onMinimize={() => ops.minimizePanel()}
-          onClose={() => ops.closePanel(panel.id)}
-        />
-      );
+      return <PlanPanel ptyId={ptyId} panelId={panel.id} planPath={panel.planPath} bar={bar} />;
   }
 }

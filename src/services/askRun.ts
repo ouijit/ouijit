@@ -1,5 +1,7 @@
 import { startRunner } from '../components/terminal/terminalActions';
 import { terminalInstances } from '../components/terminal/terminalRegistry';
+import { homePanelHost } from '../components/chat/homeChatPanels';
+import { isHomeChat } from '../stores/homeChatStore';
 import { bufferText } from '../components/terminal/terminalText';
 import { useTerminalStore } from '../stores/terminalStore';
 import type { AskAnswer, AskRun } from '../types';
@@ -37,6 +39,8 @@ function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
  * is the panel at once, or with `wait` how the run ended.
  */
 export async function runApprovedAsk(fromPtyId: string, ask: AskRun, privately: boolean): Promise<AskAnswer> {
+  // One of Chat's conversations runs it beside itself, in its own folder.
+  if (isHomeChat(fromPtyId)) await homePanelHost(fromPtyId);
   const panelId = await startRunner(fromPtyId, {
     name: ask.scriptName ?? ask.command,
     command: ask.runCommand ?? ask.command,

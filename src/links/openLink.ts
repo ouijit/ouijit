@@ -1,6 +1,9 @@
 import log from 'electron-log/renderer';
 import { focusTerminal, openProject, openProjectPage, openTaskTerminal } from '../components/navigation';
 import { terminalInstances } from '../components/terminal/terminalRegistry';
+import { homePanelHost } from '../components/chat/homeChatPanels';
+import { openHomeChat } from '../components/chat/homeChatActions';
+import { isHomeChat } from '../stores/homeChatStore';
 import { openPullRequestInPanel } from '../services/githubTaskActions';
 import { openLinearIssueInPanel } from '../services/linearTaskActions';
 import { useAppStore } from '../stores/appStore';
@@ -49,6 +52,14 @@ export async function showTask(projectPath: string, taskNumber: number): Promise
  */
 export async function openLink(uri: string): Promise<void> {
   const target = parseLink(uri);
+  if (target?.kind === 'terminal' && isHomeChat(target.ptyId)) {
+    await openHomeChat(target.ptyId);
+    const host = await homePanelHost(target.ptyId);
+    if (!target.panelId) return;
+    if (host?.panels.some((p) => p.id === target.panelId)) host.activatePanel(target.panelId);
+    else useProjectStore.getState().addToast('That panel was closed');
+    return;
+  }
   const projectPath = target && projectPathOf(target.project);
   if (!target || !projectPath) {
     linkLog.warn('unresolved link', { uri });

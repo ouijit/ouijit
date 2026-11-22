@@ -822,9 +822,13 @@ export class OuijitTerminal {
     this.syncPanels();
   }
 
+  /** The panel hidden last, so showing the panels again brings it back. */
+  lastActivePanelId: string | null = null;
+
   /** Collapse the panel area (show the bare terminal) while keeping the tabs. */
   deactivatePanel(): void {
     if (this.activePanelId === null) return;
+    this.lastActivePanelId = this.activePanelId;
     this.activePanelId = null;
     this.syncPanels();
   }

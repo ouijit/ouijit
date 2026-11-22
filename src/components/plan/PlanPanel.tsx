@@ -1,21 +1,17 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { renderPlanMarkdown } from '../../utils/renderPlanMarkdown';
 import { useResolvedTheme } from '../../hooks/useResolvedTheme';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
-import { FullWidthToggle, MinimizeButton, PanelCloseButton } from '../terminal/FullWidthToggle';
 import { openFileInEditor } from '../../services/openInEditor';
 
 interface PlanPanelProps {
   ptyId: string;
   panelId: string;
   planPath: string;
-  onChangePlanFile: (newPath: string) => void;
-  fullWidth: boolean;
-  onToggleFullWidth: () => void;
-  onMinimize: () => void;
-  onClose: () => void;
+  /** The pane's tab bar, with this panel's own actions in it. */
+  bar: (actions: ReactNode) => ReactNode;
 }
 
 // ── File existence helpers ───────────────────────────────────────────
@@ -30,23 +26,13 @@ function applyFileExistence(container: HTMLElement, existence: Record<string, bo
   });
 }
 
-export function PlanPanel({
-  ptyId,
-  planPath,
-  onChangePlanFile,
-  fullWidth,
-  onToggleFullWidth,
-  onMinimize,
-  onClose,
-}: PlanPanelProps) {
+export function PlanPanel({ ptyId, planPath, bar }: PlanPanelProps) {
   const [content, setContent] = useState<string | null>(null);
   const [renderedHtml, setRenderedHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
   const renderGenRef = useRef(0);
-
-  const filename = planPath.split('/').pop() ?? 'plan.md';
 
   // Load initial content and start file watching
   useEffect(() => {
@@ -204,23 +190,7 @@ export function PlanPanel({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
-        <Icon name="file-text" className="w-3.5 h-3.5 text-ink/50 shrink-0" />
-        <button
-          className="text-[13px] text-ink/50 truncate flex-1 font-mono bg-transparent border-none p-0 text-left transition-colors duration-150 hover:text-ink/80"
-          title={planPath}
-          onClick={async () => {
-            const inst = terminalInstances.get(ptyId);
-            const defaultDir = inst?.worktreePath || inst?.projectPath;
-            const result = await window.api.plan.pickFile(defaultDir);
-            if (!result.canceled && result.filePath) {
-              onChangePlanFile(result.filePath);
-            }
-          }}
-        >
-          {filename}
-        </button>
+      {bar(
         <TooltipButton
           text={copied ? 'Copied!' : 'Copy to clipboard'}
           placement="bottom"
@@ -228,11 +198,8 @@ export function PlanPanel({
           onClick={handleCopy}
         >
           <Icon name={copied ? 'check' : 'clipboard-text'} className={copied ? 'text-ansi-green' : ''} />
-        </TooltipButton>
-        <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
-        <MinimizeButton onMinimize={onMinimize} />
-        <PanelCloseButton onClose={onClose} />
-      </div>
+        </TooltipButton>,
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 py-4" onClick={handleClick}>

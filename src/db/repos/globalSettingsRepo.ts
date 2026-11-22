@@ -21,4 +21,8 @@ export class GlobalSettingsRepo {
   set(key: string, value: string): void {
     this.setStmt.run(key, value);
   }
+
+  delete(key: string): void {
+    this.db.prepare('DELETE FROM global_settings WHERE key = ?').run(key);
+  }
 }

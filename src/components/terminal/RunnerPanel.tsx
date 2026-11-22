@@ -1,91 +1,62 @@
+import type { ReactNode } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances } from './terminalRegistry';
 import { XTermContainer } from './XTermContainer';
 import { Icon } from './Icon';
 import { Tooltip } from '../ui/Tooltip';
-import { FullWidthToggle, MinimizeButton, PanelCloseButton } from './FullWidthToggle';
-import { SANDBOX_LABELS } from '../../types';
-import { RunnerDot } from './StatusDot';
-import type { RunnerStatus } from './panelTypes';
-
-const RUNNER_LABELS: Record<RunnerStatus, string> = {
-  running: 'Running',
-  success: 'Exited',
-  error: 'Failed',
-  idle: 'Stopped',
-};
 
 interface RunnerPanelProps {
   ptyId: string;
   panelId: string;
   onRestart: () => void;
   onKill: () => void;
-  fullWidth: boolean;
-  onToggleFullWidth: () => void;
-  onMinimize: () => void;
-  onClose: () => void;
+  /** The pane's tab bar, with this panel's own actions in it. */
+  bar: (actions: ReactNode) => ReactNode;
 }
 
-export function RunnerPanel({
-  ptyId,
-  panelId,
-  onRestart,
-  onKill,
-  fullWidth,
-  onToggleFullWidth,
-  onMinimize,
-  onClose,
-}: RunnerPanelProps) {
+export function RunnerPanel({ ptyId, panelId, onRestart, onKill, bar }: RunnerPanelProps) {
   const panel = useTerminalStore((s) => s.displayStates[ptyId]?.panels.find((p) => p.id === panelId));
   const instance = terminalInstances.get(ptyId);
   const runner = instance?.runnerChildren.get(panelId);
   const runnerPtyId = runner?.ptyId;
-
-  const panelTitle = (panel?.kind === 'runner' ? panel.command || panel.scriptName : null) || 'Runner';
+  // The tab names a script by its name; what it runs is said under it.
+  const command = panel?.kind === 'runner' && panel.scriptName ? panel.command || panel.scriptCommand : null;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
-        {panel?.kind === 'runner' && (
-          <Tooltip
-            text={[RUNNER_LABELS[panel.status], panel.sandboxProvider && SANDBOX_LABELS[panel.sandboxProvider]]
-              .filter(Boolean)
-              .join(' · ')}
-            placement="top"
-            delay={300}
-          >
-            <RunnerDot status={panel.status} sandboxProvider={panel.sandboxProvider} />
-          </Tooltip>
-        )}
-        <span className="text-[13px] text-ink/50 truncate flex-1 font-mono">{panelTitle}</span>
-        {runnerPtyId && (
-          <Tooltip text="Kill">
+      {bar(
+        <>
+          {runnerPtyId && (
+            <Tooltip text="Kill">
+              <button
+                className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/40 shrink-0 transition-all duration-150 ease-out hover:bg-error/20 hover:text-ansi-red [&>svg]:w-3.5 [&>svg]:h-3.5"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onKill();
+                }}
+              >
+                <Icon name="prohibit" />
+              </button>
+            </Tooltip>
+          )}
+          <Tooltip text="Restart">
             <button
-              className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/40 shrink-0 transition-all duration-150 ease-out hover:bg-error/20 hover:text-ansi-red [&>svg]:w-3.5 [&>svg]:h-3.5"
+              className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/60 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
               onClick={(e) => {
                 e.stopPropagation();
-                onKill();
+                onRestart();
               }}
             >
-              <Icon name="prohibit" />
+              <Icon name="arrow-counter-clockwise" />
             </button>
           </Tooltip>
-        )}
-        <Tooltip text="Restart">
-          <button
-            className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/60 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRestart();
-            }}
-          >
-            <Icon name="arrow-counter-clockwise" />
-          </button>
-        </Tooltip>
-        <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
-        <MinimizeButton onMinimize={onMinimize} />
-        <PanelCloseButton onClose={onClose} />
-      </div>
+        </>,
+      )}
+      {command && (
+        <div className="px-4 pb-1.5 shrink-0 text-[12px] text-ink/45 font-mono truncate" title={command}>
+          {command}
+        </div>
+      )}
       <div className="flex-1 overflow-hidden min-h-0 px-3 pb-3">
         {runnerPtyId ? (
           <XTermContainer ptyId={runnerPtyId} className="runner-xterm-container w-full h-full overflow-hidden" />

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { getChatRepo, getGlobalSetting, setGlobalSetting } from '../db';
+import { deleteGlobalSetting, getChatRepo, getGlobalSetting, setGlobalSetting } from '../db';
 import { getLogger } from '../logger';
 import { getUserDataPath } from '../paths';
 import { trashItem } from '../platform';
@@ -13,6 +13,7 @@ import {
   HOME_CHAT_ID_PREFIX,
   HOME_CHAT_SETTING_KEYS,
   UNTITLED_HOME_CHAT,
+  homeChatPanelsKey,
   parseHomeChatSettings,
   taskKey,
   taskOfKey,
@@ -235,6 +236,7 @@ export async function deleteHomeChat(id: string): Promise<HomeChatState> {
   if (!isHomeChat(id)) throw new Error(`Not one of Chat's conversations: ${id}`);
   const wasCurrent = (await currentHomeChatId()) === id;
   await chatHost.discard(id);
+  deleteGlobalSetting(homeChatPanelsKey(id));
   await trashFolder(conversationDir(id));
   getChatRepo().unfollowAll(id);
   if (wasCurrent) {

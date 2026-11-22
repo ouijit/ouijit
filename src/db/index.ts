@@ -738,6 +738,10 @@ export async function setGlobalSetting(key: string, value: string): Promise<{ su
   }
 }
 
+export function deleteGlobalSetting(key: string): void {
+  repos().globalSettingsRepo.delete(key);
+}
+
 // ── Script functions ────────────────────────────────────────────────
 
 export interface Script {

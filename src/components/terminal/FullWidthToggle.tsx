@@ -1,7 +1,7 @@
 import { Icon } from './Icon';
 import { Tooltip } from '../ui/Tooltip';
 
-const PANEL_HEADER_BUTTON =
+export const PANEL_HEADER_BUTTON =
   'w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/60 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5';
 
 export function FullWidthToggle({ fullWidth, onToggle }: { fullWidth: boolean; onToggle: () => void }) {
@@ -24,14 +24,14 @@ export function FullWidthToggle({ fullWidth, onToggle }: { fullWidth: boolean; o
 /** Collapses the panel, keeping its tab. */
 export function MinimizeButton({ onMinimize }: { onMinimize: () => void }) {
   return (
-    <Tooltip text="Minimize">
+    <Tooltip text="Hide">
       <button
         className={PANEL_HEADER_BUTTON}
         onClick={(e) => {
           e.stopPropagation();
           onMinimize();
         }}
-        aria-label="Minimize"
+        aria-label="Hide"
       >
         <Icon name="minus" />
       </button>

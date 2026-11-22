@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TerminalHeader } from '../../components/terminal/TerminalHeader';
+import { MainPaneHeader } from '../../components/terminal/PanelTabs';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
 import { startRunner } from '../../components/terminal/terminalActions';
 import { getProjectConfig, runnerPlace, useProjectDataStore } from '../../stores/projectDataStore';
@@ -48,8 +49,13 @@ function seed(
 }
 
 function openAddMenu() {
-  render(<TerminalHeader ptyId={PTY} isActive onClose={() => {}} />);
-  fireEvent.click(screen.getByLabelText('Add panel'));
+  render(
+    <>
+      <TerminalHeader ptyId={PTY} isActive onClose={() => {}} />
+      <MainPaneHeader ptyId={PTY} surface="terminal" />
+    </>,
+  );
+  fireEvent.click(screen.getByLabelText('Open beside'));
 }
 
 describe("the terminal's + menu", () => {
@@ -77,7 +83,7 @@ describe("the terminal's + menu", () => {
       expect.objectContaining({ type: 'run', command: 'npm run dev' }),
     );
 
-    fireEvent.click(screen.getByLabelText('Add panel'));
+    fireEvent.click(screen.getByLabelText('Open beside'));
     expect(screen.getByText('Run')).toBeTruthy();
     expect(screen.queryByText('Configure run command…')).toBeNull();
   });
@@ -125,7 +131,7 @@ describe("the terminal's + menu", () => {
     fireEvent.click(screen.getByText('Lint'));
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, 'custom'));
 
-    fireEvent.click(screen.getByLabelText('Add panel'));
+    fireEvent.click(screen.getByLabelText('Open beside'));
     fireEvent.mouseEnter(screen.getByText('Run in').closest('div')!);
     fireEvent.click(await screen.findByRole('button', { name: 'Host' }));
     await waitFor(() => expect(runnerPlace(getProjectConfig(PROJECT))).toBe('none'));
@@ -136,19 +142,19 @@ describe("the terminal's + menu", () => {
     fireEvent.click(screen.getByText('Lint'));
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, undefined));
 
-    fireEvent.click(screen.getByLabelText('Add panel'));
+    fireEvent.click(screen.getByLabelText('Open beside'));
     fireEvent.click(screen.getByText('Lint'));
     await waitFor(() => expect(startRunner).toHaveBeenCalledTimes(3));
     expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, undefined);
 
-    fireEvent.click(screen.getByLabelText('Add panel'));
+    fireEvent.click(screen.getByLabelText('Open beside'));
     fireEvent.mouseEnter(screen.getByText('Run in').closest('div')!);
     fireEvent.click(await screen.findByRole('button', { name: 'Default (Custom)' }));
     await waitFor(() => expect(runnerPlace(getProjectConfig(PROJECT))).toBe('custom'));
     fireEvent.click(screen.getByText('Lint'));
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, 'custom'));
 
-    fireEvent.click(screen.getByLabelText('Add panel'));
+    fireEvent.click(screen.getByLabelText('Open beside'));
     fireEvent.click(screen.getByLabelText('Edit Lint'));
     const command = await screen.findByLabelText('Command');
     expect(screen.getByText('Edit Script')).toBeTruthy();

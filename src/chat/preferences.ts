@@ -94,6 +94,11 @@ export const HOME_CHAT_SETTING_KEYS = {
   current: 'homeChat:current',
 } as const;
 
+/** The panels open beside one of Chat's conversations, as the window last left them. */
+export function homeChatPanelsKey(id: string): string {
+  return `homeChat:panels:${id}`;
+}
+
 export const UNTITLED_HOME_CHAT = 'New chat';
 
 /** A conversation's title, until renamed: the start of what it was asked first. */

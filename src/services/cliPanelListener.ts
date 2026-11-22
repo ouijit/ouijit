@@ -1,6 +1,8 @@
 import log from 'electron-log/renderer';
 import type { OuijitTerminal } from '../components/terminal/terminalReact';
 import { whenTerminalReady } from '../components/terminal/terminalRegistry';
+import { homePanelHost } from '../components/chat/homeChatPanels';
+import { isHomeChat } from '../stores/homeChatStore';
 import { startRunner } from '../components/terminal/terminalActions';
 import { panelLabel, type TerminalPanel } from '../components/terminal/panelTypes';
 import { bufferText } from '../components/terminal/terminalText';
@@ -136,7 +138,9 @@ async function handleOp(op: CliPanelOp): Promise<void> {
     void window.api.cliPanels.respond(op.requestId, response);
   };
 
-  const instance = await whenTerminalReady(op.ptyId, TERMINAL_READY_WAIT_MS);
+  const instance = isHomeChat(op.ptyId)
+    ? await homePanelHost(op.ptyId)
+    : await whenTerminalReady(op.ptyId, TERMINAL_READY_WAIT_MS);
   if (!instance) {
     respond({
       ok: false,

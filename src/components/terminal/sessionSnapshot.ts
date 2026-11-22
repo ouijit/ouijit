@@ -23,7 +23,8 @@ export { SNAPSHOT_KEY };
 
 // ── Gather ───────────────────────────────────────────────────────────
 
-function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
+/** A card's panels and layout, as saved and restored with it. */
+export function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
   const panels: SnapshotPanel[] = [];
   let activePanelIndex: number | null = null;
 

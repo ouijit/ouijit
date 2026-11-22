@@ -2,6 +2,7 @@ import log from 'electron-log/renderer';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAppStore } from '../../stores/appStore';
+import { disposeHomePanelHost } from './homeChatPanels';
 import { useHomeChatStore } from '../../stores/homeChatStore';
 import { generateId } from '../../utils/ids';
 import { HOME_CHAT_ID_PREFIX } from '../../chat/preferences';
@@ -57,6 +58,7 @@ export async function newHomeChat(): Promise<void> {
 export async function deleteHomeChat(id: string): Promise<void> {
   try {
     useHomeChatStore.getState().set(await window.api.homeChat.delete(id));
+    disposeHomePanelHost(id);
     useChatStore.getState().forget(id);
   } catch (error) {
     useProjectStore.getState().addToast(String(error), 'error');

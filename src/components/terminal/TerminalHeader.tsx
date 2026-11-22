@@ -1,4 +1,4 @@
-import { Fragment, memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { getProjectConfig, loadTasks, useProjectConfig, useProjectTask } from '../../stores/projectDataStore';
@@ -13,9 +13,7 @@ import { TerminalHeaderView, TerminalHeaderName } from './TerminalHeaderView';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { Tooltip } from '../ui/Tooltip';
 import { AddPanelMenu } from './AddPanelMenu';
-import { useTerminalPanels } from './useTerminalPanels';
-import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
-import { RunnerDot } from './StatusDot';
+import { useAddPanelMenu } from './addPanelMenuStore';
 import type { GitFileStatus, RunnerScript, SandboxBackendId, Script, ScriptHook } from '../../types';
 import { closedTaskChats, openEntries, moveToEntry, trackerEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
@@ -32,7 +30,6 @@ import { addChatCard } from '../chat/chatActions';
 
 const EMPTY_TAGS: string[] = [];
 const NO_BACKENDS: SandboxBackendId[] = [];
-const EMPTY_PANELS: TerminalPanel[] = [];
 
 interface TerminalHeaderProps {
   ptyId: string;
@@ -50,51 +47,37 @@ export const TerminalHeader = memo(function TerminalHeader({
   onClose,
 }: TerminalHeaderProps) {
   // One shallow-compared subscription replaces many individual selectors.
-  const {
-    label,
-    status,
-    gitFileStatus,
-    lastOscTitle,
-    tags,
-    sandboxProvider,
-    taskId,
-    diffPanelOpen,
-    panels,
-    activePanelId,
-    surface,
-  } = useTerminalStore(
-    useShallow((s) => {
-      const d = s.displayStates[ptyId];
-      return {
-        label: d?.label ?? '',
-        status: d?.status ?? 'ready',
-        gitFileStatus: d?.gitFileStatus ?? null,
-        lastOscTitle: d?.lastOscTitle ?? '',
-        tags: d?.tags ?? EMPTY_TAGS,
-        sandboxProvider: d?.sandboxProvider,
-        taskId: d?.taskId ?? null,
-        diffPanelOpen: d?.diffPanelOpen ?? false,
-        panels: d?.panels ?? EMPTY_PANELS,
-        activePanelId: d?.activePanelId ?? null,
-        surface: d?.surface ?? 'terminal',
-      };
-    }),
-  );
+  const { label, status, gitFileStatus, lastOscTitle, tags, sandboxProvider, taskId, diffPanelOpen, surface } =
+    useTerminalStore(
+      useShallow((s) => {
+        const d = s.displayStates[ptyId];
+        return {
+          label: d?.label ?? '',
+          status: d?.status ?? 'ready',
+          gitFileStatus: d?.gitFileStatus ?? null,
+          lastOscTitle: d?.lastOscTitle ?? '',
+          tags: d?.tags ?? EMPTY_TAGS,
+          sandboxProvider: d?.sandboxProvider,
+          taskId: d?.taskId ?? null,
+          diffPanelOpen: d?.diffPanelOpen ?? false,
+          surface: d?.surface ?? 'terminal',
+        };
+      }),
+    );
   const chatCapabilities = useChatStore((s) => s.sessions[ptyId]?.info.capabilities);
 
-  const panelOps = useTerminalPanels(ptyId);
   const unread = useWantsYou(ptyId);
 
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
+  const addMenu = useAddPanelMenu((s) => (s.open?.ptyId === ptyId ? s.open : null));
+  const closeAddMenu = useAddPanelMenu((s) => s.close);
   const [renameTarget, setRenameTarget] = useState<null | 'terminal' | 'task'>(null);
   const [branchFromDialog, setBranchFromDialog] = useState(false);
   const [commandDialog, setCommandDialog] = useState<
     { kind: 'run'; existing?: ScriptHook } | { kind: 'script'; existing?: Script } | null
   >(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
-  const addRef = useRef<HTMLButtonElement>(null);
 
   const instance = terminalInstances.get(ptyId);
   const projectPath = instance?.projectPath ?? '';
@@ -270,12 +253,6 @@ export const TerminalHeader = memo(function TerminalHeader({
     [ptyId],
   );
 
-  const openAddMenu = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    const rect = addRef.current?.getBoundingClientRect();
-    if (rect) setAddMenu({ x: rect.left, y: rect.bottom + 4 });
-  }, []);
-
   const handleAddRunner = useCallback(
     (script?: RunnerScript, sandbox?: SandboxBackendId) => {
       void startRunner(ptyId, script, sandbox);
@@ -361,7 +338,7 @@ export const TerminalHeader = memo(function TerminalHeader({
           onConfigureRun={(existing) => setCommandDialog({ kind: 'run', existing })}
           onNewScript={() => setCommandDialog({ kind: 'script' })}
           onEditScript={(existing) => setCommandDialog({ kind: 'script', existing })}
-          onClose={() => setAddMenu(null)}
+          onClose={closeAddMenu}
         />
       )}
       {commandDialog?.kind === 'run' && (
@@ -405,18 +382,7 @@ export const TerminalHeader = memo(function TerminalHeader({
       actions={
         isActive ? (
           <>
-            <PanelControls
-              panels={panels}
-              activePanelId={activePanelId}
-              gitFileStatus={gitFileStatus}
-              diffPanelOpen={diffPanelOpen}
-              addRef={addRef}
-              onActivate={panelOps.activatePanel}
-              onMinimize={panelOps.minimizePanel}
-              onClosePanel={panelOps.closePanel}
-              onDiffClick={handleDiffClick}
-              onAddClick={openAddMenu}
-            />
+            <DiffButton gitFileStatus={gitFileStatus} diffPanelOpen={diffPanelOpen} onClick={handleDiffClick} />
           </>
         ) : undefined
       }
@@ -488,137 +454,53 @@ function BranchCopy({ branch }: { branch: string }) {
   );
 }
 
-// Joined, beveled segmented control in the terminal header: one segment per
-// open panel (runner/preview/plan) plus the contextual diff toggle, an "add"
-// trigger, and a full-width toggle when a panel is active.
-const groupButtonBase =
-  'group/seg h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium transition-colors duration-150 ease-out';
-// Panel tabs behave like browser tabs: `flex-1` (zero basis, equal grow) hands
-// every tab the same share of the control, `max-w-max` caps each at its own
-// natural width so a lone tab isn't stretched, and `min-w-0` lets them all
-// truncate together once the header runs out of room.
-const groupButtonFlexible = 'flex-1 min-w-0 max-w-max overflow-hidden';
-const groupButtonInactive = 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary';
-const groupButtonActive = 'bg-accent text-accent-ink hover:bg-accent';
-
-function PanelControls({
-  panels,
-  activePanelId,
+/**
+ * The size of the change, and nothing about what it is measured against: the
+ * tooltip says that, and on a board of task cards the base is the same one on
+ * nearly every card. Offered wherever there is a repo to read, not only where
+ * the comparison has something in it, since the panel it opens is where
+ * another one is chosen.
+ */
+function DiffButton({
   gitFileStatus,
   diffPanelOpen,
-  addRef,
-  onActivate,
-  onMinimize,
-  onClosePanel,
-  onDiffClick,
-  onAddClick,
+  onClick,
 }: {
-  panels: TerminalPanel[];
-  activePanelId: string | null;
   gitFileStatus: GitFileStatus | null;
   diffPanelOpen: boolean;
-  addRef: React.RefObject<HTMLButtonElement | null>;
-  onActivate: (id: string) => void;
-  onMinimize: () => void;
-  onClosePanel: (id: string) => void;
-  onDiffClick: (e: React.MouseEvent) => void;
-  onAddClick: (e: React.MouseEvent) => void;
+  onClick: (e: React.MouseEvent) => void;
 }) {
-  // The same list the panel this button opens shows, read off the same status,
-  // so the two can never offer and show different diffs.
-  const diffFiles = gitFileStatus ? filesInDiff(gitFileStatus) : [];
-  const dirtyFileCount = diffFiles.length;
-  const insertions = diffFiles.reduce((s, f) => s + f.additions, 0);
-  const deletions = diffFiles.reduce((s, f) => s + f.deletions, 0);
-  // Offered wherever there is a repo to read, not only where the comparison it
-  // opens on has something in it: the panel is where another one is chosen, so
-  // gating the way in on this one leaves no way to reach the rest.
-  const showDiff = gitFileStatus !== null;
-  const comparison = gitFileStatus ? describeDiffComparison(gitFileStatus.base, gitFileStatus.branch) : '';
-
-  const slots: React.ReactNode[] = [];
-
-  for (const panel of panels) {
-    const active = panel.id === activePanelId;
-    slots.push(
-      <button
-        key={panel.id}
-        className={`${groupButtonBase} ${groupButtonFlexible} ${active ? groupButtonActive : groupButtonInactive}`}
-        // Clicking the already-active tab minimizes it (collapses to the bare terminal).
-        onClick={() => (active ? onMinimize() : onActivate(panel.id))}
-      >
-        {panel.kind === 'runner' ? (
-          <RunnerDot status={panel.status} sandboxProvider={panel.sandboxProvider} />
-        ) : (
-          <Icon name={panelIcon(panel)} className="w-3.5 h-3.5 shrink-0" />
-        )}
-        <span className="truncate max-w-[120px]">{panelLabel(panel)}</span>
-        <span
-          role="button"
-          aria-label="Close panel"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClosePanel(panel.id);
-          }}
-          // The huge shrink factor collapses the close affordance before the
-          // label gives up any width, so a squeezed tab keeps its name.
-          className="-mr-1 ml-0.5 w-4 h-4 flex items-center justify-center rounded shrink-[9999] min-w-0 overflow-hidden opacity-0 group-hover/seg:opacity-100 hover:bg-ink/15 transition-all duration-150 [&>svg]:w-3 [&>svg]:h-3"
-        >
-          <Icon name="x" />
-        </span>
-      </button>,
-    );
-  }
-
-  if (showDiff) {
-    slots.push(
-      <Tooltip key="diff" text={comparison} referenceClassName="shrink-0 inline-flex h-full">
-        <button
-          className={`${groupButtonBase} ${dirtyFileCount === 0 ? '!px-2' : ''} ${
-            diffPanelOpen ? groupButtonActive : groupButtonInactive
-          }`}
-          aria-label="Diff"
-          onClick={onDiffClick}
-        >
-          {/* The size of the change, and nothing about what it is measured
-              against — the tooltip says that, and on a board of task cards the
-              base is the same one on nearly every card. */}
-          {dirtyFileCount === 0 ? (
-            <Icon name="git-diff" className="w-3.5 h-3.5" />
-          ) : (
-            <>
-              <span className="shrink-0">
-                {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
-              </span>
-              {insertions > 0 && <span className={diffPanelOpen ? '' : 'text-status-ready'}>+{insertions}</span>}
-              {deletions > 0 && <span className={diffPanelOpen ? '' : 'text-ansi-red'}>-{deletions}</span>}
-            </>
-          )}
-        </button>
-      </Tooltip>,
-    );
-  }
-
-  slots.push(
-    <button
-      key="add"
-      ref={addRef}
-      className={`${groupButtonBase} shrink-0 !px-2 ${groupButtonInactive}`}
-      onClick={onAddClick}
-      aria-label="Add panel"
-    >
-      <Icon name="plus" className="w-3.5 h-3.5" />
-    </button>,
-  );
-
+  if (!gitFileStatus) return null;
+  const files = filesInDiff(gitFileStatus);
+  const insertions = files.reduce((n, f) => n + f.additions, 0);
+  const deletions = files.reduce((n, f) => n + f.deletions, 0);
   return (
-    <div className="flex items-center min-w-0 h-7 bg-background-secondary glass-bevel relative border border-bezel rounded-[12px] overflow-hidden">
-      {slots.map((slot, i) => (
-        <Fragment key={i}>
-          {i > 0 && <div aria-hidden className="w-px h-3 shrink-0 bg-ink/10 self-center" />}
-          {slot}
-        </Fragment>
-      ))}
-    </div>
+    <Tooltip
+      text={describeDiffComparison(gitFileStatus.base, gitFileStatus.branch)}
+      referenceClassName="shrink-0 inline-flex"
+    >
+      <button
+        type="button"
+        aria-label="Diff"
+        aria-pressed={diffPanelOpen}
+        onClick={onClick}
+        className={`h-7 px-2 flex items-center gap-1.5 rounded-md border-none text-[13px] transition-colors duration-150 ${
+          diffPanelOpen
+            ? 'bg-ink/[0.07] text-ink/85'
+            : 'bg-transparent text-ink/55 hover:text-ink/85 hover:bg-ink/[0.05]'
+        }`}
+      >
+        <Icon name="git-diff" className="w-3.5 h-3.5 shrink-0" />
+        {files.length > 0 && (
+          <>
+            <span className="shrink-0">
+              {files.length} {files.length === 1 ? 'file' : 'files'}
+            </span>
+            {insertions > 0 && <span className="text-status-ready">+{insertions}</span>}
+            {deletions > 0 && <span className="text-ansi-red">-{deletions}</span>}
+          </>
+        )}
+      </button>
+    </Tooltip>
   );
 }

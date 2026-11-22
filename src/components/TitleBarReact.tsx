@@ -22,6 +22,7 @@ import {
 } from '../stores/terminalStore';
 import { showInListOrder } from './sidebar/SidebarRows';
 import { useSidebarShown } from './sidebar/sidebarShown';
+import { PanelsAway } from './terminal/PanelTabs';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -100,6 +101,7 @@ export function TitleBar() {
   const onSettings = selection.kind === 'app-settings' || (selection.kind === 'page' && selection.page === 'settings');
   const onChat = selection.kind === 'chat';
   const chatTitle = useHomeChatStore((s) => currentHomeChatTitle(s)) ?? UNTITLED_HOME_CHAT;
+  const currentChat = useHomeChatStore((s) => s.currentId);
   const offersCreation = !cloning && !onSettings && !onChat;
   // With the sidebar out of the way the traffic lights sit over the title bar.
   // Settings takes the whole window, sidebar and all.
@@ -172,6 +174,11 @@ export function TitleBar() {
           </div>
         )}
         <div className="flex-1" />
+        {onChat && currentChat && (
+          <div className="flex items-center [-webkit-app-region:no-drag]">
+            <PanelsAway ptyId={currentChat} />
+          </div>
+        )}
         {showsTerminal && flags.canvas && (
           <Tooltip text={terminalLayout === 'canvas' ? 'Stack' : 'Canvas'} placement="bottom">
             <button

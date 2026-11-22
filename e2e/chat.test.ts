@@ -254,8 +254,9 @@ test('decision: a card waits for the words before it, and Chat hears how you dec
   await chatIdle(appPage, id);
 });
 
-test('switching: going to another conversation and back shows the first one whole, without streaming it again', async ({
+test('switching: going to another conversation and back shows the first one whole, without streaming it again, and what it had open beside it', async ({
   appPage,
+  electronApp,
   testRepo,
 }) => {
   test.setTimeout(TIMEOUT);
@@ -265,10 +266,30 @@ test('switching: going to another conversation and back shows the first one whol
   const shown = frames.at(-1)!.said.reduce((a, b) => a + b, 0);
   expect(shown).toBeGreaterThan(100);
 
+  // What the conversation opens with the CLI sits beside it in a card of its
+  // own, under a tab naming it; hidden, the title bar says what is open.
+  const folder = await appPage.evaluate(async (cid) => (await window.api.chat.snapshot(cid))!.info.cwd, first);
+  fs.writeFileSync(path.join(folder, 'calendar.md'), '# Content calendar\n\nWeek one: the sandbox post.\n');
+  expect(
+    await asChat(electronApp, first, testRepo.repoPath, ['markdown', 'add', path.join(folder, 'calendar.md')]),
+  ).toMatchObject({
+    panels: [{ kind: 'markdown', label: 'calendar.md', active: true }],
+  });
+  const tab = appPage.getByRole('tab', { name: 'calendar.md' });
+  await expect(tab).toBeVisible();
+  await expect(appPage.getByRole('heading', { name: 'Content calendar' })).toBeVisible();
+  await expect(appPage.getByPlaceholder('Send a message')).toBeVisible();
+  await appPage.getByRole('button', { name: 'Hide', exact: true }).click();
+  await expect(tab).toHaveCount(0);
+  await appPage.getByRole('button', { name: '1 open' }).click();
+  await expect(tab).toBeVisible();
+
   const sidebar = appPage.getByRole('complementary', { name: 'Sidebar' });
   await sidebar.getByRole('button', { name: 'New chat' }).click({ force: true });
   await expect.poll(() => currentChat(appPage)).not.toBe(first);
   await chatIdle(appPage, await currentChat(appPage));
+  // A new conversation has nothing open beside it.
+  await expect(appPage.getByRole('tab', { name: 'calendar.md' })).toHaveCount(0);
 
   await sidebar.getByRole('button', { name: /^Reply with three sentences/ }).click();
   await expect.poll(() => currentChat(appPage)).toBe(first);
@@ -291,4 +312,13 @@ test('switching: going to another conversation and back shows the first one whol
   );
   expect(lengths.filter((n) => n > 0).every((n) => n === shown)).toBe(true);
   expect(lengths.at(-1)).toBe(shown);
+
+  // Its panel came back with it, and comes back with the window too.
+  await expect(appPage.getByRole('tab', { name: 'calendar.md' })).toBeVisible();
+  await appPage.reload();
+  await appPage
+    .getByRole('complementary', { name: 'Sidebar' })
+    .getByRole('button', { name: /^Reply with three sentences/ })
+    .click();
+  await expect(appPage.getByRole('tab', { name: 'calendar.md' })).toBeVisible();
 });

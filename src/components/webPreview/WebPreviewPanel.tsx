@@ -1,7 +1,6 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
-import { FullWidthToggle, MinimizeButton, PanelCloseButton } from '../terminal/FullWidthToggle';
 import { normalizeUrl } from './urlHelpers';
 
 interface WebPreviewPanelProps {
@@ -9,10 +8,8 @@ interface WebPreviewPanelProps {
   panelId: string;
   url: string;
   onChangeUrl: (newUrl: string) => void;
-  fullWidth: boolean;
-  onToggleFullWidth: () => void;
-  onMinimize: () => void;
-  onClose: () => void;
+  /** The pane's tab bar; the address bar sits under it. */
+  bar: (actions: ReactNode) => ReactNode;
 }
 
 // Electron <webview> is a custom element. Declare the minimal API surface we use.
@@ -29,14 +26,7 @@ interface ElectronWebviewElement extends HTMLElement {
   openDevTools(): void;
 }
 
-export function WebPreviewPanel({
-  url,
-  onChangeUrl,
-  fullWidth,
-  onToggleFullWidth,
-  onMinimize,
-  onClose,
-}: WebPreviewPanelProps) {
+export function WebPreviewPanel({ url, onChangeUrl, bar }: WebPreviewPanelProps) {
   const [loading, setLoading] = useState(false);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
@@ -176,8 +166,8 @@ export function WebPreviewPanel({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-1 px-2 py-1.5 shrink-0">
+      {bar(null)}
+      <div className="flex items-center gap-1 px-2 pb-1.5 shrink-0">
         <TooltipButton
           text="Back"
           placement="bottom"
@@ -229,9 +219,6 @@ export function WebPreviewPanel({
             {currentUrl || 'Enter URL…'}
           </button>
         )}
-        <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
-        <MinimizeButton onMinimize={onMinimize} />
-        <PanelCloseButton onClose={onClose} />
       </div>
 
       {/* Content */}
