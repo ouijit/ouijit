@@ -50,6 +50,9 @@ export interface WebPreviewPanel {
   id: string;
   kind: 'webPreview';
   url: string | null;
+  /** As the page last reported them, for its tab. */
+  title?: string;
+  favicon?: string;
 }
 
 export interface PlanPanel {
@@ -85,7 +88,7 @@ export function panelLabel(panel: TerminalPanel): string {
     case 'runner':
       return panel.scriptName || panel.command || 'Runner';
     case 'webPreview':
-      return panel.url ? previewHostLabel(panel.url) : 'Preview';
+      return panel.title || (panel.url ? previewHostLabel(panel.url) : 'Preview');
     case 'plan':
       return panel.planPath.split('/').pop() ?? 'Markdown File';
   }

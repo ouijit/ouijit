@@ -8,6 +8,8 @@ interface WebPreviewPanelProps {
   panelId: string;
   url: string;
   onChangeUrl: (newUrl: string) => void;
+  /** What the page says it is called, and its icon, for its tab. */
+  onPageInfo: (info: { title?: string; favicon?: string }) => void;
   /** The pane's tab bar; the address bar sits under it. */
   bar: (actions: ReactNode) => ReactNode;
 }
@@ -26,7 +28,9 @@ interface ElectronWebviewElement extends HTMLElement {
   openDevTools(): void;
 }
 
-export function WebPreviewPanel({ url, onChangeUrl, bar }: WebPreviewPanelProps) {
+export function WebPreviewPanel({ url, onChangeUrl, onPageInfo, bar }: WebPreviewPanelProps) {
+  const pageInfo = useRef(onPageInfo);
+  pageInfo.current = onPageInfo;
   const [loading, setLoading] = useState(false);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
@@ -80,6 +84,16 @@ export function WebPreviewPanel({ url, onChangeUrl, bar }: WebPreviewPanelProps)
         // ignore
       }
     };
+    // A page that names no icon of its own must not keep the last one's.
+    const handlePageChange = () => pageInfo.current({ favicon: undefined });
+    const handleTitle = (e: Event) => {
+      const title = (e as Event & { title?: string }).title?.trim();
+      if (title) pageInfo.current({ title });
+    };
+    const handleFavicon = (e: Event) => {
+      const [favicon] = (e as Event & { favicons?: string[] }).favicons ?? [];
+      if (favicon) pageInfo.current({ favicon });
+    };
     const handleFailLoad = (e: Event) => {
       const failEvent = e as Event & { errorCode?: number; errorDescription?: string; validatedURL?: string };
       // -3 is ERR_ABORTED (usually user navigation away); ignore it.
@@ -93,6 +107,9 @@ export function WebPreviewPanel({ url, onChangeUrl, bar }: WebPreviewPanelProps)
     node.addEventListener('did-navigate', handleNavigate);
     node.addEventListener('did-navigate-in-page', handleNavigate);
     node.addEventListener('did-fail-load', handleFailLoad);
+    node.addEventListener('did-navigate', handlePageChange);
+    node.addEventListener('page-title-updated', handleTitle);
+    node.addEventListener('page-favicon-updated', handleFavicon);
 
     (node as HTMLElement & { __ouijitCleanup?: () => void }).__ouijitCleanup = () => {
       node.removeEventListener('did-start-loading', handleStart);
@@ -100,6 +117,9 @@ export function WebPreviewPanel({ url, onChangeUrl, bar }: WebPreviewPanelProps)
       node.removeEventListener('did-navigate', handleNavigate);
       node.removeEventListener('did-navigate-in-page', handleNavigate);
       node.removeEventListener('did-fail-load', handleFailLoad);
+      node.removeEventListener('did-navigate', handlePageChange);
+      node.removeEventListener('page-title-updated', handleTitle);
+      node.removeEventListener('page-favicon-updated', handleFavicon);
     };
   }, []);
 

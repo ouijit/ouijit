@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { Icon } from './Icon';
@@ -92,7 +92,22 @@ function PanelMark({ panel, active }: { panel: TerminalPanel; active: boolean })
         <RunnerDot status={panel.status} sandboxProvider={panel.sandboxProvider} />
       </Tooltip>
     );
+  if (panel.kind === 'webPreview' && panel.favicon) return <Favicon src={panel.favicon} active={active} />;
   return <Icon name={panelIcon(panel)} className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-ink/70' : 'text-ink/40'}`} />;
+}
+
+function Favicon({ src, active }: { src: string; active: boolean }) {
+  const [broken, setBroken] = useState<string | null>(null);
+  if (broken === src)
+    return <Icon name="globe-simple" className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-ink/70' : 'text-ink/40'}`} />;
+  return (
+    <img
+      src={src}
+      alt=""
+      className="w-3.5 h-3.5 shrink-0 rounded-[3px] object-contain"
+      onError={() => setBroken(src)}
+    />
+  );
 }
 
 function AddButton({ ptyId, label }: { ptyId: string; label: string }) {

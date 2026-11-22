@@ -272,6 +272,7 @@ function ActivePanel({
           panelId={panel.id}
           url={panel.url ?? ''}
           onChangeUrl={(url) => ops.changeWebPreviewUrl(panel.id, url)}
+          onPageInfo={(info) => terminalInstances.get(ptyId)?.updatePanel(panel.id, info)}
           bar={bar}
         />
       );
