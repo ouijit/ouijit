@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { FadeLine } from '../ui/FadeLine';
 import { Icon } from '../terminal/Icon';
 import { EndedMark, Span, useNow } from './ChatNodes';
 import type { ChatBackgroundTask, ChatNode, NoticeNode } from '../../chat/model';
@@ -90,7 +91,7 @@ function TaskRow({
             className="flex-1 min-w-0 flex items-center gap-2 text-left enabled:hover:text-text-primary transition-colors duration-100"
             onClick={() => setOpen((v) => !v)}
           >
-            <span className="min-w-0 overflow-hidden whitespace-nowrap">{task.description}</span>
+            <FadeLine>{task.description}</FadeLine>
             {stopping && !ended ? (
               <span className="shrink-0 text-text-tertiary">Stopping</span>
             ) : (
@@ -267,10 +268,10 @@ export function ChatBackground({ bar }: { bar: BackgroundBar }) {
         onClick={() => setOpen((v) => !v)}
       >
         {tasks.length > 0 ? <BackgroundDots /> : <span className="w-3.5 shrink-0" />}
-        <span className="min-w-0 overflow-hidden whitespace-nowrap text-left">
+        <FadeLine className="text-left">
           {tasks.length > 0 ? `${tasks.length} in background` : 'Finished'}
           {newest && ` · ${newest.description}`}
-        </span>
+        </FadeLine>
         {tasks.length > 0 && <Span ms={now - oldest} />}
         <span className="flex-1" />
         <Icon

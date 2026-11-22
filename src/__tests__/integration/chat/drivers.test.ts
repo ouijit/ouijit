@@ -17,7 +17,15 @@ import { getDriver } from '../../../chat/drivers';
 import { _resetCacheForTesting, getChatRepo, setGlobalSetting } from '../../../db';
 import { NO_CAPABILITIES, pendingRequests } from '../../../chat/model';
 import type { ChatAgentId, ChatNode, ChatSnapshot, RequestNode, ToolCallNode } from '../../../chat/model';
-import { loadCassette, loadCassettes, recording, recordingSpawn, replayingSpawn, cassettePath } from './cassette';
+import {
+  loadCassette,
+  loadCassettes,
+  recording,
+  recordingSpawn,
+  replayingSpawn,
+  cassettePath,
+  type Cassette,
+} from './cassette';
 
 const FOLLOW_UP = 'What is the name of the file you just created? Reply with only the file name.';
 const PROMPT =
@@ -740,6 +748,38 @@ describe('claude background work', () => {
         text: shell.description,
         ended: { taskId: shell.id, status: 'stopped' },
       });
+      unsubscribe();
+      await host.stop(id);
+    },
+    timeout * 2,
+  );
+  test.skipIf(recording || !available)(
+    'a shell the agent gave no description is named for being one, never by its raw command',
+    async () => {
+      // Claude names such a shell by its command; this replays the recording as if the agent had left it out.
+      const undescribed = loadCassettes(name).map(
+        (cassette) =>
+          JSON.parse(JSON.stringify(cassette).replaceAll('Sleep 600 seconds in background', 'sleep 600')) as Cassette,
+      );
+      const cwd = repo();
+      const host = new ChatHost({ spawnProcess: replayingSpawn(undescribed) });
+      const unsubscribe = approveEverything(host);
+      const id = 'pty-background-undescribed';
+      await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
+      await host.prompt(id, {
+        text: 'First use your Bash tool, in the foreground, to run: sleep 8 && echo ready. Then use your Bash tool with run_in_background set to true to run: sleep 600. Do not wait for it. Then reply with only: started',
+      });
+      const running = await until(
+        host,
+        id,
+        (s) => s.info.status === 'idle' && (s.info.background ?? []).some((task) => task.kind === 'shell'),
+        timeout,
+      );
+      const shell = running.info.background!.find((task) => task.kind === 'shell')!;
+      expect(shell.description).toBe('Background command');
+      await host.stopBackground(id, shell.id);
+      const stopped = await until(host, id, (s) => s.nodes.some((n) => n.kind === 'notice' && n.ended), timeout);
+      expect(stopped.nodes.find((n) => n.kind === 'notice' && n.ended)).toMatchObject({ text: 'Background command' });
       unsubscribe();
       await host.stop(id);
     },

@@ -60,6 +60,10 @@ export interface UserMessageNode extends AgentUserMessageNode {
 export interface WakeNote {
   kind: 'event' | 'decision';
   text: string;
+  /** A command the decision was about, shown behind the line rather than in it. */
+  command?: string;
+  /** How it went, beside the line: Declined, Ran, Exit 1. */
+  outcome?: string;
   /** A worker's request the wake is about, kept current as it is answered. */
   request?: WakeRequest;
 }

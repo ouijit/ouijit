@@ -9,8 +9,6 @@ import type { AskAnswer, AskRun } from '../types';
 
 const decisionLog = getLogger().scope('chat:decisions');
 
-const youDid = (text: string): WakeNote => ({ kind: 'decision', text });
-
 function tell(from: string, text: string, note: WakeNote): void {
   tellConversation(from, text, note).catch((error: unknown) =>
     decisionLog.warn('outcome not delivered', { from, error: String(error) }),
@@ -41,17 +39,19 @@ export function holdAsk(
         }
         resolve(answer);
         if (!ask.wait && !quiet)
-          tell(from, describeOutcome(ask.command, answer), youDid(outcomeNote(ask.command, answer)));
+          tell(from, describeOutcome(ask.command, answer), outcomeNote(ask.command, message, answer));
       },
     );
     if (!ask.wait) resolve({ status: 'pending' });
   });
 }
 
-function outcomeNote(command: string, answer: AskAnswer): string {
-  if (answer.status !== 'exited') return `You declined to run \`${command}\``;
-  const how = 'private' in answer ? 'privately' : 'on your computer';
-  return `You ran \`${command}\` ${how} · exit ${answer.exitCode ?? 'unknown'}`;
+function outcomeNote(command: string, message: string | undefined, answer: AskAnswer): WakeNote {
+  const text = message ?? `Run ${command.trim().split('\n')[0]}`;
+  if (answer.status !== 'exited') return { kind: 'decision', text, command, outcome: 'Declined' };
+  const ran = 'private' in answer ? 'Ran privately' : 'Ran';
+  const outcome = answer.exitCode === 0 ? ran : `${ran} · exit ${answer.exitCode ?? 'unknown'}`;
+  return { kind: 'decision', text, command, outcome };
 }
 
 function describeOutcome(command: string, answer: AskAnswer): string {

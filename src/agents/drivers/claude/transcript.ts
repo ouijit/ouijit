@@ -139,6 +139,10 @@ export class ClaudeTranscript {
   /** When the message being translated was written, for a history import; live messages are stamped as they arrive. */
   at: number | null = null;
 
+  commandOf(toolUseId: string): string | undefined {
+    return this.tools.get(toolUseId)?.command;
+  }
+
   constructor(private readonly sink: Pick<DriverSink, 'node' | 'append'>) {}
 
   private now(): number {

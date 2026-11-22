@@ -250,7 +250,10 @@ test('decision: a card waits for the words before it, and Chat hears how you dec
   // Declined, Chat is told, in a line that says what you did.
   await card.getByRole('button', { name: 'Decline' }).click();
   await expect(card).toHaveCount(0);
-  await expect(appPage.getByText('You declined to run `echo hi`')).toBeVisible({ timeout: TIMEOUT });
+  const line = appPage.getByRole('button', { name: /Run echo hi.*Declined/ });
+  await expect(line).toBeVisible({ timeout: TIMEOUT });
+  await line.click();
+  await expect(appPage.locator('.chat-turns pre', { hasText: 'echo hi' })).toBeVisible();
   await chatIdle(appPage, id);
 });
 

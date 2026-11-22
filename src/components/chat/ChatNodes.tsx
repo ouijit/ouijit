@@ -1,4 +1,5 @@
 import { memo, useEffect, useState, type ReactNode } from 'react';
+import { FadeLine } from '../ui/FadeLine';
 import { Icon } from '../terminal/Icon';
 import { Markdown } from '../issues/Markdown';
 import { ChatMarkdown } from './ChatMarkdown';
@@ -109,7 +110,7 @@ function ToolCallView({ node, cardId, children }: { node: ToolCallNode; cardId: 
         aria-expanded={open}
       >
         <StateMark status={node.status} icon={TOOL_ICONS[node.tool]} />
-        <span className="min-w-0 overflow-hidden whitespace-nowrap">{relativeToCard(node.title, cardId)}</span>
+        <FadeLine>{relativeToCard(node.title, cardId)}</FadeLine>
         <StepSpan node={node} />
         {node.files.map((file) => {
           const counts = fileCounts(file);
@@ -178,7 +179,7 @@ function EndedLine({ ended, text }: { ended: NonNullable<NoticeNode['ended']>; t
   return (
     <div className="chat-said-in flex items-center gap-2 text-[13px] text-text-tertiary">
       <EndedMark status={ended.status} />
-      <span className="min-w-0 break-words">{text}</span>
+      <FadeLine>{text}</FadeLine>
       <Span ms={ended.ms} />
     </div>
   );
@@ -227,7 +228,7 @@ function SubagentView({
         aria-expanded={open}
       >
         <StateMark status={status} icon="flow-arrow" />
-        <span className="min-w-0 overflow-hidden whitespace-nowrap">{title}</span>
+        <FadeLine>{title}</FadeLine>
         <Span ms={end === undefined ? undefined : end - node.createdAt} className="text-text-tertiary" />
         {steps.length > 0 && (
           <span className="shrink-0 text-[12px] text-text-tertiary tabular-nums">
@@ -235,9 +236,7 @@ function SubagentView({
           </span>
         )}
         {running && latest && 'title' in latest && (
-          <span className="overflow-hidden whitespace-nowrap min-w-0 flex-1 basis-0 text-text-tertiary">
-            {relativeToCard(latest.title, cardId)}
-          </span>
+          <FadeLine className="flex-1 basis-0 text-text-tertiary">{relativeToCard(latest.title, cardId)}</FadeLine>
         )}
       </button>
       {open && (
@@ -303,11 +302,7 @@ function SubagentGroup({ nodes, context }: { nodes: ChatNode[]; context: NodeCon
       >
         <StateMark status={overall} icon="flow-arrow" />
         <span className="shrink-0">{nodes.length} subagents</span>
-        <span
-          className={`overflow-hidden whitespace-nowrap min-w-0 flex-1 ${failed ? 'text-error' : 'text-text-tertiary'}`}
-        >
-          {counts.join(' · ')}
-        </span>
+        <FadeLine className={`flex-1 ${failed ? 'text-error' : 'text-text-tertiary'}`}>{counts.join(' · ')}</FadeLine>
       </button>
       {open && (
         <div className="ml-5 mt-1 mb-2 border-l border-separator pl-3 flex flex-col gap-1">

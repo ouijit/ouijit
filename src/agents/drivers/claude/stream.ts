@@ -190,7 +190,7 @@ export class ClaudeStream {
         if (message.task_type === 'local_bash') {
           const id = String(message.task_id);
           this.shells.set(id, {
-            description: String(message.description ?? ''),
+            description: this.shellTitle(String(message.description ?? ''), str(message.tool_use_id)),
             startedAt: this.shells.get(id)?.startedAt ?? Date.now(),
             ...(str(message.tool_use_id) && { toolCallId: `claude-tool-${String(message.tool_use_id)}` }),
           });
@@ -243,15 +243,23 @@ export class ClaudeStream {
     }
   }
 
+  /** Claude names a shell it was given no description for by its command, which a status line never shows. */
+  private shellTitle(description: string, toolUseId: string | undefined): string {
+    const command = toolUseId ? this.transcript.commandOf(toolUseId) : undefined;
+    return command?.trim() === description.trim() ? 'Background command' : description;
+  }
+
   private reportBackground(): void {
     this.sink.session({
       background: this.backgroundTasks
         .filter((task) => !task.ambient && !task.parent_task_id)
         .map((task) => {
           const id = String(task.task_id);
-          const description = String(task.description ?? '');
           const shell = task.task_type === 'local_bash';
           const seen = shell ? this.shells : this.agentsSeen;
+          const toolUseId = str(task.tool_use_id) ?? seen.get(id)?.toolCallId?.replace(/^claude-tool-/, '');
+          const raw = String(task.description ?? '');
+          const description = shell ? this.shellTitle(raw, toolUseId) : raw;
           if (shell) this.listed.add(id);
           const known = seen.get(id) ?? { description, startedAt: Date.now() };
           seen.set(id, { ...known, description });

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FadeLine } from '../ui/FadeLine';
 import type { ChatAnswer, RequestNode, RequestOption } from '../../chat/model';
 import { Icon } from '../terminal/Icon';
 import { ChatMarkdown } from './ChatMarkdown';
@@ -66,7 +67,7 @@ export function SettledLine({
         aria-expanded={open}
       >
         <Icon name={open ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
-        <span className="flex-1 min-w-0 overflow-hidden whitespace-nowrap">{summary}</span>
+        <FadeLine className="flex-1">{summary}</FadeLine>
         {label && <span className="shrink-0 text-[12px]">{label}</span>}
       </button>
       {open && (

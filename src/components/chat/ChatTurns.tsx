@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { FadeLine } from '../ui/FadeLine';
 import { closeOpenMarkup, revealed, useReveal } from './useReveal';
 import { relativeToCard } from './cardPaths';
 import { Icon } from '../terminal/Icon';
@@ -241,7 +242,7 @@ function WorkFold({
         <span className="w-3 flex justify-center shrink-0">
           {!live.stopping && <StatusGlyph status="thinking" size={8} />}
         </span>
-        <span className="min-w-0 overflow-hidden whitespace-nowrap">{live.stopping ? 'Stopping' : held}</span>
+        <FadeLine>{live.stopping ? 'Stopping' : held}</FadeLine>
         <Span ms={now - (since.current.get(held) ?? live.started)} />
       </>
     );
@@ -250,7 +251,7 @@ function WorkFold({
     summary = (
       <>
         <Icon name={expanded ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
-        <span className="min-w-0 overflow-hidden whitespace-nowrap">{foldSummary(work)}</span>
+        <FadeLine>{foldSummary(work)}</FadeLine>
         <Span ms={live ? now - live.started : end - work[0].createdAt} />
       </>
     );
@@ -360,11 +361,14 @@ function WakeOpener({ node, settled }: { node: UserMessageNode; settled: boolean
   return (
     <div className="min-w-0 flex flex-col gap-1 pt-1">
       {node.notes.map((n, index) => {
+        if (n.kind === 'decision' && n.command) {
+          return <SettledLine key={index} summary={n.text} label={n.outcome ?? null} command={n.command} />;
+        }
         if (n.kind === 'decision') {
           return (
             <div key={index} className="flex items-center gap-2 text-[13px] text-text-secondary">
               <Icon name="check" className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
-              <span className="min-w-0 break-words">{n.text}</span>
+              <FadeLine>{n.text}</FadeLine>
             </div>
           );
         }
@@ -422,9 +426,7 @@ function RoutineApprovals({ turns }: { turns: Turn[] }) {
         aria-expanded={open}
       >
         <Icon name={open ? 'caret-down' : 'caret-right'} className="w-3 h-3 shrink-0" />
-        <span className="flex-1 min-w-0 overflow-hidden whitespace-nowrap">
-          {approvalsSummary(notes.map((note) => note.request!))}
-        </span>
+        <FadeLine className="flex-1">{approvalsSummary(notes.map((note) => note.request!))}</FadeLine>
       </button>
       {open && (
         <div className="pl-5 min-w-0 flex flex-col">
