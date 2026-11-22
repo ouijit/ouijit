@@ -4,7 +4,7 @@
 //
 // Usage:
 //   node scripts/dev-db.mjs reset        Delete dev DB + seed project (next launch = first-launch)
-//   node scripts/dev-db.mjs seed         Create the demo project used in marketing screenshots
+//   node scripts/dev-db.mjs seed         Migrate the dev DB, then create the demo project used in marketing screenshots
 //   node scripts/dev-db.mjs clone-prod   Copy prod DB into this worktree's dev DB
 //   node scripts/dev-db.mjs path         Print the dev userData dir for this worktree
 
@@ -14,6 +14,8 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { homedir, platform } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import { build } from 'esbuild';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -47,13 +49,17 @@ function seedProjectDir() {
   return join(devDbDir(), 'seed-project');
 }
 
+function execOrFalse(sql) {
+  const result = spawnSync('sqlite3', ['-bail', dbPath(), sql], { encoding: 'utf8' });
+  if (result.status === 0) return result.stdout;
+  process.stderr.write(result.stderr || `sqlite3 exited ${result.status}\n`);
+  return false;
+}
+
 function exec(sql) {
-  const result = spawnSync('sqlite3', [dbPath(), sql], { encoding: 'utf8' });
-  if (result.status !== 0) {
-    process.stderr.write(result.stderr || `sqlite3 exited ${result.status}\n`);
-    process.exit(result.status ?? 1);
-  }
-  return result.stdout;
+  const out = execOrFalse(sql);
+  if (out === false) process.exit(1);
+  return out;
 }
 
 function cloneProd() {
@@ -137,13 +143,30 @@ function gitInit(projectPath, projectName) {
   }
 }
 
-function seed() {
-  if (!existsSync(dbPath())) {
-    process.stderr.write(
-      `Dev DB not found at ${dbPath()}\nLaunch \`npm run start\` once to create it, then re-run this command.\n`,
-    );
-    process.exit(1);
-  }
+/** Brings the dev DB to the schema the app expects, by running the app's own migrations. */
+async function migrate() {
+  mkdirSync(devDbDir(), { recursive: true });
+  const { outputFiles } = await build({
+    entryPoints: [join(repoRoot, 'src', 'db', 'database.ts')],
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    external: ['better-sqlite3'],
+    write: false,
+    logLevel: 'silent',
+  });
+  const module = { exports: {} };
+  new Function('module', 'exports', 'require', outputFiles[0].text)(
+    module,
+    module.exports,
+    createRequire(import.meta.url),
+  );
+  module.exports.initDatabase(dbPath());
+  module.exports.closeDatabase();
+}
+
+async function seed() {
+  await migrate();
 
   const seedData = JSON.parse(readFileSync(join(repoRoot, 'src', 'capture', 'seedData.json'), 'utf8'));
   const projectPath = seedProjectDir();
@@ -156,9 +179,10 @@ function seed() {
   }
 
   gitInit(projectPath, projectName);
+  const sql = [];
 
   // Project + counter + settings
-  exec(`
+  sql.push(`
     INSERT OR IGNORE INTO projects (path, name, sort_order) VALUES ('${esc(projectPath)}', '${esc(projectName)}', 0);
     INSERT OR IGNORE INTO project_counters (project_path) VALUES ('${esc(projectPath)}');
   `);
@@ -174,7 +198,7 @@ function seed() {
     return `INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sort_order, created_at, parent_task_number, github_pr_number, github_issue_number, linear_issue_id, linear_issue_identifier, suggested_branch) VALUES ('${esc(projectPath)}', ${taskNumber}, '${esc(t.name)}', '${esc(status)}', ${nullable(t.prompt)}, ${nullable(t.branch)}, ${nullable(worktreePath)}, ${nullable(t.mergeTarget)}, ${sortOrder}, '${esc(createdAt)}', ${t.parentTaskNumber ?? 'NULL'}, ${t.githubPrNumber ?? 'NULL'}, ${t.githubIssueNumber ?? 'NULL'}, ${nullable(t.linearIssueId)}, ${nullable(t.linearIssueIdentifier)}, ${nullable(t.suggestedBranch)});`;
   });
   const nextTaskNumber = seedData.tasks.length + 1;
-  exec(
+  sql.push(
     `${taskInserts.join('\n')}\nUPDATE project_counters SET next_task_number = ${nextTaskNumber} WHERE project_path = '${esc(projectPath)}';`,
   );
 
@@ -183,14 +207,14 @@ function seed() {
     (h) =>
       `INSERT INTO hooks (id, project_path, type, name, command, description, sandbox) VALUES ('${randomUUID()}', '${esc(projectPath)}', '${esc(h.type)}', '${esc(h.name)}', '${esc(h.command)}', ${nullable(h.description)}, ${nullable(h.sandbox)});`,
   );
-  exec(hookInserts.join('\n'));
+  sql.push(hookInserts.join('\n'));
 
   // Scripts
   const scriptInserts = seedData.scripts.map(
     (s, i) =>
       `INSERT INTO scripts (id, project_path, name, command, sort_order) VALUES ('${randomUUID()}', '${esc(projectPath)}', '${esc(s.name)}', '${esc(s.command)}', ${i});`,
   );
-  exec(scriptInserts.join('\n'));
+  sql.push(scriptInserts.join('\n'));
 
   // Chats — a stored transcript per task card, resumed when the card opens as a chat
   for (const [index, chat] of (seedData.chats ?? []).entries()) {
@@ -220,7 +244,7 @@ function seed() {
       const body = JSON.stringify({ id: `seed-${index}-${position}`, parentId: null, createdAt: Date.now(), ...node });
       return `INSERT INTO chat_nodes (session_id, node_id, position, body) VALUES ('${id}', 'seed-${index}-${position}', ${position}, '${esc(body)}');`;
     });
-    exec(
+    sql.push(
       `INSERT INTO chat_sessions (id, project_path, task_id, cwd, worktree_path, agent, agent_session_id, sandbox, info, seq, created_at, updated_at) VALUES ('${id}', '${esc(projectPath)}', ${chat.taskNumber}, '${esc(info.cwd)}', ${nullable(worktreePath)}, '${esc(chat.agent)}', NULL, NULL, '${esc(JSON.stringify(info))}', 0, '${now}', '${now}');\n${nodeInserts.join('\n')}`,
     );
   }
@@ -231,7 +255,14 @@ function seed() {
   writeFileSync(join(plansDir, seedData.onboardingPlanFilename), seedData.onboardingPlanMarkdown);
 
   // Mark welcome seen so the dialog doesn't pop on top of seeded data
-  exec(`INSERT OR REPLACE INTO global_settings (key, value) VALUES ('hasSeenWelcome', '1');`);
+  sql.push(`INSERT OR REPLACE INTO global_settings (key, value) VALUES ('hasSeenWelcome', '1');`);
+
+  if (execOrFalse(`BEGIN;\n${sql.join('\n')}\nCOMMIT;`) === false) {
+    process.stderr.write(
+      `Nothing was seeded. If this dev DB was migrated on another branch, its recorded migrations may not match this one's: run \`npm run db:reset\`, then seed again.\n`,
+    );
+    process.exit(1);
+  }
 
   console.log(`Seeded demo project at ${projectPath}`);
   console.log(
@@ -245,7 +276,7 @@ switch (cmd) {
     reset();
     break;
   case 'seed':
-    seed();
+    await seed();
     break;
   case 'clone-prod':
     cloneProd();
