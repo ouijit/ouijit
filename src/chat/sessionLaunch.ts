@@ -3,7 +3,7 @@ import { getWorktreesRoot } from '../worktree';
 import { CHAT_SETTING_KEYS, parseChatSettings } from './preferences';
 import { issueToken, revokeToken } from '../apiAuth';
 import { hostEnv, ouijitSessionEnv, sandboxLaunch } from '../sessionEnv';
-import { sandboxReferenceEnv } from '../sandbox/cliAccess';
+import { sandboxCliAccessFor, sandboxReferenceEnv } from '../sandbox/cliAccess';
 import { getCliReferencePath, readCliReference } from '../cliReferencePath';
 import { getSandboxProvider } from '../sandbox';
 import { isActiveSandbox } from '../sandbox/types';
@@ -23,6 +23,9 @@ import { endTurn } from './promptDelivery';
 import { withConversationCommands } from './conversationCommands';
 
 const CHAT_SURFACE = `You are talking with the user in Ouijit Chat, which renders your replies as Markdown. To show the user an image, such as a screenshot or a diagram you made, put it in your reply as a Markdown image with an absolute path: ![what it shows](/absolute/path/to/image.png). An image you only read with a tool is seen by you, not by the user.`;
+
+// Stands over the reference's "From a sandbox" section, which is written for a card.
+const CHAT_READ_ONLY = `As Chat at Read only, you reach every project rather than one: every command that reads or lists works, as do following and unfollowing, your own tags and panels, drafts, and ouijit ask. Commands that move a task or message, answer or interrupt an agent are Forbidden; ask the user to raise Ouijit CLI access to Everything in Chat's settings.`;
 
 export interface LaunchContext {
   probe: (agent: ChatAgentId) => Promise<DriverProbe>;
@@ -54,6 +57,8 @@ export async function launch(
     const referenceEnv = await sandboxReferenceEnv(sandbox, session.row.project_path);
     session.referenceEnv = referenceEnv;
     const reference = readCliReference(referenceEnv.OUIJIT_SANDBOX_REFERENCE_FILE ?? getCliReferencePath());
+    const readOnlyChat =
+      sandbox && session.info.role === 'home' && (await sandboxCliAccessFor(session.row.project_path)) === 'read';
     session.driver = await driver.start({
       cwd: session.row.cwd,
       sessionId: id,
@@ -62,7 +67,9 @@ export async function launch(
       spawn: (spawn) => context.spawn(token, spawn),
       sink: driverSink(session),
       preferences: { piApprovals: settings.piApprovals, acpCommand: settings.acpCommand },
-      instructions: [reference, CHAT_SURFACE, session.instructions].filter(Boolean).join('\n\n'),
+      instructions: [reference, readOnlyChat && CHAT_READ_ONLY, CHAT_SURFACE, session.instructions]
+        .filter(Boolean)
+        .join('\n\n'),
     });
     // For a driver that cannot launch in a mode, switch to it once started.
     if (chosenMode && session.driver.setMode && session.info.mode !== chosenMode) {

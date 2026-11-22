@@ -59,29 +59,41 @@ export function SandboxSection({ projectPath }: { projectPath: string }) {
   );
 }
 
+export const CHAT_CLI_ACCESS: Partial<typeof CLI_ACCESS> = {
+  read: {
+    label: 'Read only',
+    detail: 'Chat can read every project and follow tasks and chats, but not move tasks or message agents.',
+    option: 'Read every project, follow tasks and chats',
+  },
+  all: CLI_ACCESS.all,
+};
+
 export function CliAccessRow({
   value,
   onChange,
   levels = ['read', 'task', 'all'],
+  copy = CLI_ACCESS,
 }: {
   value: SandboxCliAccess;
   onChange: (level: SandboxCliAccess) => void;
   levels?: SandboxCliAccess[];
+  copy?: Partial<typeof CLI_ACCESS>;
 }) {
+  const text = (level: SandboxCliAccess) => copy[level] ?? CLI_ACCESS[level];
   return (
     <div className="flex items-center gap-4 px-4 py-3">
       <div className="min-w-0 flex-1">
         <div className="text-sm text-text-primary">Ouijit CLI access</div>
         <div className={`mt-0.5 text-xs ${value === 'all' ? 'text-error' : 'text-text-tertiary'}`}>
-          {CLI_ACCESS[value].detail}
+          {text(value).detail}
         </div>
       </div>
       <QuietPicker<SandboxCliAccess>
         label="Ouijit CLI access"
         value={value}
         options={levels}
-        optionLabel={(level) => CLI_ACCESS[level].label}
-        optionDetail={(level) => CLI_ACCESS[level].option}
+        optionLabel={(level) => text(level).label}
+        optionDetail={(level) => text(level).option}
         onChange={onChange}
       />
     </div>

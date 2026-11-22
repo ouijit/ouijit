@@ -440,13 +440,14 @@ interface Route {
  */
 interface SandboxRule {
   level: 'read' | 'task';
-  owns?: 'terminal' | 'task' | 'project';
+  owns?: 'terminal' | 'task' | 'project' | 'chat';
 }
 
 const READ: SandboxRule = { level: 'read' };
 const OWN_TERMINAL: SandboxRule = { level: 'read', owns: 'terminal' };
 const OWN_TASK: SandboxRule = { level: 'task', owns: 'task' };
 const IN_OWN_PROJECT: SandboxRule = { level: 'read', owns: 'project' };
+const CHAT_LISTENS: SandboxRule = { level: 'read', owns: 'chat' };
 
 function matchRoute(
   routes: Route[],
@@ -1379,6 +1380,7 @@ const routes: Route[] = [
       return { success: true };
     },
     true,
+    CHAT_LISTENS,
   ),
   route(
     'DELETE',
@@ -1391,6 +1393,7 @@ const routes: Route[] = [
       return { success: true };
     },
     true,
+    CHAT_LISTENS,
   ),
   route(
     'PUT',
@@ -1401,6 +1404,7 @@ const routes: Route[] = [
       return { success: true };
     },
     true,
+    CHAT_LISTENS,
   ),
   route(
     'DELETE',
@@ -1411,6 +1415,7 @@ const routes: Route[] = [
       return { success: true };
     },
     true,
+    CHAT_LISTENS,
   ),
 
   route(
@@ -1848,13 +1853,15 @@ async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
 }
 
 function sandboxAllows(
+  method: string,
   rule: SandboxRule | undefined,
   caller: SandboxCaller,
   params: Record<string, string>,
   query: URLSearchParams,
   body: Record<string, unknown>,
 ): boolean {
-  if (!rule || (rule.level === 'task' && caller.access !== 'task')) return false;
+  if (callerIsHomeChat(caller.ptyId)) return homeChatAllows(method, rule, caller, params);
+  if (!rule || rule.owns === 'chat' || (rule.level === 'task' && caller.access !== 'task')) return false;
   const project = query.get('project');
   if (project !== null && project !== getSessionSpawnContext(caller.ptyId)?.projectPath) return false;
   if (rule.owns === 'terminal') return ownsTerminal(caller, params.ptyId);
@@ -1864,6 +1871,22 @@ function sandboxAllows(
   }
   if (rule.owns === 'task') return ownsTask(caller, query.get('project'), params.number ?? body.taskNumber);
   return true;
+}
+
+/**
+ * Chat at Read only sees every project: anything read, its own card's tabs and
+ * drafts, and following. What moves a task or steers an agent needs Everything.
+ */
+function homeChatAllows(
+  method: string,
+  rule: SandboxRule | undefined,
+  caller: SandboxCaller,
+  params: Record<string, string>,
+): boolean {
+  if (method === 'GET') return true;
+  if (rule?.level !== 'read') return false;
+  if (rule.owns === 'terminal') return params.ptyId === caller.ptyId;
+  return rule.owns !== 'project';
 }
 
 function ownsTerminal(caller: SandboxCaller, ptyId: string | undefined): boolean {
@@ -1960,7 +1983,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
   const caller = await withCliAccess(auth);
   if (
     caller.scope !== 'host' &&
-    !sandboxAllows(matched.route.sandbox, caller, matched.params, url.searchParams, body)
+    !sandboxAllows(method, matched.route.sandbox, caller, matched.params, url.searchParams, body)
   ) {
     json(res, 403, { error: 'Forbidden' });
     return;

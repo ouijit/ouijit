@@ -24,7 +24,7 @@ import {
 import { AgentPicker } from './AgentPicker';
 import { SandboxProfileRow } from '../scripts/SandboxProfileRow';
 import { CustomLauncherRow } from '../scripts/CustomLauncherRow';
-import { CliAccessRow } from '../scripts/SandboxSection';
+import { CHAT_CLI_ACCESS, CliAccessRow } from '../scripts/SandboxSection';
 import { ToggleRow } from '../ui/SettingsRows';
 
 async function loadHomeChatSettings(): Promise<HomeChatSettings> {
@@ -157,6 +157,7 @@ export function MainChatSettings() {
           <CliAccessRow
             value={cliAccess}
             levels={['read', 'all']}
+            copy={CHAT_CLI_ACCESS}
             onChange={(level) => {
               setCliAccess(level);
               void window.api.globalSettings.set(sandboxCliAccessSettingKey(chatDir), level).then(() => restart());

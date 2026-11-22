@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import { Icon } from '../terminal/Icon';
 import { SandboxRing } from '../terminal/StatusDot';
-import { SANDBOX_LABELS, isActiveSandbox, isSandboxProviderId, type SandboxBackendId } from '../../sandbox/types';
+import {
+  SANDBOX_LABELS,
+  isActiveSandbox,
+  isSandboxCliAccess,
+  isSandboxProviderId,
+  sandboxCliAccessSettingKey,
+  type SandboxBackendId,
+  type SandboxCliAccess,
+} from '../../sandbox/types';
 import { MenuPopover } from '../ui/Menu';
 import { ContextUsage } from './ContextUsage';
 import { growToFit, useFitOnResize } from '../../hooks/useAutoResize';
@@ -113,18 +121,25 @@ function OptionList({ setting, onDone }: { setting: Setting; onDone: () => void 
 }
 
 /** What the sandbox means for this agent, in words for someone who has never set one up. */
-function sandboxLines(info: ChatSessionInfo, sandbox: SandboxBackendId): string[] {
+function sandboxLines(info: ChatSessionInfo, sandbox: SandboxBackendId, access: SandboxCliAccess): string[] {
   if (sandbox === 'custom') {
     return [
       'It runs inside the sandbox command set for this project, which decides what it can reach.',
       "Ouijit doesn't know that command's rules, so check them before trusting it to run unattended.",
     ];
   }
+  if (info.role === 'home' && access === 'read') {
+    return [
+      'It can read your projects and tasks, and follow the agents working on them.',
+      "It can't change files, move tasks or message agents. To let it run your board, set its Ouijit CLI access to Everything in Chat's settings.",
+      'It can use the internet, unless its sandbox profile blocks it.',
+    ];
+  }
   if (info.role === 'home') {
     return [
-      'It can run your board: create, start and move tasks, read the agents working on them, and message and answer the ones in a sandbox. It can use the internet.',
-      "It can't open or change files in your projects, or anywhere else on your computer. Work on your code happens in the tasks it starts, which run in a sandbox too. That's why it runs without asking your permission first.",
-      "Anything it can't undo, or that would run outside a sandbox, waits for you here.",
+      'It can run your board: create, start and move tasks, and read, message and answer the agents working on them.',
+      'It can read your projects but not change them. Work on your code happens in the tasks it starts.',
+      'It can use the internet, unless its sandbox profile blocks it.',
     ];
   }
   return [
@@ -134,9 +149,23 @@ function sandboxLines(info: ChatSessionInfo, sandbox: SandboxBackendId): string[
   ];
 }
 
+/** Chat's own CLI access, read when its note opens: changing it restarts Chat. */
+function useChatCliAccess(load: boolean): SandboxCliAccess | null {
+  const [access, setAccess] = useState<SandboxCliAccess | null>(null);
+  useEffect(() => {
+    if (!load) return;
+    void window.api.homeChat
+      .dir()
+      .then((dir) => window.api.globalSettings.get(sandboxCliAccessSettingKey(dir)))
+      .then((stored) => setAccess(isSandboxCliAccess(stored) ? stored : 'read'));
+  }, [load]);
+  return access;
+}
+
 function SandboxNote({ info, sandbox }: { info: ChatSessionInfo; sandbox: SandboxBackendId }) {
   const [open, setOpen] = useState(false);
   const home = info.role === 'home';
+  const access = useChatCliAccess(home && open);
   return (
     <MenuPopover
       open={open}
@@ -164,7 +193,7 @@ function SandboxNote({ info, sandbox }: { info: ChatSessionInfo; sandbox: Sandbo
         <div className="font-medium text-text-primary">
           {home ? 'Chat' : 'This agent'} runs in a {sandbox === 'custom' ? 'custom sandbox' : 'sandbox'}
         </div>
-        {sandboxLines(info, sandbox).map((line) => (
+        {(home && !access ? [] : sandboxLines(info, sandbox, access ?? 'read')).map((line) => (
           <p key={line} className="m-0">
             {line}
           </p>

@@ -157,11 +157,17 @@ describe('what Chat can do', () => {
     expect((await asking).data).toMatchObject({ status: 'exited', exitCode: 0, output: 'from the host' });
     expect(decisions()).toEqual([]);
 
-    // Sandboxed, it has the Ouijit access its own setting gives, read only until widened.
+    // Sandboxed at Read only, it reads and follows in any project, and moves nothing until widened.
     await createTask(repo, 3, 'Sandboxed', { status: 'todo' });
     token = issueToken(chat, 'sandbox');
-    expect((await api('GET', `tasks?${project}`)).status).toBe(403);
+    expect((await api('GET', `tasks?${project}`)).status).toBe(200);
+    expect((await api('GET', 'terminals')).status).toBe(200);
+    expect((await api('PUT', `following/tasks/3?${project}`, {})).status).toBe(200);
+    expect(await followed()).toEqual([3]);
+    expect((await api('DELETE', `following/tasks/3?${project}`)).status).toBe(200);
     expect((await api('POST', `tasks/3/start?${project}`, { hookMode: 'run' })).status).toBe(403);
+    expect((await api('PATCH', `tasks/3/status?${project}`, { status: 'in_review' })).status).toBe(403);
+    expect((await api('POST', `chats/${chat}/messages`, { text: 'hi' })).status).toBe(403);
     await setGlobalSetting(sandboxCliAccessSettingKey(homeChatDir()), 'all');
     expect((await api('GET', `tasks?${project}`)).status).toBe(200);
     expect((await api('POST', `tasks/3/start?${project}`, { hookMode: 'run' })).status).toBe(200);
