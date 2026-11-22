@@ -281,11 +281,20 @@ test('switching: going to another conversation and back shows the first one whol
   await expect(appPage.getByPlaceholder('Send a message')).toBeVisible();
   await appPage.getByRole('button', { name: 'Hide', exact: true }).click();
   await expect(tab).toHaveCount(0);
-  // Its icon opens it again once the pointer has spread the icons out.
-  const icon = appPage.getByRole('button', { name: 'calendar.md' });
-  await icon.hover();
-  await appPage.waitForTimeout(300);
-  await icon.click();
+  await appPage.getByRole('button', { name: 'calendar.md' }).click();
+  await expect(tab).toBeVisible();
+
+  // A new tab becomes what is typed into it: here a file in the conversation's folder.
+  fs.writeFileSync(path.join(folder, 'notes.md'), '# Notes\n');
+  await appPage.getByRole('button', { name: 'New tab', exact: true }).click();
+  const newTab = appPage.getByLabel('Open a file, or enter a URL');
+  await expect(newTab).toBeFocused();
+  await newTab.fill('notes');
+  await expect(appPage.getByRole('option', { name: /notes\.md/ })).toBeVisible();
+  await newTab.press('Enter');
+  await expect(appPage.getByRole('tab', { name: 'notes.md' })).toBeVisible();
+  await expect(appPage.getByRole('heading', { name: 'Notes' })).toBeVisible();
+  await expect(newTab).toHaveCount(0);
   await expect(tab).toBeVisible();
 
   const sidebar = appPage.getByRole('complementary', { name: 'Sidebar' });

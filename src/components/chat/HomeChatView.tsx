@@ -5,9 +5,6 @@ import { ChatView } from './ChatView';
 import { HomeChatDecisions } from './HomeChatDecisions';
 import { ManagedTasks } from './ManagedTasks';
 import { TerminalBody } from '../terminal/TerminalBody';
-import { ContextMenu } from '../ui/ContextMenu';
-import { useAddPanelMenu } from '../terminal/addPanelMenuStore';
-import { terminalInstances } from '../terminal/terminalRegistry';
 import { homePanelHost } from './homeChatPanels';
 
 /** Chat's current conversation on screen, with what it has open beside it. Its title sits in the title bar, as a project's does. */
@@ -31,35 +28,8 @@ export function HomeChatView() {
           ) : (
             <ChatView cardId={currentId} surface="page" footer={footer} aboveComposer={aboveComposer} />
           )}
-          <AddMenu ptyId={currentId} />
         </div>
       )}
     </div>
-  );
-}
-
-/** A conversation has no project, so no scripts: what it can open beside itself is a file or a page. */
-function AddMenu({ ptyId }: { ptyId: string }) {
-  const open = useAddPanelMenu((s) => (s.open?.ptyId === ptyId ? s.open : null));
-  const close = useAddPanelMenu((s) => s.close);
-  if (!open) return null;
-  const host = () => terminalInstances.get(ptyId);
-  return (
-    <ContextMenu
-      x={open.x}
-      y={open.y}
-      onClose={close}
-      items={[
-        { label: 'Web Preview', icon: 'globe-simple', onClick: () => host()?.addWebPreviewPanel(null) },
-        {
-          label: 'Markdown File',
-          icon: 'file-text',
-          onClick: () =>
-            void window.api.plan.pickFile(host()?.worktreePath).then((result) => {
-              if (!result.canceled && result.filePath) host()?.addPlanPanel(result.filePath);
-            }),
-        },
-      ]}
-    />
   );
 }

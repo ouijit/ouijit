@@ -501,6 +501,7 @@ export async function startRunner(
   ptyId: string,
   script?: RunnerScript,
   sandboxProvider?: SandboxBackendId,
+  replacing?: string,
 ): Promise<string | null> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return null;
@@ -513,7 +514,11 @@ export async function startRunner(
     return null;
   }
 
-  const panelId = instance.addRunnerPanel({ ...resolved.runnable, source: resolved.source, sandboxProvider });
+  const panelId = instance.addRunnerPanel(
+    { ...resolved.runnable, source: resolved.source, sandboxProvider },
+    true,
+    replacing,
+  );
   await spawnRunner(ptyId, panelId);
   return panelId;
 }

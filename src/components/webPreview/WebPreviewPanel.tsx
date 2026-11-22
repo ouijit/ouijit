@@ -63,8 +63,13 @@ export function WebPreviewPanel({ url, onChangeUrl, onPageInfo }: WebPreviewPane
       setLoading(true);
       setLoadError(null);
     };
+    // A page that names no icon of its own must not keep the last one's, but
+    // the last one stays until the new page has had its chance to name one.
+    let iconPending = false;
     const handleStop = () => {
       setLoading(false);
+      if (iconPending) pageInfo.current({ favicon: undefined });
+      iconPending = false;
       try {
         setCanGoBack(node.canGoBack());
         setCanGoForward(node.canGoForward());
@@ -82,15 +87,18 @@ export function WebPreviewPanel({ url, onChangeUrl, onPageInfo }: WebPreviewPane
         // ignore
       }
     };
-    // A page that names no icon of its own must not keep the last one's.
-    const handlePageChange = () => pageInfo.current({ favicon: undefined });
+    const handlePageChange = () => {
+      iconPending = true;
+    };
     const handleTitle = (e: Event) => {
       const title = (e as Event & { title?: string }).title?.trim();
       if (title) pageInfo.current({ title });
     };
     const handleFavicon = (e: Event) => {
       const [favicon] = (e as Event & { favicons?: string[] }).favicons ?? [];
-      if (favicon) pageInfo.current({ favicon });
+      if (!favicon) return;
+      iconPending = false;
+      pageInfo.current({ favicon });
     };
     const handleFailLoad = (e: Event) => {
       const failEvent = e as Event & { errorCode?: number; errorDescription?: string; validatedURL?: string };

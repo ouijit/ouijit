@@ -59,6 +59,7 @@ import type {
   LinearScope,
 } from './linear/types';
 import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
+import type { MarkdownFile } from './markdownFiles';
 import type { DiffLensTarget } from './lens/worktreeSubject';
 import type { LensChangedPayload } from './lens/subjectKeys';
 import type { LensInput, LensSummary } from './lens/config';
@@ -984,6 +985,7 @@ export interface PlanAPI {
   onContentChanged(callback: (planPath: string, content: string) => void): () => void;
   checkFilesExist(workspaceRoot: string, filePaths: string[]): Promise<Record<string, boolean>>;
   pickFile(defaultPath?: string): Promise<{ canceled: boolean; filePath: string | null }>;
+  listFiles(dir: string): Promise<MarkdownFile[]>;
 }
 
 /**

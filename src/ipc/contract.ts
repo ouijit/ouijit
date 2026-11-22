@@ -90,6 +90,7 @@ import type {
 } from '../linear/types';
 import type { LensInput, LensSummary } from '../lens/config';
 import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
+import type { MarkdownFile } from '../markdownFiles';
 import type { AnalysisOverview, DiffSignals } from '../analysis/types';
 import type { DiffLensTarget } from '../lens/worktreeSubject';
 import type { StoredLens } from '../lens/readLens';
@@ -274,6 +275,7 @@ export interface IpcInvokeContract {
   'plan:unwatch': { args: [planPath: string]; return: void };
   'plan:check-files-exist': { args: [workspaceRoot: string, filePaths: string[]]; return: Record<string, boolean> };
   'plan:pick-file': { args: [defaultPath?: string]; return: { canceled: boolean; filePath: string | null } };
+  'plan:list-files': { args: [dir: string]; return: MarkdownFile[] };
 
   // ── CLI panel ops (renderer → main reply for a cli:panel-op push) ─────
   'cli-panels:respond': { args: [requestId: number, response: CliPanelResponse]; return: void };

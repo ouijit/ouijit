@@ -50,6 +50,8 @@ export function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
       case 'plan':
         panels.push({ kind: 'plan', planPath: p.planPath });
         break;
+      case 'newTab':
+        break;
     }
     if (panels.length > before && p.id === term.activePanelId) activePanelIndex = panels.length - 1;
   }

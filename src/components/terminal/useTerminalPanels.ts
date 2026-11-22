@@ -78,6 +78,16 @@ export function useTerminalPanels(ptyId: string | null) {
     [withInstance],
   );
 
+  /** Opens a new tab to pick what it becomes, or the one already waiting for a pick. */
+  const addNewTab = useCallback(() => {
+    withInstance((instance) => {
+      const waiting = instance.panels.find((p) => p.kind === 'newTab');
+      if (waiting) instance.activatePanel(waiting.id);
+      else instance.addNewTabPanel();
+      requestAnimationFrame(() => instance.fit());
+    });
+  }, [withInstance]);
+
   const addPlanPanel = useCallback(
     (planPath: string) => {
       withInstance((instance) => {
@@ -130,6 +140,7 @@ export function useTerminalPanels(ptyId: string | null) {
     addRunnerPanel,
     addWebPreviewPanel,
     addPlanPanel,
+    addNewTab,
     changePlanFile,
     changeWebPreviewUrl,
     restartRunner,

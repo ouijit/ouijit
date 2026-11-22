@@ -211,6 +211,8 @@ const mockApi = {
     unwatch: vi.fn().mockResolvedValue(undefined),
     onContentChanged: vi.fn().mockReturnValue(() => {}),
     checkFilesExist: vi.fn().mockResolvedValue({}),
+    pickFile: vi.fn().mockResolvedValue({ canceled: true, filePath: null }),
+    listFiles: vi.fn().mockResolvedValue([]),
   },
   sandbox: {
     status: vi.fn().mockResolvedValue([]),

@@ -28,6 +28,7 @@ const CLI_KIND = { plan: 'markdown', webPreview: 'preview', runner: 'runner' } a
 function panelValue(panel: TerminalPanel): string | undefined {
   if (panel.kind === 'plan') return panel.planPath;
   if (panel.kind === 'webPreview') return panel.url ?? undefined;
+  if (panel.kind === 'newTab') return undefined;
   return panel.scriptName ?? undefined;
 }
 
@@ -39,7 +40,7 @@ function findPanel(instance: OuijitTerminal, kind: CliPanelKind, value: string):
   return panelsOfKind(instance, kind).find((p) => panelValue(p) === value);
 }
 
-function describe(instance: OuijitTerminal, panel: TerminalPanel): CliPanelInfo {
+function describe(instance: OuijitTerminal, panel: Exclude<TerminalPanel, { kind: 'newTab' }>): CliPanelInfo {
   const kind = CLI_KIND[panel.kind];
   const field = { markdown: 'path', preview: 'url', runner: 'script' }[kind];
   return {
@@ -97,7 +98,7 @@ function focus(instance: OuijitTerminal, id: string | undefined): string | null 
 
 function read(instance: OuijitTerminal, id: string | undefined, lines: number | undefined): CliPanelRead | string {
   const panel = instance.panels.find((p) => p.id === id);
-  if (!panel) return `No panel ${id ?? '(none)'}`;
+  if (!panel || panel.kind === 'newTab') return `No panel ${id ?? '(none)'}`;
   if (panel.kind === 'plan') return { kind: 'markdown', path: panel.planPath };
   if (panel.kind === 'webPreview') return { kind: 'preview', url: panel.url ?? undefined };
   const ended = { status: panel.status, exitCode: panel.exitCode ?? null };
@@ -107,7 +108,8 @@ function read(instance: OuijitTerminal, id: string | undefined, lines: number | 
 }
 
 function respondWith(instance: OuijitTerminal, panels: TerminalPanel[]): CliPanelResponse {
-  return { ok: true, panels: panels.map((p) => describe(instance, p)), diffOpen: instance.diffPanelOpen };
+  const described = panels.flatMap((p) => (p.kind === 'newTab' ? [] : [describe(instance, p)]));
+  return { ok: true, panels: described, diffOpen: instance.diffPanelOpen };
 }
 
 async function run(instance: OuijitTerminal, op: CliPanelOp): Promise<CliPanelResponse> {

@@ -269,6 +269,7 @@ contextBridge.exposeInMainWorld('api', {
     checkFilesExist: (workspaceRoot: string, filePaths: string[]) =>
       typedInvoke('plan:check-files-exist', workspaceRoot, filePaths),
     pickFile: (defaultPath?: string) => typedInvoke('plan:pick-file', defaultPath),
+    listFiles: (dir: string) => typedInvoke('plan:list-files', dir),
   },
 
   cliPanels: {

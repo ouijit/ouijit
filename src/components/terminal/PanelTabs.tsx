@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { Icon } from './Icon';
@@ -8,7 +8,8 @@ import { LabelTip, PanelTip, PanelTipGroup, TabTip } from './PanelTips';
 import { panelIcon, panelLabel, type RunnerStatus, type TerminalPanel } from './panelTypes';
 import { SANDBOX_LABELS } from '../../types';
 import { useTerminalPanels } from './useTerminalPanels';
-import { useAddPanelMenu } from './addPanelMenuStore';
+import { NewTabField } from './NewTabPanel';
+import { SoftBlur } from '../ui/SoftBlur';
 
 const EMPTY: TerminalPanel[] = [];
 
@@ -103,6 +104,7 @@ function tailOfPath(dir: string, keep = 40): string {
 
 /** Where a tab points, under its title in its tip. */
 function panelDetail(panel: TerminalPanel): string | undefined {
+  if (panel.kind === 'newTab') return undefined;
   if (panel.kind === 'webPreview') return panel.url?.replace(/^https?:\/\//, '') ?? undefined;
   if (panel.kind === 'plan') return tailOfPath(panel.planPath.replace(/\/[^/]+$/, '').replace(/^\/Users\/[^/]+/, '~'));
   const where = [RUNNER_LABELS[panel.status], panel.sandboxProvider && SANDBOX_LABELS[panel.sandboxProvider]];
@@ -134,7 +136,7 @@ function Favicon({ src, active }: { src: string; active: boolean }) {
 }
 
 function AddButton({ ptyId, label }: { ptyId: string; label: string }) {
-  const show = useAddPanelMenu((s) => s.show);
+  const ops = useTerminalPanels(ptyId);
   return (
     <PanelTip tip={<LabelTip text={label} />}>
       <button
@@ -143,7 +145,7 @@ function AddButton({ ptyId, label }: { ptyId: string; label: string }) {
         aria-label={label}
         onClick={(e) => {
           e.stopPropagation();
-          show(ptyId, e.currentTarget);
+          ops.addNewTab();
         }}
       >
         <Icon name="plus" />
@@ -180,6 +182,10 @@ export function PanelBar({ ptyId }: { ptyId: string }) {
         <div role="tablist" aria-label="Panels" className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
           {panels.map((panel) => {
             const active = panel.id === activePanelId;
+            if (active && panel.kind === 'newTab')
+              return (
+                <NewTabField key={panel.id} ptyId={ptyId} panelId={panel.id} onClose={() => ops.closePanel(panel.id)} />
+              );
             return (
               <PanelTabTip key={panel.id} panel={panel}>
                 <PaneTab
@@ -205,62 +211,27 @@ export function PanelBar({ ptyId }: { ptyId: string }) {
   );
 }
 
-/** How long the tucked tabs take to spread; they take no clicks until they have. */
-const SPREAD_MS = 180;
-
-/**
- * What is hidden beside the main pane, tucked into a stack of its tabs'
- * icons, and a new tab. Near the pointer the stack spreads out, each icon
- * opening its tab. The area that spreads it reaches past it, so the icons are
- * in place before the pointer is, and none takes a click while still moving.
- */
+/** What is hidden beside the main pane, each tab's icon opening it, and a new tab. */
 export function PanelsAway({ ptyId }: { ptyId: string }) {
   const { panels, activePanelId, diffPanelOpen } = usePanels(ptyId);
   const ops = useTerminalPanels(ptyId);
-  const [near, setNear] = useState(false);
-  const [settled, setSettled] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => clearTimeout(timer.current ?? undefined), []);
   if (activePanelId || diffPanelOpen) return null;
-  const approach = () => {
-    setNear(true);
-    clearTimeout(timer.current ?? undefined);
-    timer.current = setTimeout(() => setSettled(true), SPREAD_MS);
-  };
-  const leave = () => {
-    setNear(false);
-    setSettled(false);
-    clearTimeout(timer.current ?? undefined);
-  };
   return (
     <PanelTipGroup>
-      <div onMouseEnter={approach} onMouseLeave={leave} className="-m-6 p-6">
-        <div className="h-7 flex items-center gap-0.5">
-          {panels.map((panel, n) => (
-            <PanelTabTip key={panel.id} panel={panel}>
-              <button
-                type="button"
-                aria-label={panelLabel(panel)}
-                onClick={() => settled && ops.activatePanel(panel.id)}
-                className={`relative w-7 h-7 flex items-center justify-center rounded-md border-none ${
-                  near ? 'bg-transparent hover:bg-ink/10' : ''
-                }`}
-                style={{
-                  marginLeft: n === 0 ? 0 : near ? 2 : -5,
-                  zIndex: panels.length - n,
-                  ...(!near && {
-                    background: 'color-mix(in srgb, var(--color-ink) 7%, var(--color-terminal-bg))',
-                    boxShadow: '0 0 0 2px var(--color-terminal-bg)',
-                  }),
-                  transition: `margin-left ${SPREAD_MS}ms cubic-bezier(.2,.8,.2,1), background-color ${SPREAD_MS}ms, box-shadow ${SPREAD_MS}ms`,
-                }}
-              >
-                <PanelMark panel={panel} active />
-              </button>
-            </PanelTabTip>
-          ))}
-          <AddButton ptyId={ptyId} label="New tab" />
-        </div>
+      <div className="h-7 flex items-center gap-0.5">
+        {panels.map((panel) => (
+          <PanelTabTip key={panel.id} panel={panel}>
+            <button
+              type="button"
+              aria-label={panelLabel(panel)}
+              onClick={() => ops.activatePanel(panel.id)}
+              className="w-7 h-7 flex items-center justify-center rounded-md border-none bg-transparent hover:bg-ink/10 transition-colors duration-150"
+            >
+              <PanelMark panel={panel} active />
+            </button>
+          </PanelTabTip>
+        ))}
+        <AddButton ptyId={ptyId} label="New tab" />
       </div>
     </PanelTipGroup>
   );
@@ -268,21 +239,12 @@ export function PanelsAway({ ptyId }: { ptyId: string }) {
 
 /**
  * Controls set in a pane's top right corner over what is under it, on a
- * backing soft on both open sides so it has no edge.
+ * blur that fades out to the left and below so it has no edge.
  */
 export function PaneCorner({ children }: { children: ReactNode }) {
   return (
-    <div className="absolute top-0 right-0 z-10 pl-12 pr-2 pt-1.5 pb-5 pointer-events-none [&>*]:pointer-events-auto">
-      <div
-        aria-hidden
-        className="absolute inset-0 !pointer-events-none"
-        style={{
-          background: 'var(--color-terminal-bg)',
-          maskImage:
-            'linear-gradient(to right, transparent, black 44px), linear-gradient(to bottom, black 55%, transparent)',
-          maskComposite: 'intersect',
-        }}
-      />
+    <div className="absolute top-0 right-0 z-10 pl-10 pr-2 pt-1.5 pb-5 pointer-events-none [&>*]:pointer-events-auto">
+      <SoftBlur fades={{ left: 40, bottom: 30 }} color="--color-terminal-bg" className="inset-0 !pointer-events-none" />
       <PanelTipGroup>
         <div className="relative flex items-center">{children}</div>
       </PanelTipGroup>

@@ -6,6 +6,7 @@ import { getLogger } from '../../logger';
 import { resolveWithinBase, isSymlinkEscapeError } from '../../utils/pathSafety';
 import { readMarkdownImage } from '../../markdownImages';
 import { watchFileContents } from '../../fileWatch';
+import { listMarkdownFiles } from '../../markdownFiles';
 
 const planLog = getLogger().scope('plan');
 
@@ -94,6 +95,8 @@ export function registerPlanHandlers(mainWindow: BrowserWindow): void {
     );
     return result;
   });
+
+  typedHandle('plan:list-files', (dir) => listMarkdownFiles(dir));
 
   typedHandle('plan:pick-file', async (defaultPath) => {
     const targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;

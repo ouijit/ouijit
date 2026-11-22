@@ -1,3 +1,4 @@
+import { NewTabPage } from './NewTabPanel';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -55,6 +56,11 @@ export function TerminalBody({ ptyId, projectPath, page }: TerminalBodyProps) {
   // that has gone counts as an empty slot.
   const slotKey = diffPanelOpen ? 'diff' : (activePanel?.id ?? null);
   const slotOpen = slotKey !== null;
+  // A page loaded in a preview is kept while its tab is in the background or
+  // the side is hidden: a <webview> taken out of the document drops its page,
+  // and one moved to another parent reloads it.
+  const previews = panels.filter((p) => p.kind === 'webPreview');
+  const slotMounted = slotOpen || previews.length > 0;
   const split = slotOpen && !panelFullWidth;
 
   const instance = terminalInstances.get(ptyId);
@@ -207,7 +213,7 @@ export function TerminalBody({ ptyId, projectPath, page }: TerminalBodyProps) {
             style={{ cursor: 'col-resize' }}
           />
         )}
-        {slotOpen && (
+        {slotMounted && (
           // Flush to the card it opens in: the card's own rounding clips the
           // outer corners.
           <div
@@ -223,6 +229,7 @@ export function TerminalBody({ ptyId, projectPath, page }: TerminalBodyProps) {
               background: 'var(--color-terminal-bg)',
               ...(page && { boxShadow: 'var(--shadow-panel)' }),
               ...(dragging ? { pointerEvents: 'none' } : {}),
+              ...(!slotOpen && { ...HIDDEN_SLOT, width: `${splitRatio * 100}%` }),
             }}
           >
             {diffPanelOpen ? (
@@ -234,13 +241,26 @@ export function TerminalBody({ ptyId, projectPath, page }: TerminalBodyProps) {
                 onClose={() => terminalInstances.get(ptyId)?.setDiffPanelOpen(false)}
               />
             ) : (
-              activePanel && (
-                <>
-                  <PanelBar ptyId={ptyId} />
-                  <ActivePanel ptyId={ptyId} panel={activePanel} ops={ops} />
-                </>
-              )
+              activePanel && <PanelBar ptyId={ptyId} />
             )}
+            {!diffPanelOpen && activePanel && activePanel.kind !== 'webPreview' && (
+              <ActivePanel ptyId={ptyId} panel={activePanel} ops={ops} />
+            )}
+            {previews.map((panel) => (
+              <div
+                key={panel.id}
+                className="flex flex-col flex-1 min-h-0"
+                style={!diffPanelOpen && panel.id === activePanel?.id ? undefined : HIDDEN_PREVIEW}
+              >
+                <WebPreviewPanel
+                  ptyId={ptyId}
+                  panelId={panel.id}
+                  url={panel.url ?? ''}
+                  onChangeUrl={(url) => ops.changeWebPreviewUrl(panel.id, url)}
+                  onPageInfo={(info) => terminalInstances.get(ptyId)?.updatePanel(panel.id, info)}
+                />
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -248,6 +268,26 @@ export function TerminalBody({ ptyId, projectPath, page }: TerminalBodyProps) {
     </div>
   );
 }
+
+/** Hidden but laid out, so a page kept in it keeps its size for when it is shown again. */
+const HIDDEN_SLOT = {
+  position: 'absolute',
+  top: 0,
+  right: 0,
+  bottom: 0,
+  visibility: 'hidden',
+  opacity: 0,
+  pointerEvents: 'none',
+} as const;
+// Opacity as well as visibility, here and above: a child with `transition-all`
+// animates the visibility it inherits, staying visible through its transition.
+const HIDDEN_PREVIEW = {
+  position: 'absolute',
+  inset: 0,
+  visibility: 'hidden',
+  opacity: 0,
+  pointerEvents: 'none',
+} as const;
 
 function ActivePanel({
   ptyId,
@@ -269,16 +309,10 @@ function ActivePanel({
         />
       );
     case 'webPreview':
-      return (
-        <WebPreviewPanel
-          ptyId={ptyId}
-          panelId={panel.id}
-          url={panel.url ?? ''}
-          onChangeUrl={(url) => ops.changeWebPreviewUrl(panel.id, url)}
-          onPageInfo={(info) => terminalInstances.get(ptyId)?.updatePanel(panel.id, info)}
-        />
-      );
+      return null;
     case 'plan':
       return <PlanPanel ptyId={ptyId} panelId={panel.id} planPath={panel.planPath} />;
+    case 'newTab':
+      return <NewTabPage key={panel.id} ptyId={ptyId} panelId={panel.id} />;
   }
 }

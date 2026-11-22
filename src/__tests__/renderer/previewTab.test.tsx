@@ -7,7 +7,7 @@ import type { WebPreviewPanel as Preview } from '../../components/terminal/panel
 
 const PTY = 'pty-preview';
 
-test("a preview's tab is named for the page and wears its icon, and a page without one goes back to the globe", () => {
+test("a preview's tab is named for the page and wears its icon through a navigation, and a page without one goes back to the globe", () => {
   const panel: Preview = { id: 'panel-1', kind: 'webPreview', url: 'http://localhost:4321/writing' };
   useTerminalStore.getState().addTerminal('/code/site', PTY, {
     ...DEFAULT_DISPLAY_STATE,
@@ -42,9 +42,28 @@ test("a preview's tab is named for the page and wears its icon, and a page witho
   expect(tab().textContent).toContain('Writing · Ouijit');
   expect(tab().querySelector('img')?.getAttribute('src')).toBe('http://localhost:4321/favicon.svg');
 
-  // Another page, naming no icon of its own: not the last page's.
+  // Another page keeps the icon while it loads, and keeps it when it names the same one.
+  const icon = () => tab().querySelector('img')?.getAttribute('src');
+  act(() => {
+    fireEvent(webview, Object.assign(new Event('did-navigate'), { url: 'http://localhost:4321/writing/one' }));
+  });
+  expect(icon()).toBe('http://localhost:4321/favicon.svg');
+  act(() => {
+    fireEvent(
+      webview,
+      Object.assign(new Event('page-favicon-updated'), { favicons: ['http://localhost:4321/favicon.svg'] }),
+    );
+    fireEvent(webview, new Event('did-stop-loading'));
+  });
+  expect(icon()).toBe('http://localhost:4321/favicon.svg');
+
+  // One naming no icon of its own ends up without the last page's.
   act(() => {
     fireEvent(webview, Object.assign(new Event('did-navigate'), { url: 'http://localhost:4321/about' }));
+  });
+  expect(icon()).toBe('http://localhost:4321/favicon.svg');
+  act(() => {
+    fireEvent(webview, new Event('did-stop-loading'));
   });
   expect(tab().querySelector('img')).toBeNull();
 });

@@ -1,6 +1,6 @@
 /**
  * Terminal panel model. A terminal owns an ordered list of user-managed panels
- * (runner, web preview, plan) shown as tabs, displaying one at a time as the
+ * (runner, web preview, plan, or a new tab yet to be one) shown as tabs, displaying one at a time as the
  * active panel. Each type can have multiple instances.
  *
  * The diff view is intentionally NOT a panel here — it's an automatic,
@@ -13,7 +13,7 @@
 
 import type { SandboxBackendId } from '../../types';
 
-export type PanelKind = 'runner' | 'webPreview' | 'plan';
+export type PanelKind = 'runner' | 'webPreview' | 'plan' | 'newTab';
 
 export type RunnerStatus = 'running' | 'success' | 'error' | 'idle';
 
@@ -61,7 +61,13 @@ export interface PlanPanel {
   planPath: string;
 }
 
-export type TerminalPanel = RunnerPanel | WebPreviewPanel | PlanPanel;
+/** A tab not yet anything: it becomes the script, file or page picked in it, and is not saved. */
+export interface NewTabPanel {
+  id: string;
+  kind: 'newTab';
+}
+
+export type TerminalPanel = RunnerPanel | WebPreviewPanel | PlanPanel | NewTabPanel;
 
 export function panelIcon(panel: TerminalPanel): string {
   switch (panel.kind) {
@@ -71,6 +77,8 @@ export function panelIcon(panel: TerminalPanel): string {
       return 'globe-simple';
     case 'plan':
       return 'file-text';
+    case 'newTab':
+      return 'magnifying-glass';
   }
 }
 
@@ -91,5 +99,7 @@ export function panelLabel(panel: TerminalPanel): string {
       return panel.title || (panel.url ? previewHostLabel(panel.url) : 'Preview');
     case 'plan':
       return panel.planPath.split('/').pop() ?? 'Markdown File';
+    case 'newTab':
+      return 'New tab';
   }
 }

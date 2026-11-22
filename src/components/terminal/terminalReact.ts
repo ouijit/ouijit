@@ -787,8 +787,14 @@ export class OuijitTerminal {
     });
   }
 
-  private appendPanel(panel: TerminalPanel, activate = true): void {
-    this.panels = [...this.panels, panel];
+  /** Adds a panel, or puts it where the new tab `replacing` was, open as that tab was. */
+  private appendPanel(panel: TerminalPanel, activate = true, replacing?: string): void {
+    const at = replacing ? this.panels.findIndex((p) => p.id === replacing && p.kind === 'newTab') : -1;
+    if (at === -1) this.panels = [...this.panels, panel];
+    else {
+      this.panels = this.panels.map((p, i) => (i === at ? panel : p));
+      if (this.activePanelId === replacing) this.activePanelId = panel.id;
+    }
     if (activate) {
       this.activePanelId = panel.id;
       this.closeDiffForActivation();
@@ -846,6 +852,7 @@ export class OuijitTerminal {
       private?: boolean;
     } | null,
     activate = true,
+    replacing?: string,
   ): string {
     const id = generateId('panel');
     const panel: RunnerPanel = {
@@ -861,24 +868,30 @@ export class OuijitTerminal {
       ...(script?.private && { private: true }),
       status: 'idle',
     };
-    this.appendPanel(panel, activate);
+    this.appendPanel(panel, activate, replacing);
     return id;
   }
 
-  addWebPreviewPanel(url: string | null = null, opts?: { activate?: boolean }): string {
+  addWebPreviewPanel(url: string | null = null, opts?: { activate?: boolean; replacing?: string }): string {
     const id = generateId('panel');
     const panel: WebPreviewPanel = {
       id,
       kind: 'webPreview',
       url: url || null,
     };
-    this.appendPanel(panel, opts?.activate ?? true);
+    this.appendPanel(panel, opts?.activate ?? true, opts?.replacing);
     return id;
   }
 
-  addPlanPanel(planPath: string, activate = true): string {
+  addPlanPanel(planPath: string, activate = true, replacing?: string): string {
     const id = generateId('panel');
-    this.appendPanel({ id, kind: 'plan', planPath }, activate);
+    this.appendPanel({ id, kind: 'plan', planPath }, activate, replacing);
+    return id;
+  }
+
+  addNewTabPanel(): string {
+    const id = generateId('panel');
+    this.appendPanel({ id, kind: 'newTab' });
     return id;
   }
 

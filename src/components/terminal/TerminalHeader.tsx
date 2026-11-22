@@ -5,24 +5,20 @@ import { getProjectConfig, loadTasks, useProjectConfig, useProjectTask } from '.
 import { tasksOpenAsChat } from '../../services/chatSettings';
 import { useShallow } from 'zustand/react/shallow';
 import { terminalInstances } from './terminalRegistry';
-import { addProjectTerminal, renameTerminal, startRunner } from './terminalActions';
+import { addProjectTerminal, renameTerminal } from './terminalActions';
 import { completeTask } from '../../services/taskCompletion';
 import { Icon } from './Icon';
 import { TagInput } from './TagInput';
 import { TerminalHeaderView, TerminalHeaderName } from './TerminalHeaderView';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { Tooltip } from '../ui/Tooltip';
-import { AddPanelMenu } from './AddPanelMenu';
-import { useAddPanelMenu } from './addPanelMenuStore';
-import type { GitFileStatus, RunnerScript, SandboxBackendId, Script, ScriptHook } from '../../types';
+import type { GitFileStatus, SandboxBackendId } from '../../types';
 import { closedTaskChats, openEntries, moveToEntry, trackerEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { openTaskInEditor, openWorktreeInEditor } from '../../services/openInEditor';
 import { openTaskChat, openTaskSession, openTaskTerminal } from '../navigation';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
-import { HookConfigDialog } from '../dialogs/HookConfigDialog';
-import { ScriptConfigDialog } from '../dialogs/ScriptConfigDialog';
 import { describeDiffComparison, filesInDiff } from '../../diffSource';
 import { useWantsYou } from './wantsYou';
 import { useChatStore } from '../../stores/chatStore';
@@ -70,13 +66,8 @@ export const TerminalHeader = memo(function TerminalHeader({
 
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const addMenu = useAddPanelMenu((s) => (s.open?.ptyId === ptyId ? s.open : null));
-  const closeAddMenu = useAddPanelMenu((s) => s.close);
   const [renameTarget, setRenameTarget] = useState<null | 'terminal' | 'task'>(null);
   const [branchFromDialog, setBranchFromDialog] = useState(false);
-  const [commandDialog, setCommandDialog] = useState<
-    { kind: 'run'; existing?: ScriptHook } | { kind: 'script'; existing?: Script } | null
-  >(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   const instance = terminalInstances.get(ptyId);
@@ -253,22 +244,6 @@ export const TerminalHeader = memo(function TerminalHeader({
     [ptyId],
   );
 
-  const handleAddRunner = useCallback(
-    (script?: RunnerScript, sandbox?: SandboxBackendId) => {
-      void startRunner(ptyId, script, sandbox);
-    },
-    [ptyId],
-  );
-  const handleAddWebPreview = useCallback(() => {
-    terminalInstances.get(ptyId)?.addWebPreviewPanel(null);
-  }, [ptyId]);
-  const handleAddPlan = useCallback(
-    (planPath: string) => {
-      terminalInstances.get(ptyId)?.addPlanPanel(planPath);
-    },
-    [ptyId],
-  );
-
   const nameContent = renameTarget ? (
     <input
       ref={renameInputRef}
@@ -324,42 +299,6 @@ export const TerminalHeader = memo(function TerminalHeader({
           y={contextMenu.y}
           items={contextMenuItems}
           onClose={() => setContextMenu(null)}
-        />
-      )}
-      {addMenu && (
-        <AddPanelMenu
-          ptyId={ptyId}
-          projectPath={projectPath}
-          x={addMenu.x}
-          y={addMenu.y}
-          onAddRunner={handleAddRunner}
-          onAddWebPreview={handleAddWebPreview}
-          onAddPlan={handleAddPlan}
-          onConfigureRun={(existing) => setCommandDialog({ kind: 'run', existing })}
-          onNewScript={() => setCommandDialog({ kind: 'script' })}
-          onEditScript={(existing) => setCommandDialog({ kind: 'script', existing })}
-          onClose={closeAddMenu}
-        />
-      )}
-      {commandDialog?.kind === 'run' && (
-        <HookConfigDialog
-          projectPath={projectPath}
-          hookType="run"
-          existingHook={commandDialog.existing}
-          onClose={(hook) => {
-            setCommandDialog(null);
-            if (hook && !commandDialog.existing) handleAddRunner();
-          }}
-        />
-      )}
-      {commandDialog?.kind === 'script' && (
-        <ScriptConfigDialog
-          projectPath={projectPath}
-          existing={commandDialog.existing}
-          onClose={(script) => {
-            setCommandDialog(null);
-            if (script && !commandDialog.existing) handleAddRunner(script);
-          }}
         />
       )}
       {branchFromDialog && task && (
