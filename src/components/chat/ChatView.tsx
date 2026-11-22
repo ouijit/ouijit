@@ -210,10 +210,7 @@ export function ChatView({
       style={{ background: surface === 'page' ? 'var(--color-background)' : 'var(--color-terminal-bg)' }}
     >
       {surface === 'page' && (
-        <div
-          className="pointer-events-none h-6 shrink-0 -mb-6 relative z-10"
-          style={{ background: 'linear-gradient(to bottom, var(--color-background), transparent)' }}
-        />
+        <div className="pointer-events-none h-4 shrink-0 -mb-4 relative z-10" style={{ background: TOP_FADE }} />
       )}
       <div
         ref={ref}
@@ -250,3 +247,14 @@ export function ChatView({
     </div>
   );
 }
+
+const TOP_FADE = `linear-gradient(to bottom, ${[
+  [100, 0],
+  [74, 20],
+  [45, 40],
+  [22, 60],
+  [7, 80],
+  [0, 100],
+]
+  .map(([alpha, at]) => `color-mix(in srgb, var(--color-background) ${alpha}%, transparent) ${at}%`)
+  .join(', ')})`;
