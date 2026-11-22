@@ -98,7 +98,7 @@ export const TerminalHeader = memo(function TerminalHeader({
           addProjectTerminal(projectPath, undefined, {
             existingWorktree: { path: instance.worktreePath!, branch: instance.worktreeBranch!, createdAt: '' },
             taskId: taskId!,
-            sandboxProvider: provider,
+            sandbox: provider,
           });
         },
         openSession: task ? (surface, place) => void openTaskSession(projectPath, task, surface, place) : undefined,
@@ -346,7 +346,7 @@ async function forkChat(ptyId: string): Promise<void> {
       agent: forked.info.agent,
       taskId: term.taskId ?? undefined,
       worktree: term.worktreePath ? { path: term.worktreePath, branch: term.worktreeBranch ?? '' } : undefined,
-      sandboxProvider: term.sandboxProvider,
+      sandbox: term.sandbox,
       label: `${term.label} (fork)`,
     });
   } catch (error) {

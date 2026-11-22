@@ -1,6 +1,6 @@
 /**
  * What Chat may do through the API, against the real router, database and git,
- * with Chat and a worker on the host replaying a recorded agent.
+ * with Chat and its workers replaying a recorded agent.
  */
 import { describe, test, expect, vi, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'node:child_process';
@@ -14,8 +14,16 @@ import { getCliReferencePath } from '../../../cliReferencePath';
 import { issueToken } from '../../../apiAuth';
 import { _resetCacheForTesting, createTask, getTaskByNumber, setGlobalSetting } from '../../../db';
 import { chatHost } from '../../../chat/host';
-import { homeChatDir, homeChatState, installHomeChat, onHomeChatChange, startHomeChat } from '../../../chat/homeChat';
-import { sandboxCliAccessSettingKey } from '../../../sandbox/types';
+import {
+  homeChatDir,
+  homeChatState,
+  installHomeChat,
+  newHomeChat,
+  onHomeChatChange,
+  startHomeChat,
+} from '../../../chat/homeChat';
+import { getSessionSpawnContext } from '../../../sessions';
+import { defaultSandboxSettingKey, sandboxCliAccessSettingKey, type SandboxSpec } from '../../../sandbox/types';
 import { installHomeChatWakes } from '../../../chat/wake';
 import { decide, decisions } from '../../../decisions';
 import { HOME_CHAT_SETTING_KEYS, taskKey, type HomeChatState } from '../../../chat/preferences';
@@ -110,7 +118,7 @@ describe('what Chat can do', () => {
     const started = await api('POST', `tasks/1/start?${project}`, { hookMode: 'run', hookSandbox: 'none' });
     expect(started.status).toBe(200);
     const push = pushes.find(([channel]) => channel === 'cli:task-started')?.[1] as Record<string, unknown>;
-    expect(push).toMatchObject({ taskNumber: 1, hookSandbox: 'none', surface: 'chat', fromPtyId: chat });
+    expect(push).toMatchObject({ taskNumber: 1, sandbox: 'none', surface: 'chat', fromPtyId: chat });
     expect(push.fromSandbox).toBeUndefined();
     expect((await homeChatState()).owners[taskKey(repo, 1)]).toBe(chat);
 
@@ -177,4 +185,55 @@ describe('what Chat can do', () => {
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(wakes(chatHost.snapshot(chat)!)).toEqual([]);
   });
+
+  test('sandboxed, what it starts runs in its sandbox under its settings, and it steers only what runs there', async () => {
+    const project = `project=${encodeURIComponent(repo)}`;
+    await setGlobalSetting(defaultSandboxSettingKey(repo), 'none');
+    await setGlobalSetting(HOME_CHAT_SETTING_KEYS.sandbox, 'nono');
+    await setGlobalSetting(sandboxCliAccessSettingKey(homeChatDir()), 'all');
+    const sandboxed = (await newHomeChat()).info.id;
+    await until(() => chatHost.snapshot(sandboxed)?.info.status === 'idle', 'sandboxed Chat to start');
+    const own = token;
+    token = issueToken(sandboxed, 'sandbox');
+    const chatsSandbox = { provider: 'nono', settings: homeChatDir() };
+
+    // A task it starts goes to Chat's sandbox over the project's host default and the host it asked
+    // for, and at Everything a hook that would still run on the host waits for the user.
+    await createTask(repo, 4, 'In Chat sandbox', { status: 'todo' });
+    expect((await api('POST', `tasks/4/start?${project}`, { hookMode: 'run', hookSandbox: 'none' })).status).toBe(200);
+    const push = pushes.findLast(([channel]) => channel === 'cli:task-started')?.[1] as Record<string, unknown>;
+    expect(push).toMatchObject({ taskNumber: 4, sandbox: chatsSandbox, fromSandbox: true, fromPtyId: sandboxed });
+
+    // A chat the window opens with the sandbox a push carries stays in it when resumed. (On a task Chat
+    // does not own, whose chat would otherwise take Chat's mode, which the recording never answers.)
+    const worktree = path.join(repo, 'wt');
+    await createTask(repo, 5, 'Elsewhere', { status: 'in_progress', branch: 'T-5', worktreePath: worktree });
+    const opening = { agent: 'claude' as const, projectPath: repo, cwd: repo, worktreePath: worktree, taskId: 5 };
+    const worker = (await chatHost.start({ ...opening, sandbox: push.sandbox as SandboxSpec })).info.id;
+    expect(getSessionSpawnContext(worker)?.sandbox).toEqual(chatsSandbox);
+
+    // One in the project's own sandbox is out of Chat's reach, though Chat still reads it.
+    const theirs = (await chatHost.start({ ...opening, sandbox: 'nono' })).info.id;
+    for (const [route, body] of [
+      [`chats/${theirs}/messages`, { text: 'hi' }],
+      [`chats/${theirs}/requests/any`, { cancel: true }],
+      [`chats/${theirs}/interrupt`, {}],
+      [`chats/${chat}/messages`, { text: 'hi' }],
+    ] as const) {
+      const refused = await api('POST', route, body);
+      expect(refused.status).toBe(403);
+      expect(refused.error).toMatch(/runs outside your sandbox/);
+    }
+    expect((await api('POST', `chats/${theirs}/messages`, { text: 'hi' })).error).toContain(
+      `ouijit chat open --task 5 --project ${repo}`,
+    );
+    expect((await api('GET', `chats/${theirs}`)).status).toBe(200);
+    expect((await api('POST', `chats/${worker}/requests/any`, { cancel: true })).status).toBe(409);
+    expect((await api('POST', `chats/${worker}/messages`, { text: 'Still there?' })).status).toBe(200);
+
+    await chatHost.stop(worker);
+    await chatHost.start({ ...opening, id: worker, sandbox: 'none' });
+    expect(getSessionSpawnContext(worker)?.sandbox).toEqual(chatsSandbox);
+    token = own;
+  }, 20_000);
 });

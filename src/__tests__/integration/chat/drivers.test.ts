@@ -993,7 +993,7 @@ describe('a chat reopened after its agent is gone', () => {
         worktree_path: null,
         agent: 'acp',
         agent_session_id: null,
-        sandbox_provider: null,
+        sandbox: null,
         role: 'card',
         info: JSON.stringify(info),
         seq: 7,

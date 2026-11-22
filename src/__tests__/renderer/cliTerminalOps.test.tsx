@@ -16,7 +16,7 @@ import type {
   CliTerminalOp,
   CliTerminalResponse,
   PtySpawnOptions,
-  SandboxProviderId,
+  SandboxPlacement,
   TaskWithWorkspace,
 } from '../../types';
 
@@ -33,7 +33,7 @@ vi.mock('../../components/terminal/terminalReact', () => {
     ptyId = 'pending';
     projectPath: string;
     worktreePath?: string;
-    sandboxProvider?: SandboxProviderId;
+    sandbox?: SandboxPlacement;
     panels: Array<Record<string, unknown> & { id: string; kind: string }> = [];
     activePanelId: string | null = null;
     diffPanelOpen = false;
@@ -59,16 +59,11 @@ vi.mock('../../components/terminal/terminalReact', () => {
       if (ptyId) this.ptyId = ptyId;
       return ptyId;
     });
-    constructor(opts: {
-      ptyId?: string;
-      projectPath: string;
-      worktreePath?: string;
-      sandboxProvider?: SandboxProviderId;
-    }) {
+    constructor(opts: { ptyId?: string; projectPath: string; worktreePath?: string; sandbox?: SandboxPlacement }) {
       if (opts.ptyId) this.ptyId = opts.ptyId;
       this.projectPath = opts.projectPath;
       this.worktreePath = opts.worktreePath;
-      this.sandboxProvider = opts.sandboxProvider;
+      this.sandbox = opts.sandbox;
     }
     private append(panel: Record<string, unknown> & { kind: string }): string {
       const id = `panel-${this.panels.length + 1}`;
@@ -76,12 +71,12 @@ vi.mock('../../components/terminal/terminalReact', () => {
       this.activePanelId = id;
       return id;
     }
-    addRunnerPanel(script: { name: string; command: string; sandboxProvider?: SandboxProviderId }) {
+    addRunnerPanel(script: { name: string; command: string; sandbox?: SandboxPlacement }) {
       return this.append({
         kind: 'runner',
         scriptName: script.name,
         scriptCommand: script.command,
-        ...(script.sandboxProvider && script.sandboxProvider !== 'none' && { sandboxProvider: script.sandboxProvider }),
+        ...(script.sandbox && script.sandbox !== 'none' && { sandbox: script.sandbox }),
         status: 'idle',
       });
     }
@@ -252,9 +247,7 @@ describe("a terminal's panels, from the CLI", () => {
     expect(added.panels).toEqual([
       { id: 'panel-1', kind: 'runner', label: 'Dev server', script: 'Dev server', active: true },
     ]);
-    expect(vi.mocked(window.api.pty.spawn).mock.lastCall?.[0]).toEqual(
-      expect.objectContaining({ sandboxProvider: 'nono' }),
-    );
+    expect(vi.mocked(window.api.pty.spawn).mock.lastCall?.[0]).toEqual(expect.objectContaining({ sandbox: 'nono' }));
 
     // Adding the same script again brings its panel forward rather than running it twice.
     await panelOp({ ptyId: 'pty-front', action: 'add', kind: 'markdown', value: '/wt/plan.md' });

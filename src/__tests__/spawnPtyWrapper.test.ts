@@ -3,6 +3,8 @@ import type { SandboxProvider } from '../sandbox/provider';
 
 import * as apiAuth from '../apiAuth';
 import { spawnPty, getActiveSessions, getPtyTaskContext, isPtyActive } from '../ptyManager';
+import { _resetSandboxRegistryForTesting, registerSandboxProvider } from '../sandbox/registry';
+import type { SandboxBackendId } from '../sandbox/types';
 
 // Fake node-pty so no real process is spawned; capture spawn args and the
 // data/exit listeners so a test can play a launcher's output back.
@@ -44,12 +46,20 @@ const fakeWrapper: SandboxProvider = {
   getStatus: async () => ({ providerId: 'nono', available: true }),
   cleanup: vi.fn(),
   prepare: vi.fn(async (ctx) => ({ cwd: ctx.cwd })),
-  wrapLaunch: vi.fn((launch, ctx) => ({
+  wrapLaunch: vi.fn(async (launch, ctx) => ({
     file: '/usr/local/bin/nono',
     args: ['wrap', '--open-port', String(ctx.apiPort), '--', launch.file, ...launch.args],
     env: launch.env,
   })),
 };
+
+/** Spawn under `provider`, registered as the backend it names. */
+function spawnUnder(provider: SandboxProvider, options: { taskId?: number } = {}) {
+  _resetSandboxRegistryForTesting();
+  registerSandboxProvider(provider);
+  const sandbox = { provider: provider.id as SandboxBackendId, settings: '/proj' };
+  return spawnPty({ cwd: '/proj', projectPath: '/proj', ...options }, window, sandbox);
+}
 
 const spawnEnv = () => (ptySpawn.mock.calls[0] as [string, string[], { env: Record<string, string> }])[2].env;
 const launchFailures = () => send.mock.calls.filter((c) => c[0] === 'sandbox-launch-failed');
@@ -80,11 +90,7 @@ describe('spawnPty wrapper seam', () => {
 
   test('wrapper: prepare + wrapLaunch run, wrapped argv reaches node-pty, token is sandbox-scoped', async () => {
     const issue = vi.spyOn(apiAuth, 'issueToken');
-    const result = await spawnPty(
-      { cwd: '/proj', projectPath: '/proj', taskId: 3, sandboxProvider: 'nono' },
-      window,
-      fakeWrapper,
-    );
+    const result = await spawnUnder(fakeWrapper, { taskId: 3 });
     expect(result.success).toBe(true);
     expect(fakeWrapper.prepare).toHaveBeenCalledTimes(1);
     expect(fakeWrapper.wrapLaunch).toHaveBeenCalledTimes(1);
@@ -104,7 +110,7 @@ describe('spawnPty wrapper seam', () => {
     // The active session records which backend runs it, and the pty resolves
     // back to its task — what scopes a sandbox token's reach over the API.
     const session = getActiveSessions().find((s) => s.ptyId === result.ptyId);
-    expect(session?.sandboxProvider).toBe('nono');
+    expect(session?.sandbox).toEqual({ provider: 'nono', settings: '/proj' });
     expect(isPtyActive(result.ptyId!)).toBe(true);
     expect(getPtyTaskContext(result.ptyId!)).toEqual({ projectPath: '/proj', taskId: 3 });
 
@@ -123,7 +129,7 @@ describe('spawnPty wrapper seam', () => {
         throw new Error('No sandbox command configured');
       }),
     };
-    const result = await spawnPty({ cwd: '/proj', projectPath: '/proj', sandboxProvider: 'custom' }, window, refusing);
+    const result = await spawnUnder(refusing);
     expect(result).toEqual({ success: false, error: 'No sandbox command configured' });
     expect(ptySpawn).not.toHaveBeenCalled();
     expect(launchFailures().map((c) => c[1])).toEqual([
@@ -134,10 +140,7 @@ describe('spawnPty wrapper seam', () => {
   });
 
   test('launcher exiting non-zero before the shell starts is reported as a launch failure', async () => {
-    await spawnPty({ cwd: '/proj', projectPath: '/proj', sandboxProvider: 'custom' }, window, {
-      ...fakeWrapper,
-      id: 'custom',
-    });
+    await spawnUnder({ ...fakeWrapper, id: 'custom' });
     fake.onData!('\x1b[31mpolicy differs from trunk\x1b[0m\r\n');
     fake.onExit!({ exitCode: 2 });
 
@@ -151,10 +154,7 @@ describe('spawnPty wrapper seam', () => {
   });
 
   test('once the shell has signalled a prompt, a non-zero exit is a plain exit', async () => {
-    await spawnPty({ cwd: '/proj', projectPath: '/proj', sandboxProvider: 'custom' }, window, {
-      ...fakeWrapper,
-      id: 'custom',
-    });
+    await spawnUnder({ ...fakeWrapper, id: 'custom' });
     fake.onData!('banner\r\n\x1b]');
     fake.onData!('13');
     fake.onData!('3;A\x07$ ');
@@ -164,10 +164,7 @@ describe('spawnPty wrapper seam', () => {
 
   test('a shell without integration never signals, so it is not watched', async () => {
     integrated.value = false;
-    await spawnPty({ cwd: '/proj', projectPath: '/proj', sandboxProvider: 'custom' }, window, {
-      ...fakeWrapper,
-      id: 'custom',
-    });
+    await spawnUnder({ ...fakeWrapper, id: 'custom' });
     fake.onExit!({ exitCode: 3 });
     expect(launchFailures()).toHaveLength(0);
   });

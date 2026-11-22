@@ -57,7 +57,7 @@ export const customProvider: SandboxProvider = {
   },
 
   async wrapLaunch(launch: SandboxLaunch, ctx: SandboxSpawnContext): Promise<SandboxLaunch> {
-    const { command } = await getCustomSandboxConfig(ctx.projectPath);
+    const { command } = await getCustomSandboxConfig(ctx.settings);
     const wrapped = buildCustomLaunch(command ?? '', launch, [...new Set([ctx.cwd, ctx.worktreePath ?? ctx.cwd])]);
     customLog.info('wrapping launch under custom sandbox command', { launcher: wrapped.file, cwd: ctx.cwd });
     return wrapped;

@@ -20,7 +20,7 @@ function stored(name: string, started: number, turns: number[], wake = false): s
       worktree_path: null,
       agent: 'claude',
       agent_session_id: null,
-      sandbox_provider: null,
+      sandbox: null,
       role: 'home',
       info: JSON.stringify({ label: name }),
       seq: 0,

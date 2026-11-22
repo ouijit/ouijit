@@ -221,7 +221,7 @@ function seed() {
       return `INSERT INTO chat_nodes (session_id, node_id, position, body) VALUES ('${id}', 'seed-${index}-${position}', ${position}, '${esc(body)}');`;
     });
     exec(
-      `INSERT INTO chat_sessions (id, project_path, task_id, cwd, worktree_path, agent, agent_session_id, sandbox_provider, info, seq, created_at, updated_at) VALUES ('${id}', '${esc(projectPath)}', ${chat.taskNumber}, '${esc(info.cwd)}', ${nullable(worktreePath)}, '${esc(chat.agent)}', NULL, NULL, '${esc(JSON.stringify(info))}', 0, '${now}', '${now}');\n${nodeInserts.join('\n')}`,
+      `INSERT INTO chat_sessions (id, project_path, task_id, cwd, worktree_path, agent, agent_session_id, sandbox, info, seq, created_at, updated_at) VALUES ('${id}', '${esc(projectPath)}', ${chat.taskNumber}, '${esc(info.cwd)}', ${nullable(worktreePath)}, '${esc(chat.agent)}', NULL, NULL, '${esc(JSON.stringify(info))}', 0, '${now}', '${now}');\n${nodeInserts.join('\n')}`,
     );
   }
 

@@ -128,6 +128,7 @@ import type {
   CliTerminalOp,
   CliTerminalResponse,
   CliCaller,
+  CliMove,
   SandboxCliAccess,
   SandboxProviderId,
 } from '../types';
@@ -141,7 +142,11 @@ import {
   sandboxCliAccessSettingKey,
   isSandboxBackendId,
   isSandboxProviderId,
+  sameSandbox,
+  type SandboxPlacement,
+  type SandboxSpec,
 } from '../sandbox/types';
+import { resolveSandbox } from '../sandbox/resolve';
 import { sandboxCliAccessFor } from '../sandbox/cliAccess';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
@@ -328,16 +333,55 @@ function hostOnly(r: Pick<ParsedRequest, 'auth'>): void {
 /** Why an agent asks, in a line or two: anything longer is cut. */
 const MAX_ASK_MESSAGE = 200;
 
+/** A sandboxed Chat's own sandbox, which everything it starts runs in. */
+function chatSandbox(auth: SandboxCaller): SandboxSpec | null {
+  if (!auth.sandboxed || !callerIsHomeChat(auth.ptyId)) return null;
+  return getSessionSpawnContext(auth.ptyId)?.sandbox ?? null;
+}
+
+function cliCaller(auth: SandboxCaller): CliCaller {
+  return { fromPtyId: callerTerminal(auth.ptyId), ...(auth.sandboxed && { fromSandbox: true }) };
+}
+
 /**
- * Chat reaches all of the API, but counts as sandboxed for what it sets off:
- * a hook it would run on the host waits for the user, as a sandboxed
- * terminal's does.
+ * What a CLI move asks of the hook it fires, with where the hook runs resolved
+ * here when the request or a sandboxed Chat decides it; otherwise the window
+ * runs it where the hook or the project says.
  */
-function cliCaller(auth: AuthContext): CliCaller {
-  return {
-    fromPtyId: callerTerminal(auth.ptyId),
-    ...(auth.scope === 'sandbox' && { fromSandbox: true }),
-  };
+async function cliMove(r: Pick<ParsedRequest, 'auth' | 'body'>, project: string, hookType: string): Promise<CliMove> {
+  const { hookSandbox, ...control } = parseHookControl(r.body);
+  const chat = chatSandbox(r.auth);
+  const decided =
+    (chat || hookSandbox) &&
+    ((await resolveSandbox({ projectPath: project, placement: hookSandbox, chat, hookType })) ?? 'none');
+  return { ...control, ...cliCaller(r.auth), ...(decided && { sandbox: decided }) };
+}
+
+/** Where a session the caller opens runs: as asked, unless the caller is a sandboxed Chat. */
+async function openedSandbox(r: ParsedRequest, projectPath: string): Promise<{ sandbox?: SandboxPlacement }> {
+  const chat = chatSandbox(r.auth);
+  const asked = parseSandbox(r.body.sandbox, 'sandbox');
+  if (!chat && !asked) return {};
+  return { sandbox: (await resolveSandbox({ projectPath, placement: asked, chat })) ?? 'none' };
+}
+
+/**
+ * A sandboxed Chat steers only the sessions in its own sandbox: one outside it
+ * could act where the sandbox would not let Chat.
+ */
+function refuseOutsideChatSandbox(r: ParsedRequest, id: string): void {
+  const chat = chatSandbox(r.auth);
+  const info = chat && chatHost.snapshot(id)?.info;
+  if (!chat || !info) return;
+  if (sameSandbox(info.sandbox, chat)) return;
+  const instead =
+    info.taskId != null
+      ? ` To work on its task, open a chat of your own: ouijit chat open --task ${info.taskId} --project ${info.projectPath}`
+      : '';
+  throw new HttpError(
+    403,
+    `Chat ${id} runs outside your sandbox, so you cannot message, answer or interrupt it.${instead}`,
+  );
 }
 
 /**
@@ -615,7 +659,7 @@ function describeTerminal(session: SessionListing) {
     projectPath: session.projectPath,
     taskNumber: session.taskId ?? null,
     worktreePath: session.worktreePath ?? null,
-    sandbox: session.sandboxProvider ?? 'none',
+    sandbox: session.sandbox?.provider ?? 'none',
     surface: session.surface,
     agentStatus: session.agentStatus,
     ...(session.background && { background: session.background }),
@@ -1079,13 +1123,12 @@ const routes: Route[] = [
     async (r) => {
       const projectPath = requireProject(r.query);
       const taskNumber = r.body.task === undefined ? undefined : requireInt(String(r.body.task), 'Task number');
-      const sandbox = parseSandbox(r.body.sandbox, 'sandbox');
       const { ptyId } = await runTerminalOp({
         action: 'open',
         projectPath,
         taskNumber,
         resume: r.body.resume === true,
-        sandbox,
+        ...(await openedSandbox(r, projectPath)),
       });
       const session = listSessions().find((s) => s.ptyId === ptyId);
       if (!session) throw new HttpError(404, 'The terminal did not open');
@@ -1243,7 +1286,7 @@ const routes: Route[] = [
         action: 'open',
         projectPath,
         taskNumber,
-        sandbox: parseSandbox(r.body.sandbox, 'sandbox'),
+        ...(await openedSandbox(r, projectPath)),
         chat: { ...(agent !== undefined && { agent }), ...(prompt && { prompt }) },
       });
       if (!ptyId) throw new HttpError(404, 'The chat did not open');
@@ -1291,6 +1334,7 @@ const routes: Route[] = [
       const text = typeof r.body.text === 'string' ? r.body.text : '';
       if (!text.trim()) throw new HttpError(400, 'Missing text in body');
       const delivery = r.body.delivery === 'steer' || r.body.delivery === 'queue' ? r.body.delivery : 'auto';
+      refuseOutsideChatSandbox(r, r.segments[1]);
       try {
         const id = await chatHost.prompt(r.segments[1], { text }, delivery);
         if (callerIsHomeChat(r.auth.ptyId)) follow(r.auth.ptyId, sessionSubject(r.segments[1]));
@@ -1310,6 +1354,7 @@ const routes: Route[] = [
       const id = r.segments[1];
       // An agent answering its own approval would make the approval meaningless.
       if (r.auth.ptyId === id) throw new HttpError(403, 'A chat cannot answer its own requests');
+      refuseOutsideChatSandbox(r, id);
       const answer = parseAnswer(r.body);
       try {
         if (!chatHost.answer(id, r.segments[3], answer, { byChat: callerIsHomeChat(r.auth.ptyId) })) {
@@ -1422,6 +1467,7 @@ const routes: Route[] = [
     'POST',
     'chats/:id/interrupt',
     async (r) => {
+      refuseOutsideChatSandbox(r, r.segments[1]);
       try {
         await chatHost.interrupt(r.segments[1]);
         return { success: true };
@@ -1848,7 +1894,7 @@ interface SandboxCaller extends AuthContext {
 async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
   if (auth.scope === 'host') return { ...auth, scope: 'host', access: 'all', sandboxed: false };
   const context = getSessionSpawnContext(auth.ptyId);
-  const access = context ? await sandboxCliAccessFor(context.projectPath) : 'read';
+  const access = context ? await sandboxCliAccessFor(context.sandbox?.settings ?? context.projectPath) : 'read';
   return { ...auth, ...(access === 'all' && { scope: 'host' }), access, sandboxed: true };
 }
 
@@ -1900,7 +1946,7 @@ function ownsTerminal(caller: SandboxCaller, ptyId: string | undefined): boolean
     !!theirs &&
     own.projectPath === theirs.projectPath &&
     own.taskId === theirs.taskId &&
-    isActiveSandbox(getSessionSpawnContext(ptyId)?.sandboxProvider)
+    !!getSessionSpawnContext(ptyId)?.sandbox
   );
 }
 
@@ -2080,7 +2126,6 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
         const startResult = result as TaskStartResult;
         const task = startResult.task;
         if (task && startResult.worktreePath && task.branch) {
-          const hookControl = parseHookControl(body);
           const fromChat = callerIsHomeChat(caller.ptyId);
           typedPush(window, 'cli:task-started', {
             project,
@@ -2090,8 +2135,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             createdAt: task.createdAt,
             // What Chat starts it steers, which takes a chat.
             ...(fromChat && { surface: 'chat' as const }),
-            ...hookControl,
-            ...cliCaller(caller),
+            ...(await cliMove({ auth: caller, body }, project, 'start')),
           });
         }
       }
@@ -2111,13 +2155,11 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
         if (!Number.isNaN(taskNumber)) {
           const task = await getTaskWithWorkspace(project, taskNumber);
           if (task) {
-            const hookControl = parseHookControl(body);
             typedPush(window, 'cli:task-completed', {
               project,
               taskNumber,
               task,
-              ...hookControl,
-              ...cliCaller(caller),
+              ...(await cliMove({ auth: caller, body }, project, 'done')),
             });
           }
         }
@@ -2140,15 +2182,17 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
         if (!Number.isNaN(taskNumber)) {
           const task = await getTaskWithWorkspace(project, taskNumber);
           if (task) {
-            const hookControl = parseHookControl(body);
             typedPush(window, 'cli:task-transitioned', {
               project,
               taskNumber,
               origStatus: prevStatus as 'todo' | 'in_progress' | 'in_review' | 'done',
               newStatus: body.status,
               task,
-              ...hookControl,
-              ...cliCaller(caller),
+              ...(await cliMove(
+                { auth: caller, body },
+                project,
+                body.status === 'in_review' ? 'review' : prevStatus === 'todo' ? 'start' : 'continue',
+              )),
             });
           }
         }

@@ -6,7 +6,7 @@ import { useChatStore, listenForChatEvents, loadTaskChats } from '../../stores/c
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { generateId } from '../../utils/ids';
-import { isActiveSandbox } from '../../sandbox/types';
+import { placementProvider, sameSandbox } from '../../sandbox/types';
 import { loadChatSettings } from '../../services/chatSettings';
 import { projectTaskOpening } from '../../stores/projectDataStore';
 import { listenForHomeChat, useHomeChatStore } from '../../stores/homeChatStore';
@@ -14,7 +14,7 @@ import { useAppStore } from '../../stores/appStore';
 import { startHomeChat } from './homeChatActions';
 import { AGENT_TERMINAL_COMMANDS, stillWorking } from '../../chat/model';
 import type { ChatAgentId, ChatAttachment, ChatSessionStatus, SequencedChatEvent } from '../../chat/model';
-import type { SandboxProviderId, SnapshotTerminalUi, TaskWithWorkspace } from '../../types';
+import type { SandboxPlacement, SnapshotTerminalUi, TaskWithWorkspace } from '../../types';
 import type { ChatDelivery } from '../../chat/startOptions';
 
 const chatLog = log.scope('chatActions');
@@ -68,7 +68,7 @@ export interface SetupCommand {
   name: string;
   command: string;
   hookType: 'start' | 'continue';
-  sandboxProvider?: SandboxProviderId;
+  sandbox?: SandboxPlacement;
 }
 
 export interface AddChatCardOptions {
@@ -77,7 +77,8 @@ export interface AddChatCardOptions {
   agent?: ChatAgentId;
   worktree?: { path: string; branch: string };
   taskId?: number;
-  sandboxProvider?: SandboxProviderId;
+  /** A stored session keeps its own. */
+  sandbox?: SandboxPlacement;
   label?: string;
   background?: boolean;
   replaceLoadingId?: string;
@@ -98,11 +99,13 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
 
   let id = options.id;
   let agent = options.agent ?? opening.agent;
-  const sandboxProvider = isActiveSandbox(options.sandboxProvider) ? options.sandboxProvider : undefined;
+  const provider = placementProvider(options.sandbox);
+  const sandbox = provider ? options.sandbox : undefined;
   if (!id && options.resumeLatest && options.taskId != null) {
     const latest = await window.api.chat.latestForTask(projectPath, options.taskId);
     // A conversation stays where it started, so another sandbox means a new one.
-    if (latest && (latest.info.sandbox ?? undefined) === sandboxProvider) {
+    const asked = typeof sandbox === 'object' ? sandbox : provider && { provider, settings: projectPath };
+    if (latest && sameSandbox(latest.info.sandbox, asked)) {
       id = latest.info.id;
       agent = latest.info.agent;
     }
@@ -114,7 +117,7 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
     ptyId: id,
     projectPath,
     label,
-    sandboxProvider,
+    sandbox,
     taskId: options.taskId ?? null,
     taskPrompt: task?.prompt,
     worktreePath: options.worktree?.path,
@@ -128,7 +131,7 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
     projectPath,
     {
       label,
-      sandboxProvider,
+      sandboxProvider: provider,
       taskId: options.taskId ?? null,
       worktreeBranch: options.worktree?.branch ?? null,
       surface: 'chat',
@@ -151,7 +154,7 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
       cwd,
       taskId: options.taskId ?? null,
       worktreePath: options.worktree?.path,
-      sandboxProvider,
+      sandbox,
       label,
     });
   } catch (error) {
@@ -160,6 +163,7 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
     return false;
   }
   useChatStore.getState().adopt(started);
+  term.sandbox = started.info.sandbox ?? undefined;
   if (options.taskId != null) void loadTaskChats(projectPath);
 
   const firstPrompt = options.firstPrompt?.trim();
@@ -183,7 +187,12 @@ async function runSetupThenPrompt(
   const id = term.ptyId;
   if (firstPrompt) useChatStore.getState().setSetup(id, { text: firstPrompt, status: 'running' });
   const panelId = term.addRunnerPanel(
-    { name: setup.name, command: setup.command, source: 'hook', sandboxProvider: setup.sandboxProvider },
+    {
+      name: setup.name,
+      command: setup.command,
+      source: 'hook',
+      sandbox: setup.sandbox,
+    },
     true,
   );
   term.updatePanel(panelId, { hookType: setup.hookType });
@@ -253,7 +262,7 @@ export async function openAgentTerminal(id: string): Promise<void> {
         ? { path: term.worktreePath, branch: term.worktreeBranch ?? '', createdAt: '' }
         : undefined,
       taskId: term.taskId ?? undefined,
-      sandboxProvider: term.sandboxProvider,
+      sandbox: term.sandbox,
       label: term.label,
     },
   );
@@ -271,7 +280,7 @@ export async function reconnectChatSessions(projectPath?: string): Promise<void>
       agent: info.agent,
       taskId: info.taskId ?? undefined,
       worktree: info.worktreePath ? { path: info.worktreePath, branch: '' } : undefined,
-      sandboxProvider: (info.sandbox as SandboxProviderId | null) ?? undefined,
+      sandbox: info.sandbox ?? undefined,
       background: true,
     });
     if (!ok) chatLog.warn('could not reconnect chat card', { id: info.id });

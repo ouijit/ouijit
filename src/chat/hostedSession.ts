@@ -2,7 +2,7 @@ import { getLogger } from '../logger';
 import { getChatRepo } from '../db';
 import type { ChatSessionRow } from '../db/repos/chatRepo';
 import { pendingWrites, persistedInfo } from './sessionStore';
-import type { SandboxProviderId } from '../sandbox/types';
+import type { SandboxSpec } from '../sandbox/types';
 import type { AgentProcess, DriverSession } from '../agents';
 import {
   applyChatEvent,
@@ -64,7 +64,7 @@ export class HostedSession {
 
   constructor(
     readonly row: Pick<ChatSessionRow, 'id' | 'project_path' | 'task_id' | 'cwd' | 'worktree_path' | 'agent'> & {
-      sandbox_provider: SandboxProviderId | undefined;
+      sandbox: SandboxSpec | null;
     },
     info: ChatSessionInfo,
     createdAt: string,
@@ -143,7 +143,7 @@ export class HostedSession {
       getChatRepo().save(
         {
           ...this.row,
-          sandbox_provider: this.row.sandbox_provider ?? null,
+          sandbox: this.row.sandbox && JSON.stringify(this.row.sandbox),
           role: this.info.role,
           agent_session_id: this.info.agentSessionId,
           info: JSON.stringify(persistedInfo(this.info)),

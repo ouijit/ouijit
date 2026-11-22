@@ -154,7 +154,7 @@ function collectTerminals(input: PaletteInput): LiveTerminal[] {
       // Not hydrated, so there's no live status yet — the card shows the real
       // one once it reconnects.
       status: 'ready',
-      sandboxProvider: session.sandboxProvider,
+      sandboxProvider: session.sandbox?.provider,
       rank: session.projectPath === input.activeProjectPath ? 0 : 2,
     });
   }

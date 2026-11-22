@@ -12,6 +12,38 @@ export type SandboxProviderId = 'none' | 'nono' | 'custom';
 /** A registered backend id (everything except the pass-through 'none'). */
 export type SandboxBackendId = Exclude<SandboxProviderId, 'none'>;
 
+/**
+ * Where a session runs: a backend, under the sandbox settings (profile,
+ * launcher, CLI access) kept against `settings`, a project's path or Chat's
+ * folder. A session on the host has none.
+ */
+export interface SandboxSpec {
+  provider: SandboxBackendId;
+  settings: string;
+}
+
+/**
+ * What a spawn from the window asks for: a spec the main process resolved and
+ * handed it, or a backend chosen for the session's own project. 'none' is the host.
+ */
+export type SandboxPlacement = SandboxSpec | SandboxProviderId;
+
+export function isSandboxSpec(value: unknown): value is SandboxSpec {
+  if (!value || typeof value !== 'object') return false;
+  const spec = value as Record<string, unknown>;
+  return isSandboxBackendId(spec.provider) && typeof spec.settings === 'string' && spec.settings.length > 0;
+}
+
+export function sameSandbox(a: SandboxSpec | null | undefined, b: SandboxSpec | null | undefined): boolean {
+  return a?.provider === b?.provider && a?.settings === b?.settings;
+}
+
+/** The backend a placement names, for showing it; undefined is the host. */
+export function placementProvider(placement: SandboxPlacement | null | undefined): SandboxBackendId | undefined {
+  const provider = typeof placement === 'object' ? placement?.provider : placement;
+  return isActiveSandbox(provider) ? provider : undefined;
+}
+
 /** Whether an id names a real sandbox backend (i.e. not host / the 'none' pass-through). */
 export function isActiveSandbox(provider: SandboxProviderId | undefined): provider is SandboxBackendId {
   return provider != null && provider !== 'none';
@@ -96,6 +128,8 @@ export interface SandboxSpawnContext {
   apiPort: number;
   /** Folders it may also read, and not write, such as every project for Chat. */
   readPaths?: string[];
+  /** Where its profile and launcher are kept: `SandboxSpec.settings`. */
+  settings: string;
 }
 
 /** A concrete process launch (post shell-integration) that a wrapper transforms. */
@@ -105,7 +139,7 @@ export interface SandboxLaunch {
   env: Record<string, string>;
 }
 
-/** Where a terminal's foreground command runs right now; absent is the host. */
+/** Where a terminal's foreground command runs right now, for showing it; absent is the host. */
 export interface TerminalSandboxPayload {
   ptyId: string;
   sandboxProvider?: SandboxProviderId;

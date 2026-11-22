@@ -69,6 +69,7 @@ import type { AskRun, Decision, DecisionChoice } from './ask';
 import type { ActiveSession } from './ptyManager';
 import type {
   SandboxProviderId,
+  SandboxPlacement,
   SandboxProviderStatus,
   NonoProfile,
   CustomSandboxConfig,
@@ -102,6 +103,8 @@ export type { ActiveSession } from './ptyManager';
 export type {
   SandboxProviderId,
   SandboxBackendId,
+  SandboxPlacement,
+  SandboxSpec,
   SandboxProviderStatus,
   NonoProfile,
   CustomSandboxConfig,
@@ -116,6 +119,7 @@ export {
   SANDBOXABLE_HOOK_TYPES,
   isActiveSandbox,
   isSandboxProviderId,
+  placementProvider,
   defaultSandboxSettingKey,
   runnerSandboxSettingKey,
   sandboxCliAccessSettingKey,
@@ -174,7 +178,8 @@ export interface SnapshotPanel {
   scriptCommand?: string | null;
   source?: 'hook' | 'script';
   restartIfRunning?: boolean;
-  sandboxProvider?: SandboxProviderId;
+  /** A backend, or the spec the runner's session resolved to. */
+  sandboxProvider?: SandboxPlacement;
   env?: Record<string, string>;
   private?: boolean;
   /** webPreview (only user-set URLs are persisted) */
@@ -222,8 +227,8 @@ export interface SnapshotTerminal {
   taskNumber: number | null;
   worktreePath: string | null;
   worktreeBranch: string | null;
-  /** Sandbox backend for the terminal; omitted/'none' for a host shell. */
-  sandboxProvider?: SandboxProviderId;
+  /** A backend, or the spec its session resolved to; omitted/'none' for a host shell. */
+  sandboxProvider?: SandboxPlacement;
   /** A chat card comes back as its chat, resuming the conversation under the same id. */
   surface?: 'chat';
   chatAgent?: ChatAgentId;
@@ -297,6 +302,9 @@ export interface CliHookControl {
   surface?: 'terminal' | 'chat';
 }
 
+/** A CLI move as the window runs it: absent `sandbox` runs the hook where it or the project says. */
+export type CliMove = Omit<CliHookControl, 'hookSandbox'> & CliCaller & { sandbox?: SandboxPlacement };
+
 export interface ScriptHook {
   id: string;
   type: HookType;
@@ -313,7 +321,7 @@ export interface ScriptHook {
 export interface RunHookResult {
   command: string;
   foreground: boolean;
-  sandbox: SandboxProviderId;
+  sandbox: SandboxPlacement;
 }
 
 export interface Script {
@@ -383,8 +391,8 @@ export interface PtySpawnOptions {
   /** Parent PTY ID if this is a runner (for session restoration) */
   parentPtyId?: PtyId;
   env?: Record<string, string>;
-  /** Which sandbox backend runs this terminal, or omitted/'none' for a host shell. */
-  sandboxProvider?: SandboxProviderId;
+  /** Omitted is a host shell. */
+  sandbox?: SandboxPlacement;
   /** Reuse a card's id instead of minting one, so a chat card that switches to
    *  its terminal keeps its tags, panels and CLI identity. The id must not be live. */
   ptyId?: PtyId;
@@ -1112,7 +1120,8 @@ export interface CliTerminalOp {
   projectPath?: string;
   taskNumber?: number;
   resume?: boolean;
-  sandbox?: SandboxProviderId;
+  /** open. Absent opens where the project's own would. */
+  sandbox?: SandboxPlacement;
   /** open: a new chat on the task, as its menu's New chat opens, rather than a terminal. */
   chat?: { agent?: ChatAgentId; prompt?: string };
 }

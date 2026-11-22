@@ -6,7 +6,14 @@
  * visit, and `visitTracker` reads that off the view itself.
  */
 
-import type { Project, SandboxBackendId, SandboxProviderId, TaskWithWorkspace, WorktreeInfo } from '../types';
+import type {
+  Project,
+  SandboxBackendId,
+  SandboxPlacement,
+  SandboxProviderId,
+  TaskWithWorkspace,
+  WorktreeInfo,
+} from '../types';
 import { joinStack, useAppStore, type ProjectPage } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { loadTasks, projectDefaultSandbox } from '../stores/projectDataStore';
@@ -20,7 +27,6 @@ import { terminalInstances } from './terminal/terminalRegistry';
 import { ensureWorktree } from '../services/worktreeRecovery';
 import type { TaskSurface } from '../chat/preferences';
 import type { ChatAgentId, TaskChatSummary } from '../chat/model';
-import { isSandboxProviderId } from '../sandbox/types';
 
 /** Tasks load first, so a board's first paint has its cards. */
 export async function openProjectPage(path: string, page: ProjectPage): Promise<void> {
@@ -43,7 +49,7 @@ function showTaskTerminals(projectPath: string, taskNumber: number): void {
 /** A shell in `projectPath`, shown once it spawns, in the stack on screen when that is the same project's. */
 export async function openShell(projectPath: string, sandboxProvider?: SandboxBackendId): Promise<void> {
   const { selection } = useAppStore.getState();
-  if (!(await addProjectTerminal(projectPath, undefined, { sandboxProvider }))) return;
+  if (!(await addProjectTerminal(projectPath, undefined, { sandbox: sandboxProvider }))) return;
   const [front] = useTerminalStore.getState().order;
   if (!front) return;
   useAppStore
@@ -103,7 +109,7 @@ export interface OpenTaskShellOptions {
    */
   mode: 'resume' | 'shell';
   /** Never persisted on the task — passed straight to the spawn. */
-  sandboxProvider?: SandboxProviderId;
+  sandbox?: SandboxPlacement;
   /** A new one of these, in place of picking the task back up the way the chat setting says. */
   fresh?: TaskSurface;
   /** A fresh chat: its agent, where not the chat setting's, and its first message. */
@@ -150,13 +156,12 @@ export async function openTaskShell(
 
   const chat = options.fresh ? options.fresh === 'chat' : await opensAsChat(projectPath, undefined);
   if (options.mode === 'resume' && chat) {
-    const sandbox = options.sandboxProvider ?? (await projectDefaultSandbox(projectPath));
     return addChatCard(projectPath, {
       agent: options.chat?.agent,
       firstPrompt: options.chat?.prompt,
       worktree,
       taskId: task.taskNumber,
-      sandboxProvider: sandbox,
+      sandbox: options.sandbox ?? (await projectDefaultSandbox(projectPath)),
       replaceLoadingId: options.replaceLoadingId,
       background: options.background,
       resumeLatest: !options.fresh,
@@ -168,7 +173,7 @@ export async function openTaskShell(
     taskId: task.taskNumber,
     skipAutoHook,
     // A terminal that runs the continue hook resolves its own default.
-    sandboxProvider: options.sandboxProvider ?? (skipAutoHook ? await projectDefaultSandbox(projectPath) : undefined),
+    sandbox: options.sandbox ?? (skipAutoHook ? await projectDefaultSandbox(projectPath) : undefined),
     replaceLoadingId: options.replaceLoadingId,
     background: options.background,
   });
@@ -181,7 +186,7 @@ export async function openTaskTerminal(
   sandboxProvider?: SandboxProviderId,
   stack?: string,
 ): Promise<void> {
-  if (!(await openTaskShell(projectPath, task, { mode: 'resume', sandboxProvider }))) return;
+  if (!(await openTaskShell(projectPath, task, { mode: 'resume', sandbox: sandboxProvider }))) return;
   const [front] = useTerminalStore.getState().order;
   if (front) useAppStore.getState().showTerminal(front, stack);
 }
@@ -194,7 +199,7 @@ export async function openTaskSession(
   sandboxProvider: SandboxProviderId,
   stack?: string,
 ): Promise<void> {
-  if (!(await openTaskShell(projectPath, task, { mode: 'resume', fresh: surface, sandboxProvider }))) return;
+  if (!(await openTaskShell(projectPath, task, { mode: 'resume', fresh: surface, sandbox: sandboxProvider }))) return;
   const [front] = useTerminalStore.getState().order;
   if (front) useAppStore.getState().showTerminal(front, stack);
 }
@@ -208,7 +213,7 @@ export async function openTaskChat(projectPath: string, task: TaskWithWorkspace,
     agent: chat.agent,
     worktree,
     taskId: task.taskNumber,
-    sandboxProvider: isSandboxProviderId(chat.sandbox) ? chat.sandbox : undefined,
+    sandbox: chat.sandbox ?? undefined,
   });
   if (opened) useAppStore.getState().showTerminal(chat.id);
 }

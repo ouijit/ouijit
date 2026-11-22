@@ -39,7 +39,7 @@ export function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
           scriptCommand: p.scriptCommand,
           source: p.source,
           restartIfRunning: p.restartIfRunning,
-          sandboxProvider: p.sandboxProvider,
+          sandboxProvider: p.sandbox,
           ...(p.env && { env: p.env }),
           ...(p.private && { private: true }),
         });
@@ -86,7 +86,7 @@ export function gatherSnapshot(): LastSessionSnapshot {
       taskNumber: term.taskId,
       worktreePath: term.worktreePath ?? null,
       worktreeBranch: term.worktreeBranch ?? null,
-      sandboxProvider: term.sandboxProvider,
+      sandboxProvider: term.sandbox,
       ...(term.surface === 'chat' && { surface: 'chat' as const }),
       ...(term.chatAgent && { chatAgent: term.chatAgent }),
       label: term.label || null,

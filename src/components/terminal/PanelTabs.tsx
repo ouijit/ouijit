@@ -6,7 +6,7 @@ import { RunnerDot } from './StatusDot';
 import { PANEL_HEADER_BUTTON } from './FullWidthToggle';
 import { LabelTip, PanelTip, PanelTipGroup, TabTip } from './PanelTips';
 import { panelIcon, panelLabel, type RunnerStatus, type TerminalPanel } from './panelTypes';
-import { SANDBOX_LABELS } from '../../types';
+import { SANDBOX_LABELS, placementProvider } from '../../types';
 import { useTerminalPanels } from './useTerminalPanels';
 import { NewTabField } from './NewTabPanel';
 import { SoftBlur } from '../ui/SoftBlur';
@@ -88,7 +88,8 @@ const RUNNER_LABELS: Record<RunnerStatus, string> = {
 };
 
 function PanelMark({ panel, active }: { panel: TerminalPanel; active: boolean }) {
-  if (panel.kind === 'runner') return <RunnerDot status={panel.status} sandboxProvider={panel.sandboxProvider} />;
+  if (panel.kind === 'runner')
+    return <RunnerDot status={panel.status} sandboxProvider={placementProvider(panel.sandbox)} />;
   if (panel.kind === 'webPreview' && panel.favicon) return <Favicon src={panel.favicon} active={active} />;
   return <Icon name={panelIcon(panel)} className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-ink/70' : 'text-ink/40'}`} />;
 }
@@ -107,7 +108,8 @@ function panelDetail(panel: TerminalPanel): string | undefined {
   if (panel.kind === 'newTab') return undefined;
   if (panel.kind === 'webPreview') return panel.url?.replace(/^https?:\/\//, '') ?? undefined;
   if (panel.kind === 'plan') return tailOfPath(panel.planPath.replace(/\/[^/]+$/, '').replace(/^\/Users\/[^/]+/, '~'));
-  const where = [RUNNER_LABELS[panel.status], panel.sandboxProvider && SANDBOX_LABELS[panel.sandboxProvider]];
+  const sandbox = placementProvider(panel.sandbox);
+  const where = [RUNNER_LABELS[panel.status], sandbox && SANDBOX_LABELS[sandbox]];
   return [panel.command || panel.scriptCommand, ...where].filter(Boolean).join(' · ');
 }
 

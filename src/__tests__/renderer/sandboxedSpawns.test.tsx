@@ -3,7 +3,7 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { addProjectTerminal, restartRunner, startRunner } from '../../components/terminal/terminalActions';
 import { OuijitTerminal } from '../../components/terminal/terminalReact';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
-import type { PtySpawnOptions, SandboxProviderId } from '../../types';
+import type { PtySpawnOptions, SandboxPlacement } from '../../types';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -21,7 +21,7 @@ vi.mock('../../components/terminal/terminalReact', () => {
     ptyId = 'pending';
     projectPath: string;
     worktreePath?: string;
-    sandboxProvider?: SandboxProviderId;
+    sandbox?: SandboxPlacement;
     panels: Array<Record<string, unknown> & { id: string }> = [];
     runnerChildren = new Map<string, unknown>();
     runnerSpawning = new Set<string>();
@@ -41,19 +41,19 @@ vi.mock('../../components/terminal/terminalReact', () => {
       shellSpawns.calls.push(opts);
       return shellSpawns.result;
     });
-    constructor(opts: { projectPath: string; worktreePath?: string; sandboxProvider?: SandboxProviderId }) {
+    constructor(opts: { projectPath: string; worktreePath?: string; sandbox?: SandboxPlacement }) {
       this.projectPath = opts.projectPath;
       this.worktreePath = opts.worktreePath;
-      this.sandboxProvider = opts.sandboxProvider;
+      this.sandbox = opts.sandbox;
     }
-    addRunnerPanel(script: { name: string; command: string; sandboxProvider?: SandboxProviderId }) {
+    addRunnerPanel(script: { name: string; command: string; sandbox?: SandboxPlacement }) {
       const id = `panel-${this.panels.length}`;
       this.panels.push({
         id,
         kind: 'runner',
         scriptName: script.name,
         scriptCommand: script.command,
-        ...(script.sandboxProvider && script.sandboxProvider !== 'none' && { sandboxProvider: script.sandboxProvider }),
+        ...(script.sandbox && script.sandbox !== 'none' && { sandbox: script.sandbox }),
         status: 'idle',
       });
       return id;
@@ -68,8 +68,8 @@ vi.mock('../../components/terminal/terminalReact', () => {
 const PROJECT = '/project';
 const WORKTREE = { path: '/wt/T-7', branch: 'T-7', createdAt: '' };
 
-function sandboxOfLastSpawn(): SandboxProviderId | undefined {
-  return vi.mocked(window.api.pty.spawn).mock.lastCall?.[0].sandboxProvider;
+function sandboxOfLastSpawn(): SandboxPlacement | undefined {
+  return vi.mocked(window.api.pty.spawn).mock.lastCall?.[0].sandbox;
 }
 
 describe('sandboxed spawns', () => {
@@ -85,7 +85,7 @@ describe('sandboxed spawns', () => {
     const parent = new (OuijitTerminal as unknown as new (o: object) => OuijitTerminal)({
       projectPath: PROJECT,
       worktreePath: '/wt/T-7',
-      sandboxProvider: 'custom',
+      sandbox: 'custom',
     });
     terminalInstances.set('parent', parent);
     const script = { name: 'Dev', command: 'npm run dev' };
@@ -106,9 +106,9 @@ describe('sandboxed spawns', () => {
       continue: { id: 'h', type: 'continue', name: 'Continue', command: 'claude -c', sandbox: 'custom' },
     });
     await addProjectTerminal(PROJECT, undefined, { existingWorktree: WORKTREE });
-    await addProjectTerminal(PROJECT, undefined, { existingWorktree: WORKTREE, sandboxProvider: 'none' });
+    await addProjectTerminal(PROJECT, undefined, { existingWorktree: WORKTREE, sandbox: 'none' });
 
-    expect(shellSpawns.calls.map((c) => [c.command, c.sandboxProvider])).toEqual([
+    expect(shellSpawns.calls.map((c) => [c.command, c.sandbox])).toEqual([
       ['claude -c', 'custom'],
       ['claude -c', undefined],
     ]);
@@ -119,11 +119,12 @@ describe('sandboxed spawns', () => {
 
     // The store says Custom cannot run; the spawn is still asked for it.
     const opened = await addProjectTerminal(PROJECT, undefined, {
-      existingWorktree: { ...WORKTREE, sandboxProvider: 'custom' },
+      existingWorktree: WORKTREE,
+      sandbox: 'custom',
       skipAutoHook: true,
     });
 
     expect(opened).toBe(false);
-    expect(shellSpawns.calls.map((c) => c.sandboxProvider)).toEqual(['custom']);
+    expect(shellSpawns.calls.map((c) => c.sandbox)).toEqual(['custom']);
   });
 });

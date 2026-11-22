@@ -153,7 +153,7 @@ describe('completeTask', () => {
     const sandboxOfRun = async (opts: Partial<Parameters<typeof completeTask>[0]>) => {
       vi.mocked(addProjectTerminal).mockClear();
       await completeTask({ projectPath: PROJECT, task: makeTask(), ...opts });
-      return vi.mocked(addProjectTerminal).mock.calls[0][2]?.sandboxProvider;
+      return vi.mocked(addProjectTerminal).mock.calls[0][2]?.sandbox;
     };
 
     expect(await sandboxOfRun({ hookControl: { mode: 'run' } })).toBe('custom');

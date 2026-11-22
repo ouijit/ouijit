@@ -5,8 +5,6 @@ import { issueToken, revokeToken } from '../apiAuth';
 import { hostEnv, ouijitSessionEnv, sandboxLaunch } from '../sessionEnv';
 import { sandboxCliAccessFor, sandboxReferenceEnv } from '../sandbox/cliAccess';
 import { getCliReferencePath, readCliReference } from '../cliReferencePath';
-import { getSandboxProvider } from '../sandbox';
-import { isActiveSandbox } from '../sandbox/types';
 import type { AgentProcess, AgentSpawn, DriverProbe, DriverSink, spawnAgentProcess } from '../agents';
 import { getDriver } from './drivers';
 import type {
@@ -25,7 +23,7 @@ import { withConversationCommands } from './conversationCommands';
 const CHAT_SURFACE = `You are talking with the user in Ouijit Chat, which renders your replies as Markdown. To show the user an image, such as a screenshot or a diagram you made, put it in your reply as a Markdown image with an absolute path: ![what it shows](/absolute/path/to/image.png). An image you only read with a tool is seen by you, not by the user.`;
 
 // Stands over the reference's "From a sandbox" section, which is written for a card.
-const CHAT_READ_ONLY = `As Chat at Read only, you reach every project rather than one: every command that reads or lists works, as do following and unfollowing, your own tags and panels, drafts, and ouijit ask. Commands that move a task or message, answer or interrupt an agent are Forbidden; ask the user to raise Ouijit CLI access to Everything in Chat's settings.`;
+const CHAT_READ_ONLY = `As Chat at Read only, you reach every project rather than one: every command that reads or lists works, as do following and unfollowing, your own tags and panels, drafts, and ouijit ask. Commands that move a task or message, answer or interrupt an agent are Forbidden; ask the user to raise Ouijit CLI access to Everything in Chat's settings. Even then, tasks you start run in your sandbox, and you steer only the agents running in it.`;
 
 export interface LaunchContext {
   probe: (agent: ChatAgentId) => Promise<DriverProbe>;
@@ -51,14 +49,14 @@ export async function launch(
       Object.values(CHAT_SETTING_KEYS).map(async (key) => stored.set(key, await getGlobalSetting(key))),
     );
     const settings = parseChatSettings((key) => stored.get(key));
-    const sandbox = isActiveSandbox(session.row.sandbox_provider) ? session.row.sandbox_provider : undefined;
+    const sandbox = session.row.sandbox;
     const chosenMode = session.launchMode ?? (resume ? (session.info.pendingMode ?? session.info.mode) : undefined);
     const token = issueToken(id, sandbox ? 'sandbox' : 'host');
-    const referenceEnv = await sandboxReferenceEnv(sandbox, session.row.project_path);
+    const referenceEnv = await sandboxReferenceEnv(sandbox);
     session.referenceEnv = referenceEnv;
     const reference = readCliReference(referenceEnv.OUIJIT_SANDBOX_REFERENCE_FILE ?? getCliReferencePath());
     const readOnlyChat =
-      sandbox && session.info.role === 'home' && (await sandboxCliAccessFor(session.row.project_path)) === 'read';
+      sandbox && session.info.role === 'home' && (await sandboxCliAccessFor(sandbox.settings)) === 'read';
     session.driver = await driver.start({
       cwd: session.row.cwd,
       sessionId: id,
@@ -117,7 +115,7 @@ export async function spawnAgent(
   const { launch, cwd } = await sandboxLaunch(
     { file: spawn.command, args: spawn.args, env },
     {
-      provider: getSandboxProvider(session.row.sandbox_provider),
+      sandbox: session.row.sandbox,
       projectPath: session.row.project_path,
       cwd: spawn.cwd ?? session.row.cwd,
       taskId: session.row.task_id ?? undefined,
@@ -125,7 +123,7 @@ export async function spawnAgent(
       ...(session.info.role === 'home' && { readPaths: await chatReadPaths() }),
     },
   );
-  chatLog.info('spawning agent', { id: session.info.id, file: launch.file, sandbox: session.row.sandbox_provider });
+  chatLog.info('spawning agent', { id: session.info.id, file: launch.file, sandbox: session.row.sandbox });
   const proc = run(launch.file, launch.args, cwd, launch.env);
   session.processes.add(proc);
   proc.once('exit', () => session.processes.delete(proc));

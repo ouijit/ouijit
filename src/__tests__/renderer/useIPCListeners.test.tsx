@@ -324,7 +324,7 @@ describe('useIPCListeners — CLI task lifecycle', () => {
     // A sandbox the move names counts: the host review hook put in one runs at once, even for a sandboxed caller.
     vi.mocked(beginTransition).mockClear();
     stubs.cliTaskTransitionedCb!(
-      transitionPayload({ fromPtyId: 'pty-agent', fromSandbox: true, hookMode: 'run', hookSandbox: 'nono' }),
+      transitionPayload({ fromPtyId: 'pty-agent', fromSandbox: true, hookMode: 'run', sandbox: 'nono' }),
     );
     await flush();
     expect(useWaitingStore.getState().items).toEqual([]);
@@ -332,7 +332,7 @@ describe('useIPCListeners — CLI task lifecycle', () => {
 
     // A move that waits for the user keeps that sandbox, and what else it asked for, once they run it.
     vi.mocked(beginTransition).mockClear();
-    stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-host', hookSandbox: 'nono', surface: 'chat' }));
+    stubs.cliTaskStartedCb!(basePayload({ fromPtyId: 'pty-host', sandbox: 'nono', surface: 'chat' }));
     await flush();
     const [waiting] = useWaitingStore.getState().items;
     expect(waiting).toEqual(expect.objectContaining({ kind: 'move', hookType: 'start', outsideSandbox: false }));

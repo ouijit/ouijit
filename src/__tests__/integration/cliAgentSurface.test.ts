@@ -40,7 +40,7 @@ vi.mock('../../ptyManager', () => {
             projectPath: s.projectPath,
             taskId: s.taskId,
             worktreePath: s.worktreePath,
-            sandboxProvider: s.sandboxProvider,
+            sandbox: s.sandbox,
           }
         : null;
     },
@@ -113,7 +113,7 @@ beforeEach(async () => {
     label: 'Fix auth',
     taskId: 1,
     worktreePath: worktree,
-    sandboxProvider: 'nono',
+    sandbox: { provider: 'nono', settings: repoDir },
   });
   sessions.push(
     { ptyId: 'pty-shell', projectPath: repoDir, command: 'zsh', label: 'Shell' },
@@ -214,7 +214,7 @@ describe('what an agent can see and do from the CLI', () => {
         label: 'Tests',
         taskId: 1,
         worktreePath: worktree,
-        sandboxProvider: 'nono',
+        sandbox: { provider: 'nono', settings: repoDir },
       },
       {
         ptyId: 'pty-own-shell',

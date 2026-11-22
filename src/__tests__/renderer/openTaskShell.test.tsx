@@ -159,13 +159,13 @@ describe('openTaskShell', () => {
     });
     const sandboxOf = async (...args: Parameters<typeof openTaskShell>) => {
       await openTaskShell(...args);
-      return vi.mocked(addProjectTerminal).mock.lastCall?.[2]?.sandboxProvider;
+      return vi.mocked(addProjectTerminal).mock.lastCall?.[2]?.sandbox;
     };
 
     expect(await sandboxOf(PROJECT, started, { mode: 'shell' })).toBe('nono');
     expect(await sandboxOf(PROJECT, neverStarted, { mode: 'resume' })).toBe('nono');
     expect(await sandboxOf(PROJECT, started, { mode: 'resume' })).toBeUndefined();
-    expect(await sandboxOf(PROJECT, started, { mode: 'shell', sandboxProvider: 'custom' })).toBe('custom');
+    expect(await sandboxOf(PROJECT, started, { mode: 'shell', sandbox: 'custom' })).toBe('custom');
   });
 
   test('a gate that fails toasts and opens nothing, whether it rejects or reports', async () => {

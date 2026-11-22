@@ -242,7 +242,7 @@ describe('cli:task-started push', () => {
     expect(pushes[0][2]).toMatchObject({ hookMode: 'command', hookCommand: 'claude' });
   });
 
-  test('forwards a sandbox override with or without a hook mode, and rejects an unknown one', async () => {
+  test('resolves a sandbox override with or without a hook mode, and rejects an unknown one', async () => {
     const started = {
       success: true,
       worktreePath: '/tmp/wt/T-5',
@@ -258,8 +258,8 @@ describe('cli:task-started push', () => {
       hookSandbox: 'none',
     });
     const pushes = getTaskStartedPushes();
-    expect(pushes.map((p) => [p[2].hookMode, p[2].hookSandbox])).toEqual([
-      [undefined, 'custom'],
+    expect(pushes.map((p) => [p[2].hookMode, p[2].sandbox])).toEqual([
+      [undefined, { provider: 'custom', settings: '/tmp/test-project' }],
       ['run', 'none'],
     ]);
 

@@ -24,6 +24,7 @@ const ctx: SandboxSpawnContext = {
   cwd: '/Users/dev/wt/T-3',
   worktreePath: '/Users/dev/wt/T-3',
   apiPort: 7777,
+  settings: '/Users/dev/code/proj',
 };
 const launch: SandboxLaunch = { file: '/bin/zsh', args: ['-il'], env: {} };
 
@@ -108,5 +109,9 @@ describe('customProvider', () => {
     expect(wrapped.file).toBe('/opt/sb');
     expect(wrapped.args).toEqual(['--policy', 'p q.json', '--', '/bin/zsh', '-il']);
     expect(wrapped.env).toBe(launch.env);
+
+    // Under another's sandbox settings, its launcher wraps the task's shell.
+    await setCustomSandboxConfig('/chat', { command: '/opt/chat-sb' });
+    expect((await customProvider.wrapLaunch(launch, { ...ctx, settings: '/chat' })).file).toBe('/opt/chat-sb');
   });
 });

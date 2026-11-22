@@ -11,7 +11,7 @@
  * tracked separately in `OuijitTerminal.runnerChildren`, keyed by panel id.
  */
 
-import type { SandboxBackendId } from '../../types';
+import type { SandboxPlacement } from '../../types';
 
 export type PanelKind = 'runner' | 'webPreview' | 'plan' | 'newTab';
 
@@ -36,7 +36,7 @@ export interface RunnerPanel {
   /** OUIJIT_HOOK_TYPE for a lifecycle hook run as a chat card's setup; otherwise derived from `source`. */
   hookType?: 'start' | 'continue';
   /** Chosen when the runner is started, independent of its terminal's; absent runs on the host. */
-  sandboxProvider?: SandboxBackendId;
+  sandbox?: SandboxPlacement;
   /** Set on top of the runner's own environment, on every (re)start. */
   env?: Record<string, string>;
   /** Run privately: an agent reading it learns how it ended, never what it printed. */

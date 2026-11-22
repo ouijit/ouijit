@@ -1,6 +1,6 @@
 import { getChatRepo } from '../db';
 import type { ChatNodeWrite, ChatSessionRow } from '../db/repos/chatRepo';
-import { isActiveSandbox, type SandboxProviderId } from '../sandbox/types';
+import { isSandboxSpec, type SandboxSpec } from '../sandbox/types';
 import type { ChatAgentId, ChatNode, ChatSessionInfo, ChatSnapshot } from './model';
 
 /** What survives a restart: the conversation's settings, not the live process state. */
@@ -12,7 +12,12 @@ export function persistedInfo(info: ChatSessionInfo): ChatSessionInfo {
 /** The row's columns win over the info it stores, which a client never writes but an older build did. */
 export function storedInfo(row: ChatSessionRow): ChatSessionInfo {
   const info = JSON.parse(row.info) as ChatSessionInfo;
-  return { ...info, role: row.role, agentSessionId: row.agent_session_id };
+  return { ...info, role: row.role, agentSessionId: row.agent_session_id, sandbox: storedSandbox(row) };
+}
+
+export function storedSandbox(row: ChatSessionRow): SandboxSpec | null {
+  const parsed: unknown = row.sandbox ? JSON.parse(row.sandbox) : null;
+  return isSandboxSpec(parsed) ? parsed : null;
 }
 
 export function storedNodes(id: string): ChatNode[] {
@@ -30,19 +35,16 @@ export function storedRow(id: string): ChatSessionRow | undefined {
 }
 
 /** The stored row under a new agent or sandbox, written back so a later start without the options finds the same. */
-export function reconfigured(
-  row: ChatSessionRow,
-  options: { agent: ChatAgentId; sandboxProvider?: SandboxProviderId },
-): ChatSessionRow {
-  const sandbox = isActiveSandbox(options.sandboxProvider) ? options.sandboxProvider : null;
-  if (row.agent === options.agent && (row.sandbox_provider ?? null) === (options.sandboxProvider ?? null)) return row;
+export function reconfigured(row: ChatSessionRow, agent: ChatAgentId, sandbox: SandboxSpec | null): ChatSessionRow {
+  const stored = sandbox && JSON.stringify(sandbox);
+  if (row.agent === agent && row.sandbox === stored) return row;
   const info = JSON.parse(row.info) as ChatSessionInfo;
   const next: ChatSessionRow = {
     ...row,
-    agent: options.agent,
-    sandbox_provider: options.sandboxProvider ?? null,
+    agent,
+    sandbox: stored,
     agent_session_id: null,
-    info: JSON.stringify({ ...info, agent: options.agent, sandbox, agentSessionId: null }),
+    info: JSON.stringify({ ...info, agent, sandbox, agentSessionId: null }),
   };
   getChatRepo().save(next, [], []);
   return next;

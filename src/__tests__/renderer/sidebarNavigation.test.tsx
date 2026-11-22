@@ -13,7 +13,13 @@ import { DEFAULT_DISPLAY_STATE, useTerminalStore, type TerminalDisplayState } fr
 import { useWaitingStore } from '../../stores/waitingStore';
 import { loadChatSettings } from '../../services/chatSettings';
 import { NO_CAPABILITIES } from '../../chat/model';
-import type { GitFileStatus, PtySpawnOptions, SandboxProviderStatus, TaskWithWorkspace } from '../../types';
+import type {
+  GitFileStatus,
+  PtySpawnOptions,
+  SandboxProviderStatus,
+  SandboxSpec,
+  TaskWithWorkspace,
+} from '../../types';
 
 // xterm cannot construct under jsdom. The stand-in keeps the state the cards
 // read and spawns through the mocked IPC, so everything above it is real.
@@ -670,7 +676,7 @@ describe('opening a task as a chat', () => {
           ? JSON.stringify({ surface: 'chat' })
           : undefined,
     );
-    const snapshot = (id: string, sandbox: string | null) => ({
+    const snapshot = (id: string, sandbox: SandboxSpec | null) => ({
       info: {
         id,
         agent: 'claude' as const,
@@ -692,7 +698,7 @@ describe('opening a task as a chat', () => {
     });
     vi.mocked(window.api.chat.latestForTask).mockResolvedValue(snapshot('host-chat', null));
     vi.mocked(window.api.chat.start).mockImplementation(async (options) =>
-      snapshot(options.id ?? 'new', options.sandboxProvider ?? null),
+      snapshot(options.id ?? 'new', options.sandbox === 'nono' ? { provider: 'nono', settings: ALPHA.path } : null),
     );
     await loadChatSettings();
     await spawn(ALPHA.path, 8);
@@ -707,7 +713,7 @@ describe('opening a task as a chat', () => {
     fireEvent.click(within(menu).getByText('Resume in Sandbox'));
     await waitFor(() => expect(window.api.chat.start).toHaveBeenCalled());
     const started = vi.mocked(window.api.chat.start).mock.calls[0][0];
-    expect(started).toMatchObject({ taskId: 8, sandboxProvider: 'nono' });
+    expect(started).toMatchObject({ taskId: 8, sandbox: 'nono' });
     expect(started.id).not.toBe('host-chat');
 
     vi.mocked(window.api.globalSettings.get).mockResolvedValue(undefined);

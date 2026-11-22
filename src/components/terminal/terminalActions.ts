@@ -12,10 +12,10 @@ import type {
   RunnerScript,
   SnapshotTerminalUi,
   TaskWithWorkspace,
-  SandboxProviderId,
+  SandboxPlacement,
   SandboxBackendId,
 } from '../../types';
-import { isActiveSandbox } from '../../types';
+import { placementProvider } from '../../types';
 import { useTerminalStore, type TerminalDisplayState, type TerminalStatus } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { loadTaskChats } from '../../stores/chatStore';
@@ -40,12 +40,12 @@ const actionsLog = log.scope('terminalActions');
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface AddProjectTerminalOptions {
-  existingWorktree?: WorktreeInfo & { prompt?: string; sandboxProvider?: SandboxProviderId };
+  existingWorktree?: WorktreeInfo & { prompt?: string };
   /**
    * Overrides a restored terminal's sandbox, or where the continue hook runs.
    * Absent, a terminal that runs no hook opens on the host.
    */
-  sandboxProvider?: SandboxProviderId;
+  sandbox?: SandboxPlacement;
   taskId?: number;
   skipAutoHook?: boolean;
   background?: boolean;
@@ -94,7 +94,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
             // a restored runner is idle until the user re-runs it.
             source: sp.source ?? 'script',
             restartIfRunning: sp.restartIfRunning ?? false,
-            ...(isActiveSandbox(sp.sandboxProvider) && { sandboxProvider: sp.sandboxProvider }),
+            ...(placementProvider(sp.sandboxProvider) && { sandbox: sp.sandboxProvider }),
             ...(sp.env && { env: sp.env }),
             ...(sp.private && { private: true }),
             status: 'idle',
@@ -232,8 +232,7 @@ export async function addProjectTerminal(
 
   let startCommand = command;
   let startEnv: Record<string, string> | undefined;
-  let requestedProvider: SandboxProviderId | undefined =
-    options?.sandboxProvider ?? options?.existingWorktree?.sandboxProvider;
+  let requested: SandboxPlacement | undefined = options?.sandbox;
 
   if (worktreeInfo) {
     startEnv = buildWorktreeStartEnv({
@@ -250,20 +249,21 @@ export async function addProjectTerminal(
         projectDefaultSandbox(projectPath),
       ]);
       if (hooks.continue) startCommand = hooks.continue.command;
-      requestedProvider = hookSandbox(requestedProvider, hooks.continue, projectDefault);
+      requested = hookSandbox(requested, hooks.continue, projectDefault);
     }
   }
 
   // An unavailable backend is passed through regardless: the spawn refuses it
   // with a reason, where falling back would run the command unsandboxed.
-  const sandboxProvider = isActiveSandbox(requestedProvider) ? requestedProvider : undefined;
+  const sandboxProvider = placementProvider(requested);
   const useSandbox = sandboxProvider != null;
+  const sandbox = useSandbox ? requested : undefined;
 
   const term = new OuijitTerminal({
     projectPath,
     command: startCommand,
     label,
-    sandboxProvider,
+    sandbox,
     taskId: options?.taskId ?? null,
     taskPrompt,
     worktreePath: worktreeInfo?.path,
@@ -303,7 +303,7 @@ export async function addProjectTerminal(
     taskId: options?.taskId,
     worktreePath: worktreeInfo?.path,
     env: startEnv,
-    sandboxProvider,
+    sandbox,
   };
 
   try {
@@ -405,7 +405,7 @@ export async function reconnectTerminal(
     projectPath: session.projectPath,
     command: session.command,
     label,
-    sandboxProvider: session.sandboxProvider,
+    sandbox: session.sandbox,
     taskId: session.taskId ?? null,
     worktreePath: session.worktreePath,
     worktreeBranch: opts.worktreeBranch,
@@ -436,7 +436,7 @@ export async function reconnectTerminal(
     session.projectPath,
     {
       label,
-      sandboxProvider: session.sandboxProvider,
+      sandboxProvider: session.sandbox?.provider,
       taskId: session.taskId ?? null,
       worktreeBranch: opts.worktreeBranch ?? null,
       status: opts.initialStatus ?? 'ready',
@@ -515,7 +515,7 @@ export async function startRunner(
   }
 
   const panelId = instance.addRunnerPanel(
-    { ...resolved.runnable, source: resolved.source, sandboxProvider },
+    { ...resolved.runnable, source: resolved.source, sandbox: sandboxProvider },
     true,
     replacing,
   );
@@ -588,7 +588,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
     projectPath: path,
     label: commandName,
     isRunner: true,
-    sandboxProvider: panel.sandboxProvider,
+    sandbox: panel.sandbox,
   });
 
   runner.openTerminal();
@@ -604,7 +604,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
     worktreePath: instance.worktreePath,
     isRunner: true,
     parentPtyId: instance.ptyId,
-    sandboxProvider: panel.sandboxProvider,
+    sandbox: panel.sandbox,
     env: {
       ...panel.env,
       OUIJIT_HOOK_TYPE: hookType,
@@ -828,7 +828,11 @@ export async function reconnectRunnerToParent(session: ActiveSession): Promise<b
   if (!panelId) {
     panelId = parentTerminal.addRunnerPanel(
       session.command
-        ? { name: session.label, command: session.command, sandboxProvider: session.sandboxProvider }
+        ? {
+            name: session.label,
+            command: session.command,
+            sandbox: session.sandbox,
+          }
         : null,
       /* activate */ false,
     );
@@ -840,7 +844,7 @@ export async function reconnectRunnerToParent(session: ActiveSession): Promise<b
     label: session.label,
     isRunner: true,
     ptyId: session.ptyId,
-    sandboxProvider: session.sandboxProvider,
+    sandbox: session.sandbox,
   });
   runner.openTerminal();
 

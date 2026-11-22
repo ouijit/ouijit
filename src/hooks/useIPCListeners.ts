@@ -1,17 +1,10 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
-import {
-  SANDBOX_LABELS,
-  type CliCaller,
-  type CliHookControl,
-  type HookType,
-  type TaskStatus,
-  type TaskWithWorkspace,
-} from '../types';
+import { SANDBOX_LABELS, type CliMove, type HookType, type TaskStatus, type TaskWithWorkspace } from '../types';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { projectDefaultSandbox, refreshProjectData } from '../stores/projectDataStore';
-import { isActiveSandbox } from '../sandbox/types';
+import { placementProvider } from '../sandbox/types';
 import { beginTransition } from '../services/taskStartService';
 import { hookForMove, loadChatSettings } from '../services/chatSettings';
 import { setChatEnabled } from '../components/chat/chatActions';
@@ -23,16 +16,16 @@ import log from 'electron-log/renderer';
 
 const ipcLog = log.scope('ipcListeners');
 
-interface CliStart extends CliHookControl, CliCaller {
+type CliStart = CliMove & {
   taskNumber: number;
   worktreePath: string;
   branch: string;
-}
+};
 
-function hookOptions({ hookMode, hookCommand, hookSandbox, surface }: CliHookControl) {
+function hookOptions({ hookMode, hookCommand, sandbox, surface }: CliMove) {
   return {
     hookControl: hookMode ? { mode: hookMode, command: hookCommand } : undefined,
-    sandbox: hookSandbox,
+    sandbox,
     surface,
   };
 }
@@ -49,13 +42,13 @@ function hookOptions({ hookMode, hookCommand, hookSandbox, surface }: CliHookCon
 async function stageOrRun(
   projectPath: string,
   task: TaskWithWorkspace,
-  move: CliHookControl & CliCaller & { hookType: HookType | null },
-  run: (background: boolean, control: CliHookControl) => void,
+  move: CliMove & { hookType: HookType | null },
+  run: (background: boolean, control: CliMove) => void,
 ): Promise<void> {
   const { fromPtyId } = move;
   const hook = await hookForMove(projectPath, move.hookType, move.surface);
   const onHost =
-    !!hook && !isActiveSandbox(hookSandbox(move.hookSandbox, hook, await projectDefaultSandbox(projectPath)));
+    !!hook && !placementProvider(hookSandbox(move.sandbox, hook, await projectDefaultSandbox(projectPath)));
   const onHostUnseen = !!move.fromSandbox && move.hookMode === 'run' && onHost;
   if (hook && move.hookType && (!move.hookMode || onHostUnseen) && fromPtyId) {
     useWaitingStore.getState().add({
@@ -119,7 +112,7 @@ async function spawnTerminalForCliStart(projectPath: string, start: CliStart): P
  */
 async function runCliTransition(
   projectPath: string,
-  transition: CliHookControl & CliCaller & { origStatus: TaskStatus; newStatus: TaskStatus; task: TaskWithWorkspace },
+  transition: CliMove & { origStatus: TaskStatus; newStatus: TaskStatus; task: TaskWithWorkspace },
 ): Promise<void> {
   const { origStatus, newStatus, task } = transition;
   await stageOrRun(
@@ -136,10 +129,7 @@ async function runCliTransition(
  * wrote the status (skipStatusWrite), so this drives the done lifecycle:
  * terminal cleanup and the done hook.
  */
-async function runCliCompletion(
-  projectPath: string,
-  completion: CliHookControl & CliCaller & { task: TaskWithWorkspace },
-): Promise<void> {
+async function runCliCompletion(projectPath: string, completion: CliMove & { task: TaskWithWorkspace }): Promise<void> {
   await stageOrRun(projectPath, completion.task, { ...completion, hookType: 'done' }, (_background, control) => {
     void completeTask({
       projectPath,

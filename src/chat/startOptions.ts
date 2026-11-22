@@ -1,5 +1,5 @@
 import type { ChatAgentId, ChatRole } from './model';
-import type { SandboxProviderId } from '../sandbox/types';
+import type { SandboxPlacement } from '../sandbox/types';
 
 export interface ChatStartOptions {
   /** The card's id. A stored session under it resumes; otherwise a new one starts under it. */
@@ -9,7 +9,8 @@ export interface ChatStartOptions {
   cwd: string;
   taskId: number | null;
   worktreePath?: string;
-  sandboxProvider?: SandboxProviderId;
+  /** Absent is the host. A stored session keeps its own, unless reconfigured. */
+  sandbox?: SandboxPlacement;
   label?: string;
   /** Start from an agent conversation that began outside this session, e.g. in the card's terminal. */
   resume?: { agentSessionId: string; fork: boolean };
@@ -22,7 +23,7 @@ export interface ChatStartOptions {
   /** The mode the agent starts in on every launch, over one picked in the chat. */
   mode?: string;
   /**
-   * Apply `agent` and `sandboxProvider` over a stored session's. The agent
+   * Apply `agent` and `sandbox` over a stored session's. The agent
    * starts a conversation of its own; Ouijit's transcript carries on.
    */
   reconfigure?: boolean;

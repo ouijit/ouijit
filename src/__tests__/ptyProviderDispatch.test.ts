@@ -31,34 +31,30 @@ vi.mock('../ptyManager', () => ({
   setPtyLabel: (...a: unknown[]) => setPtyLabel(...(a as [])),
 }));
 
-const getSandboxProvider = vi.fn();
-vi.mock('../sandbox', () => ({
-  getSandboxProvider: (id: unknown) => getSandboxProvider(id),
-}));
-
 const window = {} as unknown as Electron.BrowserWindow;
 
 beforeEach(() => {
   vi.clearAllMocks();
   handlers.clear();
-  getSandboxProvider.mockReturnValue(undefined);
   registerPtyHandlers(window);
 });
 
 describe('pty provider dispatch', () => {
-  test('no provider → host spawnPty with no wrapper', async () => {
+  test('the window asks for a placement, and the spawn gets the sandbox it resolves to', async () => {
     const result = await handlers.get('pty:spawn')!({ cwd: '/p' });
     expect(result).toEqual({ success: true, ptyId: 'pty-host' });
-    expect(hostSpawn).toHaveBeenCalledWith({ cwd: '/p' }, window, undefined);
-  });
+    expect(hostSpawn).toHaveBeenLastCalledWith({ cwd: '/p' }, window, null);
 
-  test('a sandbox backend flows through host spawnPty as the wrapper arg', async () => {
-    const provider = { id: 'nono' };
-    getSandboxProvider.mockReturnValue(provider);
-    const options = { cwd: '/p', sandboxProvider: 'nono' };
+    await handlers.get('pty:spawn')!({ cwd: '/p', projectPath: '/proj', sandbox: 'nono' });
+    expect(hostSpawn).toHaveBeenLastCalledWith({ cwd: '/p', projectPath: '/proj' }, window, {
+      provider: 'nono',
+      settings: '/proj',
+    });
 
-    await handlers.get('pty:spawn')!(options);
-    expect(hostSpawn).toHaveBeenCalledWith(options, window, provider);
+    // A sandbox the main process resolved earlier, such as Chat's, comes back as it was.
+    const chats = { provider: 'nono', settings: '/chat' };
+    await handlers.get('pty:spawn')!({ cwd: '/p', projectPath: '/proj', sandbox: chats });
+    expect(hostSpawn).toHaveBeenLastCalledWith({ cwd: '/p', projectPath: '/proj' }, window, chats);
   });
 
   test('per-ptyId ops and active sessions go to the host pty manager', () => {

@@ -3,9 +3,7 @@ import { Icon } from '../terminal/Icon';
 import { SandboxRing } from '../terminal/StatusDot';
 import {
   SANDBOX_LABELS,
-  isActiveSandbox,
   isSandboxCliAccess,
-  isSandboxProviderId,
   sandboxCliAccessSettingKey,
   type SandboxBackendId,
   type SandboxCliAccess,
@@ -137,7 +135,8 @@ function sandboxLines(info: ChatSessionInfo, sandbox: SandboxBackendId, access: 
   }
   if (info.role === 'home') {
     return [
-      'It can run your board: create, start and move tasks, and read, message and answer the agents working on them.',
+      'It can run your board: create, start and move tasks, and read the agents working on them.',
+      "Tasks it starts run in this sandbox too, each changing only its own folder. It can't message or answer agents running outside it.",
       'It can read your projects but not change them. Work on your code happens in the tasks it starts.',
       'It can use the internet, unless its sandbox profile blocks it.',
     ];
@@ -657,9 +656,7 @@ export function ChatComposer({
           }}
         />
         <SettingsPicker settings={settingsFor(cardId, info)} />
-        {isSandboxProviderId(info.sandbox) && isActiveSandbox(info.sandbox) && (
-          <SandboxNote info={info} sandbox={info.sandbox} />
-        )}
+        {info.sandbox && <SandboxNote info={info} sandbox={info.sandbox.provider} />}
         <span className="flex-1" />
         <ContextUsage usage={info.usage} className="mr-1.5 p-0.5" />
         {busy && caps.interrupt && !info.stopping && (

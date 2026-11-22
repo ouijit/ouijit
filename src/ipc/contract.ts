@@ -32,7 +32,7 @@ import type {
   TaskWorktreeResult,
   CheckWorktreeResult,
   TaskWithWorkspace,
-  CliHookControl,
+  CliMove,
   TaskStatus,
   ScriptHook,
   HookType,
@@ -51,7 +51,6 @@ import type {
   CliTerminalResponse,
   CliAskOp,
   CliAskResponse,
-  CliCaller,
 } from '../types';
 import type {
   RepoIdentity,
@@ -594,8 +593,7 @@ export interface IpcPushContract {
         worktreePath: string;
         branch: string;
         createdAt: string;
-      } & CliHookControl &
-        CliCaller,
+      } & CliMove,
     ];
   };
   'cli:task-completed': {
@@ -607,8 +605,7 @@ export interface IpcPushContract {
          *  look it up in projectStore.tasks (which only holds the *active*
          *  project's tasks — would miss when the user is viewing a different project). */
         task: TaskWithWorkspace;
-      } & CliHookControl &
-        CliCaller,
+      } & CliMove,
     ];
   };
   'cli:task-transitioned': {
@@ -622,8 +619,7 @@ export interface IpcPushContract {
         newStatus: TaskStatus;
         /** Full task record fetched server-side (same rationale as cli:task-completed). */
         task: TaskWithWorkspace;
-      } & CliHookControl &
-        CliCaller,
+      } & CliMove,
     ];
   };
   'capture:navigate': { args: [payload: CaptureNavigatePayload] };

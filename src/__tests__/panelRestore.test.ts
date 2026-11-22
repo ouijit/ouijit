@@ -43,8 +43,8 @@ describe('applyInitialUiState', () => {
     expect(term.panels.map((p) => p.kind)).toEqual(['runner', 'plan', 'runner']);
     // Runners are restored idle (never auto-respawned), each in the sandbox it was started in.
     expect(term.panels[0]).toMatchObject({ kind: 'runner', status: 'idle', scriptCommand: 'npm run dev' });
-    expect(term.panels[0]).not.toHaveProperty('sandboxProvider');
-    expect(term.panels[2]).toMatchObject({ scriptCommand: 'npm test', sandboxProvider: 'nono' });
+    expect(term.panels[0]).not.toHaveProperty('sandbox');
+    expect(term.panels[2]).toMatchObject({ scriptCommand: 'npm test', sandbox: 'nono' });
     expect(term.activePanelId).toBe(term.panels[1].id);
     expect(term.panelFullWidth).toBe(false);
     expect(term.syncPanels).toHaveBeenCalled();

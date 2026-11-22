@@ -1,8 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { getChatRepo } from '../db';
-import { reconfigured, relabel, storedInfo, storedNodes, storedRow, storedSnapshot } from './sessionStore';
+import {
+  reconfigured,
+  relabel,
+  storedInfo,
+  storedNodes,
+  storedRow,
+  storedSandbox,
+  storedSnapshot,
+} from './sessionStore';
+import { resolveSandbox } from '../sandbox/resolve';
 import { revokeToken } from '../apiAuth';
-import { isActiveSandbox, isSandboxProviderId } from '../sandbox/types';
 import { spawnAgentProcess, type DriverProbe, type DriverSession } from '../agents';
 import { generateTitle, titlePrompt } from './title';
 import { getDriver } from './drivers';
@@ -140,7 +148,7 @@ export class ChatHost {
             id: row.id,
             taskId: row.task_id,
             agent: row.agent,
-            sandbox: row.sandbox_provider,
+            sandbox: storedSandbox(row),
             firstMessage: asked.text,
             updatedAt: row.updated_at,
           },
@@ -166,13 +174,10 @@ export class ChatHost {
     let stored = storedRow(id);
     const role = stored?.role ?? options.role ?? 'card';
     if ((options.role ?? 'card') !== role) throw new Error(`Session ${id} already exists in another role`);
-    if (stored && options.reconfigure) stored = reconfigured(stored, options);
+    const asked = () => resolveSandbox({ projectPath: options.projectPath, placement: options.sandbox ?? 'none' });
+    if (stored && options.reconfigure) stored = reconfigured(stored, options.agent, await asked());
     const agent = stored && isChatAgentId(stored.agent) ? stored.agent : options.agent;
-    const sandboxProvider = stored
-      ? isSandboxProviderId(stored.sandbox_provider)
-        ? stored.sandbox_provider
-        : undefined
-      : options.sandboxProvider;
+    const sandbox = stored ? storedSandbox(stored) : await asked();
     const base: ChatSessionInfo = stored
       ? storedInfo(stored)
       : {
@@ -184,7 +189,7 @@ export class ChatHost {
           projectPath: options.projectPath,
           cwd: options.cwd,
           worktreePath: options.worktreePath ?? null,
-          sandbox: isActiveSandbox(options.sandboxProvider) ? options.sandboxProvider : null,
+          sandbox,
           taskId: options.taskId,
           status: 'starting',
           capabilities: NO_CAPABILITIES,
@@ -201,7 +206,7 @@ export class ChatHost {
         cwd: stored?.cwd ?? options.cwd,
         worktree_path: stored ? stored.worktree_path : (options.worktreePath ?? null),
         agent,
-        sandbox_provider: sandboxProvider,
+        sandbox,
       },
       { ...base, status: 'starting', statusDetail: undefined },
       stored?.created_at ?? new Date().toISOString(),
@@ -375,7 +380,7 @@ export class ChatHost {
       cwd: source.info.cwd,
       taskId: source.info.taskId,
       worktreePath: row?.worktree_path ?? undefined,
-      sandboxProvider: isSandboxProviderId(row?.sandbox_provider) ? row.sandbox_provider : undefined,
+      sandbox: (row && storedSandbox(row)) ?? 'none',
       resume: { agentSessionId: source.info.agentSessionId, fork: true },
     });
     const forked = this.require(snapshot.info.id);

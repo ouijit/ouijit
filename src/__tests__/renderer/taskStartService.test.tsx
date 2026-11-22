@@ -93,7 +93,7 @@ describe('taskStartService.beginTransition', () => {
       .resolveRunHookRequest(req.id, { command: 'claude -p', foreground: true, sandbox: 'custom' });
     await waitFor(() => vi.mocked(addProjectTerminal).mock.calls.length > 0);
     expect(vi.mocked(addProjectTerminal).mock.calls[0][1]?.command).toBe('claude -p');
-    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]?.sandboxProvider).toBe('custom');
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]?.sandbox).toBe('custom');
 
     vi.mocked(window.api.task.create).mockResolvedValue({ success: false, error: 'disk full' });
     expect(await createAndStartTask(PROJECT, 'Again', undefined)).toBe(false);
@@ -151,7 +151,7 @@ describe('taskStartService.beginTransition', () => {
       }
       await waitFor(() => vi.mocked(addProjectTerminal).mock.calls.length > 0);
       await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
-      return vi.mocked(addProjectTerminal).mock.calls[0][2]?.sandboxProvider;
+      return vi.mocked(addProjectTerminal).mock.calls[0][2]?.sandbox;
     }
 
     // With no hook, the plain shell opens in the project default.
@@ -561,7 +561,7 @@ describe('taskStartService.beginTransition', () => {
     await waitFor(() => vi.mocked(addChatCard).mock.calls.length > 0);
     expect(vi.mocked(addChatCard).mock.calls[0][1]).toMatchObject({
       taskId: 7,
-      setup: { name: 'Setup', command: 'npm install', hookType: 'start', sandboxProvider: 'none' },
+      setup: { name: 'Setup', command: 'npm install', hookType: 'start', sandbox: 'none' },
       firstPrompt: 'Work on Wire up auth: with oauth $HOME',
     });
     expect(addProjectTerminal).not.toHaveBeenCalled();

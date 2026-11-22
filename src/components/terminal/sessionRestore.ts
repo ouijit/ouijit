@@ -123,7 +123,7 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
               ? { path: source.worktreePath, branch: source.worktreeBranch ?? '' }
               : undefined,
             taskId: source.taskNumber ?? undefined,
-            sandboxProvider: restoredProvider,
+            sandbox: restoredProvider,
             label: source.label ?? undefined,
             initialUiState: source.ui,
           });
@@ -137,11 +137,10 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
                 path: source.worktreePath,
                 branch: source.worktreeBranch ?? '',
                 createdAt: '',
-                sandboxProvider: restoredProvider,
               }
             : undefined,
           taskId: source.taskNumber ?? undefined,
-          sandboxProvider: restoredProvider,
+          sandbox: restoredProvider,
           // Carry through a user rename so a restored card keeps its name
           // instead of snapping back to the task name.
           label: source.label ?? undefined,

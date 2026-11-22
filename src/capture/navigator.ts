@@ -45,7 +45,7 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     projectPath,
     label: seed.label,
     taskId: seed.taskId,
-    sandboxProvider: seed.sandboxProvider,
+    sandbox: seed.sandboxProvider,
     worktreeBranch: seed.worktreeBranch,
     worktreePath: seed.worktreePath,
     ptyId: seed.ptyId,

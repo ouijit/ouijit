@@ -2,8 +2,8 @@ import { getApiPort } from './apiPort';
 import { getWrapperBinDir, getUserDataPath, getCliPath } from './paths';
 import { getShellIntegrationDir } from './shellIntegration';
 import { getVendoredNonoPath } from './sandbox/nono/binary';
-import type { SandboxProvider } from './sandbox/provider';
-import type { SandboxBackendId, SandboxLaunch } from './sandbox/types';
+import { getSandboxProvider } from './sandbox/registry';
+import type { SandboxBackendId, SandboxLaunch, SandboxSpec } from './sandbox/types';
 
 /** `process.env` without its undefined values, which node-pty and child_process both reject. */
 export function hostEnv(): Record<string, string> {
@@ -45,7 +45,7 @@ export function ouijitSessionEnv(
 }
 
 export interface SandboxTarget {
-  provider: SandboxProvider | undefined;
+  sandbox: SandboxSpec | null | undefined;
   projectPath: string;
   cwd: string;
   taskId?: number;
@@ -71,14 +71,15 @@ export async function sandboxLaunch(
   launch: SandboxLaunch,
   target: SandboxTarget,
 ): Promise<{ launch: SandboxLaunch; cwd: string }> {
-  const provider = target.provider;
-  if (!provider) return { launch, cwd: target.cwd };
+  const provider = getSandboxProvider(target.sandbox?.provider);
+  if (!provider || !target.sandbox) return { launch, cwd: target.cwd };
   const context = {
     projectPath: target.projectPath,
     taskId: target.taskId,
     worktreePath: target.worktreePath,
     apiPort: getApiPort(),
     readPaths: target.readPaths,
+    settings: target.sandbox.settings,
   };
   try {
     const prepared = await provider.prepare({ ...context, cwd: target.cwd });

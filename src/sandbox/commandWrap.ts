@@ -4,6 +4,7 @@ import { getApiPort } from '../apiPort';
 import { typedPush } from '../ipc/helpers';
 import { getSessionSpawnContext } from '../sessions';
 import { getSandboxProvider } from './registry';
+import { resolveSandbox } from './resolve';
 import type { SandboxBackendId, SandboxLaunch } from './types';
 
 export interface WrappedCommand extends SandboxLaunch {
@@ -28,12 +29,14 @@ export async function wrapCommand(
   if (!context) throw new Error('This terminal is not one Ouijit is running');
   const provider = getSandboxProvider(backend);
   if (!provider) throw new Error(`No sandbox called ${backend}`);
+  const sandbox = (await resolveSandbox({ projectPath: context.projectPath, placement: backend }))!;
   const [file, ...args] = argv;
 
   const spawn = {
     projectPath: context.projectPath,
     taskId: context.taskId,
     worktreePath: context.worktreePath,
+    settings: sandbox.settings,
     apiPort: getApiPort(),
   };
   const prepared = await provider.prepare({ ...spawn, cwd });
@@ -46,5 +49,5 @@ export async function wrapCommand(
 
 export function releaseCommand(window: BrowserWindow, ptyId: string, token: string): void {
   if (!revokeCommandToken(ptyId, token)) return;
-  typedPush(window, 'terminal-sandbox', { ptyId, sandboxProvider: getSessionSpawnContext(ptyId)?.sandboxProvider });
+  typedPush(window, 'terminal-sandbox', { ptyId, sandboxProvider: getSessionSpawnContext(ptyId)?.sandbox?.provider });
 }

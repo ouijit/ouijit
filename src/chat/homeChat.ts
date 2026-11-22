@@ -151,7 +151,7 @@ async function startConversation(id: string, eager: boolean | undefined): Promis
     projectPath: homeChatDir(),
     cwd: dir,
     taskId: null,
-    sandboxProvider: settings.sandbox,
+    sandbox: settings.sandbox,
     label: UNTITLED_HOME_CHAT,
     instructions: [HOME_CHAT_INSTRUCTIONS, settings.instructions.trim()].filter(Boolean).join('\n\n'),
     role: 'home',

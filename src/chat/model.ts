@@ -5,9 +5,10 @@
  * Events patch nodes by id, so a client that joins late takes a snapshot and
  * applies only the events after its sequence number.
  *
- * Imports only the agents' leaf model, so the renderer and the CLI can share it.
+ * Imports only leaf modules, so the renderer and the CLI can share it.
  */
 
+import type { SandboxSpec } from '../sandbox/types';
 import type {
   ChatAgentId,
   ChatCommand,
@@ -95,7 +96,7 @@ export interface TaskChatSummary {
   id: string;
   taskId: number;
   agent: ChatAgentId;
-  sandbox: string | null;
+  sandbox: SandboxSpec | null;
   /** What the user first asked, which is what tells one of a task's chats from another. */
   firstMessage: string;
   updatedAt: string;
@@ -110,8 +111,8 @@ export interface ChatSessionInfo extends AgentSessionInfo {
   projectPath: string;
   cwd: string;
   worktreePath: string | null;
-  /** The sandbox backend the agent runs in, or null on the host. */
-  sandbox: string | null;
+  /** Null on the host. */
+  sandbox: SandboxSpec | null;
   taskId: number | null;
   /** A mode picked during a turn, applied once the turn ends. */
   pendingMode?: string | null;

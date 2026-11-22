@@ -1,10 +1,18 @@
-import type { CliHookMode, HookType, RunHookResult, SandboxProviderId, ScriptHook, TaskStatus } from '../types';
+import type {
+  CliHookMode,
+  HookType,
+  RunHookResult,
+  SandboxPlacement,
+  SandboxProviderId,
+  ScriptHook,
+  TaskStatus,
+} from '../types';
 
 export function hookSandbox(
-  override: SandboxProviderId | undefined,
+  override: SandboxPlacement | undefined,
   hook: ScriptHook | undefined,
   projectDefault: SandboxProviderId,
-): SandboxProviderId {
+): SandboxPlacement {
   return override ?? hook?.sandbox ?? projectDefault;
 }
 
@@ -18,7 +26,7 @@ export interface HookControl {
 export function headlessHookRun(
   control: HookControl,
   hook: ScriptHook | undefined,
-  sandbox: SandboxProviderId,
+  sandbox: SandboxPlacement,
 ): RunHookResult | null {
   if (control.mode === 'command' && control.command) return { command: control.command, foreground: false, sandbox };
   if (control.mode === 'run' && hook) return { command: hook.command, foreground: false, sandbox };

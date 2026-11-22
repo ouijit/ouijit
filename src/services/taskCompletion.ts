@@ -18,7 +18,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { loadTasks, moveTask, projectDefaultSandbox } from '../stores/projectDataStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { headlessHookRun, hookSandbox, type HookControl } from './hookRun';
-import type { SandboxProviderId, TaskWithWorkspace } from '../types';
+import { placementProvider, type SandboxPlacement, type TaskWithWorkspace } from '../types';
 
 const completionLog = log.scope('taskCompletion');
 
@@ -32,7 +32,7 @@ export interface CompleteTaskOptions {
    */
   hookControl?: HookControl;
   /** Overrides the done hook's own sandbox setting. */
-  sandbox?: SandboxProviderId;
+  sandbox?: SandboxPlacement;
   /**
    * Kanban-only: when set, also reorder the task within the done column.
    * When omitted, only the status is written.
@@ -89,7 +89,7 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
   //    CLI flags and never prompt.
   let effectiveCommand: string | null = null;
   let foreground = false;
-  let sandbox: SandboxProviderId = 'none';
+  let sandbox: SandboxPlacement = 'none';
   if (hookControl?.mode !== 'skip') {
     const doneHook = (await window.api.hooks.get(projectPath)).done;
     sandbox = hookSandbox(sandboxOverride, doneHook, await projectDefaultSandbox(projectPath));
@@ -97,9 +97,13 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
       const resolved = headlessHookRun(hookControl, doneHook, sandbox);
       effectiveCommand = resolved?.command ?? null;
     } else if (doneHook) {
-      const result = await useProjectStore
-        .getState()
-        .requestRunHook({ projectPath, hookType: 'done', hook: doneHook, task, sandbox });
+      const result = await useProjectStore.getState().requestRunHook({
+        projectPath,
+        hookType: 'done',
+        hook: doneHook,
+        task,
+        sandbox: placementProvider(sandbox) ?? 'none',
+      });
       if (result) {
         effectiveCommand = result.command;
         foreground = result.foreground;
@@ -131,7 +135,7 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
           existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
           taskId: taskNumber,
           skipAutoHook: true,
-          sandboxProvider: sandbox,
+          sandbox,
           // "Run & Open" (foreground) brings the hook terminal up so the user
           // can watch it; the background run stays out of the way and tidies up
           // on success. Either way the hook terminal is excluded from the close

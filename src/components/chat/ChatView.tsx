@@ -132,7 +132,7 @@ async function restart(info: ChatSessionInfo): Promise<void> {
       cwd: term.worktreePath ?? term.projectPath,
       taskId: term.taskId,
       worktreePath: term.worktreePath,
-      sandboxProvider: term.sandboxProvider,
+      sandbox: term.sandbox,
     });
     useChatStore.getState().adopt(snapshot);
   } catch (error) {

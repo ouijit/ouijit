@@ -21,7 +21,13 @@ import { useProjectStore } from '../stores/projectStore';
 import { joinStack, useAppStore } from '../stores/appStore';
 import { getProjectTasks, loadTasks, projectTaskOpening, projectDefaultSandbox } from '../stores/projectDataStore';
 import { stackOf, useTerminalStore } from '../stores/terminalStore';
-import type { RunHookResult, SandboxProviderId, TaskStatus, TaskWithWorkspace } from '../types';
+import {
+  placementProvider,
+  type RunHookResult,
+  type SandboxPlacement,
+  type TaskStatus,
+  type TaskWithWorkspace,
+} from '../types';
 
 let placeholderCounter = 0;
 /** Id for a loading slot standing in for a task's terminal while it spawns. */
@@ -54,7 +60,7 @@ export interface BeginTransitionOptions {
   /** CLI-driven hook control — when set, the start-hook dialog is skipped. */
   hookControl?: HookControl;
   /** Overrides the hook's own sandbox setting; with no hook to run, sandboxes the plain shell. */
-  sandbox?: SandboxProviderId;
+  sandbox?: SandboxPlacement;
   /** Open the terminal behind the one in front, and leave keyboard focus where it is. */
   background?: boolean;
   /** What the task opens in, instead of the chat setting. */
@@ -267,7 +273,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
       const tDialog = performance.now();
       hookPromise = useProjectStore
         .getState()
-        .requestRunHook({ projectPath, hookType, hook, task, sandbox })
+        .requestRunHook({ projectPath, hookType, hook, task, sandbox: placementProvider(sandbox) ?? 'none' })
         .then((res) => {
           taskStartLog.info('hook dialog closed', {
             taskNumber,
@@ -366,7 +372,7 @@ async function spawnTerminalForInProgress(
   task: TaskWithWorkspace,
   hookResult: RunHookResult | null,
   hookType: 'start' | 'continue',
-  sandbox: SandboxProviderId | undefined,
+  sandbox: SandboxPlacement | undefined,
   loadingSlot: string | null,
   background: boolean | undefined,
   surface: TaskSurface | undefined,
@@ -384,7 +390,7 @@ async function spawnTerminalForInProgress(
       await addChatCard(projectPath, {
         worktree,
         taskId: task.taskNumber,
-        sandboxProvider: sandbox,
+        sandbox,
         replaceLoadingId: loadingSlot ?? undefined,
         resumeLatest: true,
       });
@@ -394,11 +400,9 @@ async function spawnTerminalForInProgress(
     await addChatCard(projectPath, {
       worktree,
       taskId: task.taskNumber,
-      sandboxProvider: sandbox,
+      sandbox,
       replaceLoadingId: loadingSlot ?? undefined,
-      setup: hookResult
-        ? { name: 'Setup', command: hookResult.command, hookType, sandboxProvider: sandbox }
-        : undefined,
+      setup: hookResult ? { name: 'Setup', command: hookResult.command, hookType, sandbox } : undefined,
       firstPrompt: fillHookVars(firstMessage, taskHookVars({ projectPath, worktree, name: live.name, task: live })),
     });
     return;
@@ -412,7 +416,7 @@ async function spawnTerminalForInProgress(
     existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
     taskId: task.taskNumber,
     skipAutoHook: true,
-    sandboxProvider: sandbox,
+    sandbox,
     replaceLoadingId: loadingSlot ?? undefined,
     background,
   });
@@ -433,7 +437,7 @@ async function runNonStartHookInTerminal(
         existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
         taskId: task.taskNumber,
         skipAutoHook: true,
-        sandboxProvider: hookResult.sandbox,
+        sandbox: hookResult.sandbox,
         background: !hookResult.foreground,
       },
     );

@@ -13,10 +13,17 @@ import { LINK_PATTERN } from '../../links/ouijitLink';
 import { dropUnmeasuredMouseReports } from './mouseReports';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
-import type { PtyId, PtySpawnOptions, DiffDefaults, GitFileStatus, SandboxProviderId } from '../../types';
+import type {
+  PtyId,
+  PtySpawnOptions,
+  DiffDefaults,
+  GitFileStatus,
+  SandboxBackendId,
+  SandboxPlacement,
+} from '../../types';
 import type { ChatAgentId } from '../../chat/model';
 import type { TaskSurface } from '../../chat/preferences';
-import { isActiveSandbox } from '../../types';
+import { placementProvider } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore, type TerminalStatus } from '../../stores/terminalStore';
@@ -36,7 +43,7 @@ export interface TerminalOptions {
   projectPath: string;
   command?: string;
   label: string;
-  sandboxProvider?: SandboxProviderId;
+  sandbox?: SandboxPlacement;
   taskId?: number | null;
   taskPrompt?: string;
   worktreePath?: string;
@@ -423,7 +430,11 @@ export class OuijitTerminal {
   tags: string[] = [];
 
   // ── Task/worktree metadata ──────────────────────────────────────────
-  readonly sandboxProvider: SandboxProviderId | undefined;
+  /** A chat card's is its session's, once it has started. */
+  sandbox: SandboxPlacement | undefined;
+  get sandboxProvider(): SandboxBackendId | undefined {
+    return placementProvider(this.sandbox);
+  }
   readonly taskId: number | null;
   readonly taskPrompt?: string;
   worktreePath?: string;
@@ -482,7 +493,7 @@ export class OuijitTerminal {
     this.projectPath = opts.projectPath;
     this.command = opts.command;
     this.isRunner = opts.isRunner ?? false;
-    this.sandboxProvider = opts.sandboxProvider;
+    this.sandbox = opts.sandbox;
     this.taskId = opts.taskId ?? null;
     this.taskPrompt = opts.taskPrompt;
     this.worktreePath = opts.worktreePath;
@@ -847,7 +858,7 @@ export class OuijitTerminal {
       command: string;
       source?: 'hook' | 'script';
       restartIfRunning?: boolean;
-      sandboxProvider?: SandboxProviderId;
+      sandbox?: SandboxPlacement;
       env?: Record<string, string>;
       private?: boolean;
     } | null,
@@ -863,7 +874,7 @@ export class OuijitTerminal {
       command: script?.command ?? null,
       source: script?.source ?? 'script',
       restartIfRunning: script?.restartIfRunning ?? false,
-      ...(isActiveSandbox(script?.sandboxProvider) && { sandboxProvider: script.sandboxProvider }),
+      ...(placementProvider(script?.sandbox) && { sandbox: script!.sandbox }),
       ...(script?.env && { env: script.env }),
       ...(script?.private && { private: true }),
       status: 'idle',

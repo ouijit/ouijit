@@ -8,8 +8,7 @@ import {
 import { getHookStatus } from './hookStatus';
 import { chatHost } from './chat/host';
 import { stillWorking } from './chat/model';
-import type { SandboxProviderId } from './types';
-import { isSandboxProviderId } from './sandbox/types';
+import type { SandboxSpec } from './sandbox/types';
 
 /**
  * A card's session is its PTY or its chat, under one id. What the CLI and the
@@ -24,7 +23,7 @@ export interface SessionContext {
   projectPath: string;
   taskId?: number;
   worktreePath?: string;
-  sandboxProvider?: SandboxProviderId;
+  sandbox?: SandboxSpec;
 }
 
 export function getSessionSpawnContext(id: string): SessionContext | null {
@@ -36,7 +35,7 @@ export function getSessionSpawnContext(id: string): SessionContext | null {
     projectPath: chat.projectPath,
     ...(chat.taskId != null && { taskId: chat.taskId }),
     ...(chat.worktreePath && { worktreePath: chat.worktreePath }),
-    ...(isSandboxProviderId(chat.sandbox) && { sandboxProvider: chat.sandbox }),
+    ...(chat.sandbox && { sandbox: chat.sandbox }),
   };
 }
 
@@ -70,7 +69,7 @@ export function listSessions(): SessionListing[] {
       label: info.label ?? '',
       taskId: info.taskId ?? undefined,
       worktreePath: info.worktreePath ?? undefined,
-      ...(isSandboxProviderId(info.sandbox) && { sandboxProvider: info.sandbox }),
+      ...(info.sandbox && { sandbox: info.sandbox }),
       surface: 'chat',
       agentStatus: stillWorking(info)
         ? 'thinking'

@@ -9,7 +9,8 @@ export interface ChatSessionRow {
   worktree_path: string | null;
   agent: string;
   agent_session_id: string | null;
-  sandbox_provider: string | null;
+  /** A `SandboxSpec` as JSON, or null on the host. */
+  sandbox: string | null;
   role: ChatRole;
   info: string;
   seq: number;
@@ -130,12 +131,11 @@ export class ChatRepo {
       this.db
         .prepare(
           `INSERT INTO chat_sessions (id, project_path, task_id, cwd, worktree_path, agent, agent_session_id,
-             sandbox_provider, role, info, seq, created_at, updated_at)
+             sandbox, role, info, seq, created_at, updated_at)
            VALUES (@id, @project_path, @task_id, @cwd, @worktree_path, @agent, @agent_session_id,
-             @sandbox_provider, @role, @info, @seq, @created_at, @updated_at)
+             @sandbox, @role, @info, @seq, @created_at, @updated_at)
            ON CONFLICT(id) DO UPDATE SET agent = excluded.agent, agent_session_id = excluded.agent_session_id,
-             sandbox_provider = excluded.sandbox_provider, info = excluded.info, seq = excluded.seq,
-             updated_at = excluded.updated_at`,
+             sandbox = excluded.sandbox, info = excluded.info, seq = excluded.seq, updated_at = excluded.updated_at`,
         )
         .run(row);
       const upsert = this.db.prepare(

@@ -324,7 +324,7 @@ describe('command palette navigation', () => {
       existingWorktree: { path: '/wt/nine', branch: 'nine', createdAt: '2026-07-01T00:00:00.000Z' },
       taskId: 9,
       skipAutoHook: true,
-      sandboxProvider: 'none',
+      sandbox: 'none',
     });
     // The worktree already exists, so there is nothing to start.
     expect(window.api.task.start).not.toHaveBeenCalled();
@@ -357,7 +357,7 @@ describe('command palette navigation', () => {
         existingWorktree: { path: '/wt/eleven', branch: 'eleven', createdAt: '2026-07-01T00:00:00.000Z' },
         taskId: 11,
         skipAutoHook: true,
-        sandboxProvider: 'none',
+        sandbox: 'none',
         replaceLoadingId: staged?.ptyId,
       }),
     );

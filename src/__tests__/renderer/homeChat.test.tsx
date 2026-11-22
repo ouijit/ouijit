@@ -35,7 +35,7 @@ const INFO: ChatSessionInfo = {
   projectPath: '/Users/test/Library/Application Support/Ouijit/chat',
   cwd: '/Users/test/Library/Application Support/Ouijit/chat',
   worktreePath: null,
-  sandbox: 'nono',
+  sandbox: { provider: 'nono', settings: '/Users/test/Library/Application Support/Ouijit/chat' },
   taskId: null,
   status: 'idle',
   capabilities: NO_CAPABILITIES,
@@ -510,7 +510,7 @@ describe('Chat', () => {
           label: 'Settings storage',
           taskId: 12,
           projectPath: '/code/alpha',
-          sandbox: 'nono',
+          sandbox: { provider: 'nono', settings: '/code/alpha' },
         },
         nodes: [
           {

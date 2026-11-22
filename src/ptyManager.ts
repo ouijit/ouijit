@@ -1,8 +1,8 @@
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
-import type { PtyId, PtySpawnOptions, PtySpawnResult, SandboxProviderId } from './types';
-import { isActiveSandbox } from './sandbox/types';
-import type { SandboxProvider } from './sandbox/provider';
+import type { PtyId, PtySpawnOptions, PtySpawnResult } from './types';
+import type { SandboxSpec } from './sandbox/types';
+import { getSandboxProvider } from './sandbox/registry';
 import { generateId } from './utils/ids';
 import { clearHookStatus, clearAllHookStatuses } from './hookStatus';
 import { getShellIntegrationDir, resolveShellIntegration } from './shellIntegration';
@@ -44,8 +44,8 @@ interface ManagedPty {
   label: string;
   taskId?: number;
   worktreePath?: string;
-  /** Sandbox backend running this PTY, or undefined for a plain host shell. */
-  sandboxProvider?: SandboxProviderId;
+  /** Absent for a plain host shell. */
+  sandbox?: SandboxSpec;
   isRunner: boolean;
   parentPtyId?: PtyId;
   // Array-based buffer for scroll history preservation (avoids string concatenation churn)
@@ -80,7 +80,7 @@ export interface ActiveSession {
   worktreePath?: string;
   isRunner?: boolean;
   parentPtyId?: PtyId;
-  sandboxProvider?: SandboxProviderId;
+  sandbox?: SandboxSpec;
 }
 
 const activePtys = new Map<PtyId, ManagedPty>();
@@ -180,10 +180,11 @@ function handlePtyOutput(ptyId: PtyId, channel: string, data: string): void {
  * Spawn a new PTY with the user's shell
  */
 export async function spawnPty(
-  options: PtySpawnOptions,
+  options: Omit<PtySpawnOptions, 'sandbox'>,
   window: BrowserWindow,
-  wrapper?: SandboxProvider,
+  sandbox?: SandboxSpec | null,
 ): Promise<PtySpawnResult> {
+  const wrapper = getSandboxProvider(sandbox?.provider);
   const ptyId = options.ptyId ?? generateId('pty');
   try {
     const shell = getDefaultShell();
@@ -202,7 +203,7 @@ export async function spawnPty(
       }
     }
     Object.assign(finalEnv, ouijitSessionEnv(ptyId, issueToken(ptyId, wrapper ? 'sandbox' : 'host'), finalEnv));
-    Object.assign(finalEnv, await sandboxReferenceEnv(wrapper?.id, options.projectPath || options.cwd));
+    Object.assign(finalEnv, await sandboxReferenceEnv(wrapper && sandbox));
 
     const expandedCommand = buildCommandString(options.command, options.env);
 
@@ -234,7 +235,7 @@ export async function spawnPty(
       sandboxed = await sandboxLaunch(
         { file: launch.file, args: launch.args, env: finalEnv },
         {
-          provider: wrapper,
+          sandbox: wrapper && sandbox,
           projectPath: options.projectPath || options.cwd,
           cwd: options.cwd,
           taskId: options.taskId,
@@ -269,7 +270,7 @@ export async function spawnPty(
       label,
       taskId: options.taskId,
       worktreePath: options.worktreePath,
-      sandboxProvider: wrapper?.id ?? options.sandboxProvider,
+      ...(sandbox && { sandbox }),
       isRunner: options.isRunner || false,
       parentPtyId: options.parentPtyId,
       outputChunks: [],
@@ -308,8 +309,8 @@ export async function spawnPty(
       if (canSendToRenderer()) {
         currentWindow!.webContents.send(`pty:exit:${ptyId}`, exitCode);
       }
-      const provider = managed.sandboxProvider;
-      if (managed.watchLaunch && isActiveSandbox(provider) && exitCode !== 0 && !managed.shellStarted) {
+      const provider = managed.sandbox?.provider;
+      if (managed.watchLaunch && provider && exitCode !== 0 && !managed.shellStarted) {
         ptyLog.error('sandbox launcher exited before starting the shell', {
           ptyId,
           provider,
@@ -389,7 +390,7 @@ export function getActiveSessions(): ActiveSession[] {
     worktreePath: managed.worktreePath,
     isRunner: managed.isRunner,
     parentPtyId: managed.parentPtyId,
-    sandboxProvider: managed.sandboxProvider,
+    sandbox: managed.sandbox,
   }));
 }
 
@@ -428,11 +429,11 @@ export function callerTerminal(ptyId: PtyId): PtyId {
 
 export function getPtySpawnContext(
   ptyId: PtyId,
-): { projectPath: string; taskId?: number; worktreePath?: string; sandboxProvider?: SandboxProviderId } | null {
+): { projectPath: string; taskId?: number; worktreePath?: string; sandbox?: SandboxSpec } | null {
   const managed = activePtys.get(ptyId);
   if (!managed) return null;
-  const { projectPath, taskId, worktreePath, sandboxProvider } = managed;
-  return { projectPath, taskId, worktreePath, sandboxProvider };
+  const { projectPath, taskId, worktreePath, sandbox } = managed;
+  return { projectPath, taskId, worktreePath, sandbox };
 }
 
 export function getPtyTaskContext(ptyId: PtyId): { projectPath: string; taskId: number } | null {

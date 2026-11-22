@@ -10,12 +10,15 @@ import {
   killPty,
   setPtyLabel,
 } from '../../ptyManager';
-import { getSandboxProvider } from '../../sandbox';
+import { resolveSandbox } from '../../sandbox/resolve';
 
 export function registerPtyHandlers(mainWindow: BrowserWindow): void {
-  typedHandle('pty:spawn', async (options) => {
-    const provider = getSandboxProvider(options.sandboxProvider);
-    return await spawnPty(options, mainWindow, provider);
+  typedHandle('pty:spawn', async ({ sandbox, ...options }) => {
+    const spec = await resolveSandbox({
+      projectPath: options.projectPath || options.cwd,
+      placement: sandbox ?? 'none',
+    });
+    return await spawnPty(options, mainWindow, spec);
   });
 
   typedOn('pty:write', (ptyId, data) => writeToPty(ptyId, data));

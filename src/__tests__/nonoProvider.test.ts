@@ -22,8 +22,10 @@ vi.mock('../sandbox/nono/binary', () => ({
 vi.mock('../sandbox/gitDir', () => ({
   getMainGitDir: (wt: string) => getMainGitDir(wt),
 }));
+// Keyed by the sandbox settings they belong to, as stored profiles are.
 vi.mock('../sandbox/nono/config', () => ({
-  getNonoProfile: () => Promise.resolve({ path: '/profiles/ouijit-proj.json', own: true }),
+  getNonoProfile: (owner: string) =>
+    Promise.resolve({ path: owner === '/proj' ? '/profiles/ouijit-proj.json' : `/profiles${owner}.json`, own: true }),
 }));
 vi.mock('../sandbox/nono/profile', () => ({
   ensureUnionProfile: () => ensureUnionProfile(),
@@ -40,6 +42,7 @@ const ctx: SandboxSpawnContext = {
   cwd: '/Users/dev/wt/T-3',
   worktreePath: '/Users/dev/wt/T-3',
   apiPort: 7777,
+  settings: '/proj',
 };
 const launch: SandboxLaunch = { file: '/bin/zsh', args: ['-il'], env: {} };
 
@@ -115,6 +118,13 @@ describe('nonoProvider', () => {
     expect(fileReads).toContain('/opt/bin/nono');
     // The original launch is the argv tail.
     expect(wrapped.args.slice(-3)).toEqual(['--', '/bin/zsh', '-il']);
+  });
+
+  test("a launch under another's sandbox settings runs under its profile, with the task's own grants", async () => {
+    const wrapped = await nonoProvider.wrapLaunch(launch, { ...ctx, settings: '/chat' });
+    expect(wrapped.args.slice(0, 3)).toEqual(['run', '--profile', '/profiles/chat.json']);
+    expect(wrapped.args[wrapped.args.indexOf('--allow') + 1]).toBe('/Users/dev/wt/T-3');
+    expect(wrapped.args).not.toContain('/chat');
   });
 
   test('wrapLaunch grants no .git for a folder that is not a repository, and still grants the folder', async () => {

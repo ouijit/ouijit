@@ -511,7 +511,7 @@ export function KanbanBoard({ projectPath, onTerminalOpened }: KanbanBoardProps)
 
   const handleOpenTerminal = useCallback(
     async (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => {
-      if (await openTaskShell(projectPath, task, { mode: 'resume', sandboxProvider })) onTerminalOpened();
+      if (await openTaskShell(projectPath, task, { mode: 'resume', sandbox: sandboxProvider })) onTerminalOpened();
     },
     [projectPath, onTerminalOpened],
   );
