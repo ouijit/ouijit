@@ -22,6 +22,11 @@ export interface TooltipOptions {
   onHoverChange?: (hovering: boolean) => void;
   /** Set as prose, wrapping at this many pixels, rather than as a label. */
   wrapAt?: number;
+  /**
+   * Stay above or below, sliding along instead of moving to a side: for
+   * buttons in a row, where a tooltip beside one covers the next.
+   */
+  keepAxis?: boolean;
 }
 
 const DEFAULT_WRAP = 320;
@@ -31,7 +36,7 @@ export type TooltipReferenceProps = Record<string, unknown>;
 /** Empty `text` shows nothing, so a conditional explanation can pass `undefined`. */
 export function useTooltip(
   text: ReactNode,
-  { placement = 'bottom', delay = 100, offsetPx = 6, disabled, onHoverChange, wrapAt }: TooltipOptions = {},
+  { placement = 'bottom', delay = 100, offsetPx = 6, disabled, onHoverChange, wrapAt, keepAxis }: TooltipOptions = {},
 ) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -43,7 +48,11 @@ export function useTooltip(
     },
     placement,
     strategy: 'fixed',
-    middleware: [offset(offsetPx), flip({ fallbackAxisSideDirection: 'start' }), shift({ padding: 8 })],
+    middleware: [
+      offset(offsetPx),
+      flip(keepAxis ? { crossAxis: false } : { fallbackAxisSideDirection: 'start' }),
+      shift({ padding: 8 }),
+    ],
     whileElementsMounted: autoUpdate,
   });
 

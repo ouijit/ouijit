@@ -194,6 +194,7 @@ export function PlanPanel({ ptyId, planPath, bar }: PlanPanelProps) {
         <TooltipButton
           text={copied ? 'Copied!' : 'Copy to clipboard'}
           placement="bottom"
+          keepAxis
           className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/40 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
           onClick={handleCopy}
         >

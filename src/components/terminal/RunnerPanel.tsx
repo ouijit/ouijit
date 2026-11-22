@@ -27,7 +27,7 @@ export function RunnerPanel({ ptyId, panelId, onRestart, onKill, bar }: RunnerPa
       {bar(
         <>
           {runnerPtyId && (
-            <Tooltip text="Kill">
+            <Tooltip text="Kill" keepAxis>
               <button
                 className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/40 shrink-0 transition-all duration-150 ease-out hover:bg-error/20 hover:text-ansi-red [&>svg]:w-3.5 [&>svg]:h-3.5"
                 onClick={(e) => {
@@ -39,7 +39,7 @@ export function RunnerPanel({ ptyId, panelId, onRestart, onKill, bar }: RunnerPa
               </button>
             </Tooltip>
           )}
-          <Tooltip text="Restart">
+          <Tooltip text="Restart" keepAxis>
             <button
               className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/60 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
               onClick={(e) => {

@@ -5,6 +5,7 @@ import { useTooltip } from './useTooltip';
 interface TooltipButtonProps {
   text: string;
   placement?: Placement;
+  keepAxis?: boolean;
   className?: string;
   onClick?: (e: React.MouseEvent) => void;
   disabled?: boolean;
@@ -18,12 +19,13 @@ interface TooltipButtonProps {
 export function TooltipButton({
   text,
   placement = 'bottom',
+  keepAxis,
   className,
   onClick,
   disabled,
   children,
 }: TooltipButtonProps) {
-  const { setReference, referenceProps, tooltip } = useTooltip(text, { placement });
+  const { setReference, referenceProps, tooltip } = useTooltip(text, { placement, keepAxis });
 
   return (
     <>

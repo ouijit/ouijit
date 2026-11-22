@@ -6,7 +6,7 @@ export const PANEL_HEADER_BUTTON =
 
 export function FullWidthToggle({ fullWidth, onToggle }: { fullWidth: boolean; onToggle: () => void }) {
   return (
-    <Tooltip text={fullWidth ? 'Split view' : 'Full width'}>
+    <Tooltip text={fullWidth ? 'Split view' : 'Full width'} keepAxis>
       <button
         className={PANEL_HEADER_BUTTON}
         onClick={(e) => {
@@ -24,7 +24,7 @@ export function FullWidthToggle({ fullWidth, onToggle }: { fullWidth: boolean; o
 /** Collapses the panel, keeping its tab. */
 export function MinimizeButton({ onMinimize }: { onMinimize: () => void }) {
   return (
-    <Tooltip text="Hide">
+    <Tooltip text="Hide" keepAxis>
       <button
         className={PANEL_HEADER_BUTTON}
         onClick={(e) => {
@@ -41,7 +41,7 @@ export function MinimizeButton({ onMinimize }: { onMinimize: () => void }) {
 
 export function PanelCloseButton({ onClose }: { onClose: () => void }) {
   return (
-    <Tooltip text="Close panel">
+    <Tooltip text="Close panel" keepAxis>
       <button
         className={PANEL_HEADER_BUTTON}
         onClick={(e) => {

@@ -53,7 +53,12 @@ function PaneTab({
       }`}
     >
       {icon}
-      <span className="flex-1 min-w-0 truncate">{label}</span>
+      <span
+        className="flex-1 min-w-0 overflow-hidden whitespace-nowrap"
+        style={{ maskImage: 'linear-gradient(to right, black calc(100% - 20px), transparent)' }}
+      >
+        {label}
+      </span>
       {onClose && (
         <span
           role="button"
@@ -80,7 +85,9 @@ const RUNNER_LABELS: Record<RunnerStatus, string> = {
   idle: 'Stopped',
 };
 
-function PanelMark({ panel, active }: { panel: TerminalPanel; active: boolean }) {
+function PanelMark({ panel, active, plain }: { panel: TerminalPanel; active: boolean; plain?: boolean }) {
+  if (panel.kind === 'runner' && plain)
+    return <RunnerDot status={panel.status} sandboxProvider={panel.sandboxProvider} />;
   if (panel.kind === 'runner')
     return (
       <Tooltip
@@ -89,6 +96,7 @@ function PanelMark({ panel, active }: { panel: TerminalPanel; active: boolean })
           .join(' · ')}
         placement="top"
         delay={300}
+        keepAxis
       >
         <RunnerDot status={panel.status} sandboxProvider={panel.sandboxProvider} />
       </Tooltip>
@@ -114,7 +122,7 @@ function Favicon({ src, active }: { src: string; active: boolean }) {
 function AddButton({ ptyId, label }: { ptyId: string; label: string }) {
   const show = useAddPanelMenu((s) => s.show);
   return (
-    <Tooltip text={label}>
+    <Tooltip text={label} placement="bottom" keepAxis>
       <button
         type="button"
         className={PANEL_HEADER_BUTTON}
@@ -190,7 +198,7 @@ export function PanelsAway({ ptyId }: { ptyId: string }) {
     <div onMouseEnter={approach} onMouseLeave={leave} className="-m-6 p-6">
       <div className="h-7 flex items-center gap-0.5">
         {panels.map((panel, n) => (
-          <Tooltip key={panel.id} text={panelLabel(panel)} placement="bottom">
+          <Tooltip key={panel.id} text={panelLabel(panel)} placement="bottom" keepAxis>
             <button
               type="button"
               aria-label={panelLabel(panel)}
@@ -208,7 +216,7 @@ export function PanelsAway({ ptyId }: { ptyId: string }) {
                 transition: `margin-left ${SPREAD_MS}ms cubic-bezier(.2,.8,.2,1), background-color ${SPREAD_MS}ms, box-shadow ${SPREAD_MS}ms`,
               }}
             >
-              <PanelMark panel={panel} active />
+              <PanelMark panel={panel} active plain />
             </button>
           </Tooltip>
         ))}
@@ -226,14 +234,21 @@ export function MainPaneCorner({ ptyId }: { ptyId: string }) {
   const { activePanelId, diffPanelOpen } = usePanels(ptyId);
   if (activePanelId || diffPanelOpen) return null;
   return (
-    <div
-      className="absolute top-0 right-0 z-10 pl-10 pr-2 pt-1.5 pb-1 pointer-events-none [&>*]:pointer-events-auto"
-      style={{
-        background:
-          'linear-gradient(to right, color-mix(in srgb, var(--color-terminal-bg) 0%, transparent), var(--color-terminal-bg) 32px)',
-      }}
-    >
-      <PanelsAway ptyId={ptyId} />
+    <div className="absolute top-0 right-0 z-10 pl-12 pr-2 pt-1.5 pb-5 pointer-events-none [&>*]:pointer-events-auto">
+      {/* Soft on both open sides, so it sits over what is under it without an edge. */}
+      <div
+        aria-hidden
+        className="absolute inset-0 !pointer-events-none"
+        style={{
+          background: 'var(--color-terminal-bg)',
+          maskImage:
+            'linear-gradient(to right, transparent, black 44px), linear-gradient(to bottom, black 55%, transparent)',
+          maskComposite: 'intersect',
+        }}
+      />
+      <div className="relative">
+        <PanelsAway ptyId={ptyId} />
+      </div>
     </div>
   );
 }
