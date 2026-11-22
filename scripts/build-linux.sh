@@ -30,7 +30,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 LIMA_VM="ouijit-linux-builder"
-NONO_VERSION="0.80.0"
+NONO_VERSION="0.82.0"
 STAGING="${PROJECT_DIR}/out/linux-staging"
 
 echo "==> Building Ouijit for Linux x64"
