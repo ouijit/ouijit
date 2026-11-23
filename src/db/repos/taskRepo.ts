@@ -37,6 +37,16 @@ export class TaskRepo {
       TaskRow | undefined;
   }
 
+  /** The task whose worktree is `dir` or holds it. */
+  getByWorktreeDir(dir: string): TaskRow | undefined {
+    return this.db
+      .prepare(
+        `SELECT * FROM tasks WHERE worktree_path = ?
+           OR substr(?, 1, length(worktree_path) + 1) = worktree_path || '/'`,
+      )
+      .get(dir, dir) as TaskRow | undefined;
+  }
+
   getByTaskNumber(projectPath: string, taskNumber: number): TaskRow | undefined {
     return this.db
       .prepare('SELECT * FROM tasks WHERE project_path = ? AND task_number = ?')

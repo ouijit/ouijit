@@ -3,29 +3,17 @@ import { createTask, getTaskByNumber } from '../db';
 
 import { startTask } from '../worktree';
 import { beginTask } from '../taskLifecycle';
+import { gitArgs } from './fakeExecFile';
 
-// Mock child_process so execAsync resolves without real git commands
-vi.mock('node:child_process', () => ({
-  execSync: vi.fn(),
-  exec: vi.fn((_cmd: string, _opts: unknown, cb: (err: null, result: { stdout: string; stderr: string }) => void) => {
-    cb(null, { stdout: 'main\n', stderr: '' });
-  }),
-  execFile: vi.fn(
-    (
-      _file: string,
-      args: string[],
-      _opts: unknown,
-      cb: (err: Error | null, stdout: string, stderr: string) => void,
-    ) => {
-      // Default: rev-parse --verify always fails (branch doesn't exist) so tests exercise the -b path
-      if (Array.isArray(args) && args.includes('--verify')) {
-        cb(new Error('not found'), '', '');
-      } else {
-        cb(null, '', '');
-      }
-    },
-  ),
-}));
+// No branch exists yet, so starting a task takes the -b path.
+vi.mock('node:child_process', async () => {
+  const { fakeExecFile } = await import('./fakeExecFile');
+  return {
+    execSync: vi.fn(),
+    exec: vi.fn(),
+    execFile: fakeExecFile((args) => (args.includes('--verify') ? new Error('not found') : 'main\n')),
+  };
+});
 
 // Mock fs/promises — keep real readFile/writeFile for taskMetadata, stub mkdir/access/cp for worktree
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -95,7 +83,7 @@ describe('startTask', () => {
 
     const execFileCalls = vi.mocked(execFile).mock.calls;
     const wtAddCall = execFileCalls.find(
-      ([file, args]) => file === 'git' && Array.isArray(args) && args.includes('worktree'),
+      ([file, args]) => file === 'git' && gitArgs(args).slice(0, 2).join(' ') === 'worktree add',
     );
     expect(wtAddCall).toBeDefined();
     const args = wtAddCall![1] as string[];
@@ -137,7 +125,7 @@ describe('startTask', () => {
 
     const execFileCalls = vi.mocked(execFile).mock.calls;
     const wtAddCall = execFileCalls.find(
-      ([file, args]) => file === 'git' && Array.isArray(args) && args.includes('worktree'),
+      ([file, args]) => file === 'git' && gitArgs(args).slice(0, 2).join(' ') === 'worktree add',
     );
     expect(wtAddCall).toBeDefined();
     const args = wtAddCall![1] as string[];
@@ -206,9 +194,7 @@ describe('startTask', () => {
     // Coalesced: only one git worktree add across both calls
     const wtAdds = vi
       .mocked(execFile)
-      .mock.calls.filter(
-        ([file, args]) => file === 'git' && Array.isArray(args) && args[0] === 'worktree' && args[1] === 'add',
-      );
+      .mock.calls.filter(([file, args]) => file === 'git' && gitArgs(args).slice(0, 2).join(' ') === 'worktree add');
     expect(wtAdds).toHaveLength(1);
 
     lstatSpy.mockRestore();
@@ -238,12 +224,13 @@ describe('startTask', () => {
         cb?: (err: Error | null, stdout: string, stderr: string) => void,
       ) => {
         const callback = cb!;
-        if (Array.isArray(args) && args.includes('--verify')) {
+        const git = gitArgs(args ?? []);
+        if (git.includes('--verify')) {
           callback(new Error('not found'), '', '');
           return undefined as never;
         }
-        if (Array.isArray(args) && args[0] === 'worktree' && args[1] === 'add') {
-          const targetPath = args.find((a) => a.includes('/T-')) ?? '';
+        if (git[0] === 'worktree' && git[1] === 'add') {
+          const targetPath = git.find((a) => a.includes('/T-')) ?? '';
           const base = baseOf(targetPath);
           if (claimed.has(base)) {
             callback(new Error(`fatal: '${targetPath}' already exists`), '', '');
@@ -253,7 +240,7 @@ describe('startTask', () => {
           }
           return undefined as never;
         }
-        callback(null, '', '');
+        callback(null, 'main\n', '');
         return undefined as never;
       },
     );

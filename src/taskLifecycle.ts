@@ -3,8 +3,6 @@
  * Extracted from IPC handlers to keep handlers as thin one-liner delegations.
  */
 
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { existsSync } from 'node:fs';
 import { trashItem } from './platform';
 import {
@@ -25,8 +23,7 @@ import type { TaskWithWorkspace, TaskWorktreeResult, WorktreeInfo } from './type
 import { getCachedHealth } from './healthCheck';
 import { getLogger } from './logger';
 import { deleteOrphanedAttachments, extractAttachmentPaths } from './attachments';
-
-const execFileAsync = promisify(execFile);
+import { execGit } from './gitCommand';
 
 const taskLog = getLogger().scope('task');
 
@@ -203,7 +200,7 @@ export async function trashTaskWithWorktree(
     taskLog.info('trashing task worktree', { taskNumber, worktreePath });
     try {
       await trashItem(worktreePath);
-      await execFileAsync('git', ['worktree', 'prune'], { cwd: projectPath, encoding: 'utf8' });
+      await execGit(['worktree', 'prune'], projectPath);
     } catch (trashError) {
       const msg = trashError instanceof Error ? trashError.message : String(trashError);
       taskLog.error('trashItem failed', { taskNumber, error: msg });
@@ -212,7 +209,7 @@ export async function trashTaskWithWorktree(
 
     if (task?.branch) {
       try {
-        await execFileAsync('git', ['branch', '-D', task.branch], { cwd: projectPath, encoding: 'utf8' });
+        await execGit(['branch', '-D', task.branch], projectPath);
       } catch {
         // Branch may already be deleted
       }

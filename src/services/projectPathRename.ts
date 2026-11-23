@@ -6,12 +6,10 @@
  * path-keyed state must add its migration step to this function.
  */
 
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { updateProjectPath } from '../db';
 import { getLogger } from '../logger';
+import { execGit } from '../gitCommand';
 
-const execFileAsync = promisify(execFile);
 const renameLog = getLogger().scope('projectPathRename');
 
 /**
@@ -25,7 +23,7 @@ export async function renameProjectPath(oldPath: string, newPath: string): Promi
 
   // Linked worktrees' .git files point at the main repo's old location.
   try {
-    await execFileAsync('git', ['worktree', 'repair'], { cwd: newPath });
+    await execGit(['worktree', 'repair'], newPath);
   } catch (error) {
     renameLog.warn('git worktree repair failed after move', {
       newPath,

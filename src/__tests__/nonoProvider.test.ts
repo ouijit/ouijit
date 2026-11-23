@@ -107,6 +107,7 @@ describe('nonoProvider', () => {
     // Grants derived from the spawn context.
     expect(wrapped.args).toContain('/Users/dev/wt/T-3'); // worktree
     expect(wrapped.args).toContain('/Users/dev/code/proj/.git'); // main git dir (not the worktree's)
+    expect(getMainGitDir).toHaveBeenCalledWith('/proj');
     const openPortIdx = wrapped.args.indexOf('--open-port');
     expect(wrapped.args[openPortIdx + 1]).toBe('7777');
     // The vendored binary itself is read-granted (a single file, so via

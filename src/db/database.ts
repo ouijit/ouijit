@@ -58,6 +58,10 @@ export function initDatabase(dbPath: string): Database.Database {
   return db;
 }
 
+export function isDatabaseOpen(): boolean {
+  return db !== null;
+}
+
 export function getDatabase(): Database.Database {
   if (!db) throw new Error('Database not initialized — call initDatabase() first');
   return db;

@@ -1,18 +1,7 @@
-import { execSync, execFileSync, execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { formatAge } from './utils/formatDate';
-
-const execFileAsync = promisify(execFile);
-
-function gitExecOpts(projectPath: string) {
-  return {
-    cwd: projectPath,
-    encoding: 'utf8' as const,
-    stdio: ['pipe', 'pipe', 'pipe'] as ['pipe', 'pipe', 'pipe'],
-  };
-}
+import { execGit, execGitBuffer, execGitSync } from './gitCommand';
 
 export interface GitStatus {
   branch: string;
@@ -108,13 +97,14 @@ export interface BranchInfo {
 }
 
 export function listBranches(projectPath: string): BranchInfo[] {
-  const opts = gitExecOpts(projectPath);
-
   try {
     const mainBranch = getMainBranch(projectPath);
 
     // Get all local branches sorted by most recent commit
-    const result = execSync("git for-each-ref --sort=-committerdate --format='%(refname:short)' refs/heads/", opts)
+    const result = execGitSync(
+      ['for-each-ref', '--sort=-committerdate', '--format=%(refname:short)', 'refs/heads/'],
+      projectPath,
+    )
       .toString()
       .trim();
 
@@ -242,13 +232,11 @@ export async function fetchDiffBase(
 
 /** Null when the path isn't a git repo or the commands fail. */
 export function getGitStatus(projectPath: string): GitStatus | null {
-  const opts = gitExecOpts(projectPath);
-
   try {
     // Get current branch name
     let branch: string;
     try {
-      branch = execSync('git rev-parse --abbrev-ref HEAD', opts).toString().trim();
+      branch = execGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath).toString().trim();
     } catch {
       // Not a git repo or no commits yet
       return null;
@@ -257,7 +245,7 @@ export function getGitStatus(projectPath: string): GitStatus | null {
     // Check if working directory is dirty
     let isDirty = false;
     try {
-      const status = execSync('git status --porcelain', opts).toString();
+      const status = execGitSync(['status', '--porcelain'], projectPath).toString();
       isDirty = status.length > 0;
     } catch {
       // If status fails, assume clean
@@ -296,9 +284,8 @@ export function getMainBranch(projectPath: string): string {
   const cached = projectMainBranchCache.get(projectPath);
   if (cached) return cached;
 
-  const opts = gitExecOpts(projectPath);
   try {
-    const result = execFileSync('git', ['branch', '--list', 'main', 'master'], opts).toString();
+    const result = execGitSync(['branch', '--list', 'main', 'master'], projectPath).toString();
     const main = parseMainBranchOutput(result);
     projectMainBranchCache.set(projectPath, main);
     return main;
@@ -323,7 +310,7 @@ export async function getMainBranchAsync(projectPath: string): Promise<string> {
 
   const fetchPromise = (async () => {
     try {
-      const { stdout } = await execFileAsync('git', ['branch', '--list', 'main', 'master'], gitExecOpts(projectPath));
+      const { stdout } = await execGit(['branch', '--list', 'main', 'master'], projectPath);
       const main = parseMainBranchOutput(stdout);
       projectMainBranchCache.set(projectPath, main);
       return main;
@@ -354,7 +341,7 @@ export function invalidateMainBranchCache(projectPath?: string): void {
 /** Null when the repo has no such remote, or isn't a repo at all. */
 export async function getRemoteUrl(projectPath: string, remote = 'origin'): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync('git', ['remote', 'get-url', remote], gitExecOpts(projectPath));
+    const { stdout } = await execGit(['remote', 'get-url', remote], projectPath);
     const url = stdout.trim();
     return url || null;
   } catch {
@@ -374,8 +361,7 @@ export async function fetchRefspec(
   timeoutMs?: number,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await execFileAsync('git', ['fetch', '--no-tags', '--force', remote, refspec], {
-      ...gitExecOpts(projectPath),
+    await execGit(['fetch', '--no-tags', '--force', remote, refspec], projectPath, {
       maxBuffer: 10 * 1024 * 1024,
       ...(timeoutMs && { timeout: timeoutMs }),
     });
@@ -388,10 +374,7 @@ export async function fetchRefspec(
 /** Resolve a revision to a full SHA, or null when it isn't present locally. */
 export async function resolveRef(projectPath: string, rev: string): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync('git', ['rev-parse', '--verify', `${rev}^{commit}`], {
-      cwd: projectPath,
-      encoding: 'utf8',
-    });
+    const { stdout } = await execGit(['rev-parse', '--verify', `${rev}^{commit}`], projectPath);
     return stdout.trim() || null;
   } catch {
     return null;
@@ -412,7 +395,7 @@ export async function pushBranch(
   if (options?.force) args.push('--force-with-lease');
   args.push(remote, branch);
   try {
-    await execFileAsync('git', args, { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 });
+    await execGit(args, projectPath, { maxBuffer: 10 * 1024 * 1024 });
     return { success: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Push failed';
@@ -467,10 +450,7 @@ export async function getRangeFileDiff(
   args.push(`${baseRev}...${headRev}`, '--', filePath);
   if (oldPath && oldPath !== filePath) args.push(oldPath);
   try {
-    const { stdout } = await execFileAsync('git', args, {
-      ...gitExecOpts(projectPath),
-      maxBuffer: 20 * 1024 * 1024,
-    });
+    const { stdout } = await execGit(args, projectPath, { maxBuffer: 20 * 1024 * 1024 });
     return toFileDiff(filePath, stdout);
   } catch {
     return null;
@@ -478,10 +458,10 @@ export async function getRangeFileDiff(
 }
 
 function getAheadBehind(projectPath: string): { ahead: number; behind: number } {
-  const opts = gitExecOpts(projectPath);
-
   try {
-    const result = execSync('git rev-list --left-right --count HEAD...@{upstream}', opts).toString().trim();
+    const result = execGitSync(['rev-list', '--left-right', '--count', 'HEAD...@{upstream}'], projectPath)
+      .toString()
+      .trim();
     const [ahead, behind] = result.split('\t').map(Number);
     return { ahead: ahead || 0, behind: behind || 0 };
   } catch {
@@ -491,10 +471,8 @@ function getAheadBehind(projectPath: string): { ahead: number; behind: number } 
 }
 
 function getUncommittedChanges(projectPath: string): UncommittedChanges | null {
-  const opts = gitExecOpts(projectPath);
-
   try {
-    const result = execSync('git diff --shortstat HEAD', opts).toString().trim();
+    const result = execGitSync(['diff', '--shortstat', 'HEAD'], projectPath).toString().trim();
     if (!result) return null;
 
     // Parse: "3 files changed, 47 insertions(+), 12 deletions(-)"
@@ -520,8 +498,6 @@ function getRecentBranches(
   mainBranch: string,
   limit: number = 5,
 ): RecentBranch[] {
-  const opts = gitExecOpts(projectPath);
-
   try {
     // Get recent branches with ahead-behind counts in a single command (Git 2.36+)
     // %(ahead-behind:ref) returns "ahead\tbehind" relative to the given ref
@@ -529,8 +505,7 @@ function getRecentBranches(
     let useAheadBehind = true;
 
     try {
-      result = execFileSync(
-        'git',
+      result = execGitSync(
         [
           'for-each-ref',
           '--sort=-committerdate',
@@ -538,16 +513,22 @@ function getRecentBranches(
           'refs/heads/',
           `--count=${limit + 2}`,
         ],
-        opts,
+        projectPath,
       )
         .toString()
         .trim();
     } catch {
       // Fallback for older Git versions without %(ahead-behind)
       useAheadBehind = false;
-      result = execSync(
-        `git for-each-ref --sort=-committerdate --format='%(refname:short)|%(committerdate:unix)' refs/heads/ --count=${limit + 2}`,
-        opts,
+      result = execGitSync(
+        [
+          'for-each-ref',
+          '--sort=-committerdate',
+          '--format=%(refname:short)|%(committerdate:unix)',
+          'refs/heads/',
+          `--count=${limit + 2}`,
+        ],
+        projectPath,
       )
         .toString()
         .trim();
@@ -575,7 +556,7 @@ function getRecentBranches(
         commitsAhead = parseInt(ahead, 10) || 0;
       } else if (!useAheadBehind) {
         try {
-          const countResult = execFileSync('git', ['rev-list', '--count', `${mainBranch}..${name}`], opts)
+          const countResult = execGitSync(['rev-list', '--count', `${mainBranch}..${name}`], projectPath)
             .toString()
             .trim();
           commitsAhead = parseInt(countResult, 10) || 0;
@@ -598,13 +579,11 @@ function getRecentBranches(
 }
 
 export function getGitDropdownInfo(projectPath: string): GitDropdownInfo | null {
-  const opts = gitExecOpts(projectPath);
-
   try {
     // Get current branch
     let branch: string;
     try {
-      branch = execSync('git rev-parse --abbrev-ref HEAD', opts).toString().trim();
+      branch = execGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath).toString().trim();
     } catch {
       return null; // Not a git repo
     }
@@ -630,10 +609,8 @@ export function getGitDropdownInfo(projectPath: string): GitDropdownInfo | null 
 }
 
 export function checkoutBranch(projectPath: string, branchName: string): { success: boolean; error?: string } {
-  const opts = gitExecOpts(projectPath);
-
   try {
-    execFileSync('git', ['checkout', branchName], opts);
+    execGitSync(['checkout', branchName], projectPath);
     return { success: true };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -654,10 +631,8 @@ export function checkoutBranch(projectPath: string, branchName: string): { succe
 }
 
 export function createBranch(projectPath: string, branchName: string): { success: boolean; error?: string } {
-  const opts = gitExecOpts(projectPath);
-
   try {
-    execFileSync('git', ['checkout', '-b', branchName], opts);
+    execGitSync(['checkout', '-b', branchName], projectPath);
     return { success: true };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -682,13 +657,11 @@ export function createBranch(projectPath: string, branchName: string): { success
 
 /** Checks out main and merges the current branch into it. */
 export function mergeIntoMain(projectPath: string): { success: boolean; error?: string; mergedBranch?: string } {
-  const opts = gitExecOpts(projectPath);
-
   try {
     // Get current branch name first
     let currentBranch: string;
     try {
-      currentBranch = execSync('git rev-parse --abbrev-ref HEAD', opts).toString().trim();
+      currentBranch = execGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath).toString().trim();
     } catch {
       return { success: false, error: 'Not a git repository' };
     }
@@ -702,7 +675,7 @@ export function mergeIntoMain(projectPath: string): { success: boolean; error?: 
 
     // Check for uncommitted changes
     try {
-      const status = execSync('git status --porcelain', opts).toString();
+      const status = execGitSync(['status', '--porcelain'], projectPath).toString();
       if (status.length > 0) {
         return { success: false, error: 'Uncommitted changes. Commit or stash first.' };
       }
@@ -712,7 +685,7 @@ export function mergeIntoMain(projectPath: string): { success: boolean; error?: 
 
     // Checkout main
     try {
-      execFileSync('git', ['checkout', mainBranch], opts);
+      execGitSync(['checkout', mainBranch], projectPath);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : '';
       if (errorMsg.includes('Your local changes')) {
@@ -723,19 +696,19 @@ export function mergeIntoMain(projectPath: string): { success: boolean; error?: 
 
     // Merge the feature branch
     try {
-      execFileSync('git', ['merge', currentBranch], opts);
+      execGitSync(['merge', currentBranch], projectPath);
       return { success: true, mergedBranch: currentBranch };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : '';
       // If merge fails, try to abort and go back
       try {
-        execFileSync('git', ['merge', '--abort'], opts);
+        execGitSync(['merge', '--abort'], projectPath);
       } catch {
         // Ignore abort errors
       }
       // Go back to the original branch
       try {
-        execFileSync('git', ['checkout', currentBranch], opts);
+        execGitSync(['checkout', currentBranch], projectPath);
       } catch {
         // Ignore checkout errors
       }
@@ -774,10 +747,7 @@ export async function readBlob(
 
   let byteSize: number;
   try {
-    const { stdout } = await execFileAsync('git', ['cat-file', '-s', spec], {
-      cwd: projectPath,
-      encoding: 'utf8',
-    });
+    const { stdout } = await execGit(['cat-file', '-s', spec], projectPath);
     byteSize = Number.parseInt(stdout.trim(), 10);
   } catch {
     return null;
@@ -786,12 +756,8 @@ export async function readBlob(
   if (byteSize > maxBytes) return { byteSize };
 
   try {
-    const { stdout } = await execFileAsync('git', ['cat-file', 'blob', spec], {
-      cwd: projectPath,
-      encoding: 'buffer',
-      maxBuffer: maxBytes + 1024,
-    });
-    return { byteSize, base64: stdout.toString('base64') };
+    const blob = await execGitBuffer(['cat-file', 'blob', spec], projectPath, { maxBuffer: maxBytes + 1024 });
+    return { byteSize, base64: blob.toString('base64') };
   } catch {
     return { byteSize };
   }
@@ -864,9 +830,8 @@ async function readFileDiff(
   args: string[],
   quiet = false,
 ): Promise<FileDiff | null> {
-  const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
   try {
-    const { stdout } = await execFileAsync('git', ['diff', ...args], opts);
+    const { stdout } = await execGit(['diff', ...args], projectPath, { maxBuffer: 10 * 1024 * 1024 });
     return toFileDiff(filePath, stdout);
   } catch (error) {
     if (quiet && error && typeof error === 'object' && 'stdout' in error) {
@@ -941,11 +906,7 @@ export async function getBranchDiffPin(cwd: string, rev: string, targetBranch?: 
  * non-zero exit, which is how callers ask git a yes/no question.
  */
 export async function gitAsync(args: string[], projectPath: string, maxBuffer?: number): Promise<string> {
-  const { stdout } = await execFileAsync('git', args, {
-    cwd: projectPath,
-    encoding: 'utf8',
-    ...(maxBuffer ? { maxBuffer } : {}),
-  });
+  const { stdout } = await execGit(args, projectPath, maxBuffer ? { maxBuffer } : {});
   return stdout.trim();
 }
 
@@ -1124,7 +1085,6 @@ export function getWorktreeDiff(
   worktreeBranch: string,
   targetBranch?: string,
 ): WorktreeDiffSummary | null {
-  const opts = gitExecOpts(projectPath);
   const baseBranch = targetBranch || getMainBranch(projectPath);
 
   try {
@@ -1136,7 +1096,7 @@ export function getWorktreeDiff(
     let totalDeletions = 0;
 
     try {
-      const numstat = execFileSync('git', ['diff', '--numstat', `${baseBranch}...${worktreeBranch}`], opts)
+      const numstat = execGitSync(['diff', '--numstat', `${baseBranch}...${worktreeBranch}`], projectPath)
         .toString()
         .trim();
 
@@ -1157,7 +1117,7 @@ export function getWorktreeDiff(
     }
 
     // Get file status (modified, added, deleted)
-    const nameStatus = execFileSync('git', ['diff', '--name-status', `${baseBranch}...${worktreeBranch}`], opts)
+    const nameStatus = execGitSync(['diff', '--name-status', `${baseBranch}...${worktreeBranch}`], projectPath)
       .toString()
       .trim();
 
@@ -1216,14 +1176,12 @@ export function mergeWorktreeBranch(
   commitMessage?: string,
   targetBranch?: string,
 ): { success: boolean; error?: string; mergedBranch?: string } {
-  const opts = gitExecOpts(projectPath);
-
   try {
     const mergeTo = targetBranch || getMainBranch(projectPath);
 
     // Check for uncommitted changes in main repo
     try {
-      const status = execSync('git status --porcelain', opts).toString();
+      const status = execGitSync(['status', '--porcelain'], projectPath).toString();
       if (status.length > 0) {
         return { success: false, error: 'Uncommitted changes in main repo. Commit or stash first.' };
       }
@@ -1234,7 +1192,7 @@ export function mergeWorktreeBranch(
     // Get current branch
     let currentBranch: string;
     try {
-      currentBranch = execSync('git rev-parse --abbrev-ref HEAD', opts).toString().trim();
+      currentBranch = execGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath).toString().trim();
     } catch {
       return { success: false, error: 'Not a git repository' };
     }
@@ -1242,7 +1200,7 @@ export function mergeWorktreeBranch(
     // Checkout target branch if not already there
     if (currentBranch !== mergeTo) {
       try {
-        execFileSync('git', ['checkout', mergeTo], opts);
+        execGitSync(['checkout', mergeTo], projectPath);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : '';
         if (errorMsg.includes('Your local changes')) {
@@ -1254,20 +1212,20 @@ export function mergeWorktreeBranch(
 
     // Squash merge the worktree branch
     try {
-      execFileSync('git', ['merge', '--squash', branchToMerge], opts);
+      execGitSync(['merge', '--squash', branchToMerge], projectPath);
       // Create the squash commit with custom or default message
       const commitMsg = commitMessage || branchToMerge.replace(/-\d{10,}$/, '').replace(/-/g, ' ');
-      execFileSync('git', ['commit', '-m', commitMsg], opts);
+      execGitSync(['commit', '-m', commitMsg], projectPath);
       return { success: true, mergedBranch: branchToMerge };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : '';
       // If merge fails, try to abort/reset
       try {
-        execFileSync('git', ['merge', '--abort'], opts);
+        execGitSync(['merge', '--abort'], projectPath);
       } catch {
         // merge --abort may fail if squash merge, try reset instead
         try {
-          execFileSync('git', ['reset', '--hard', 'HEAD'], opts);
+          execGitSync(['reset', '--hard', 'HEAD'], projectPath);
         } catch {
           // Ignore reset errors
         }
@@ -1275,7 +1233,7 @@ export function mergeWorktreeBranch(
       // Go back to the original branch if we switched
       if (currentBranch !== mergeTo) {
         try {
-          execFileSync('git', ['checkout', currentBranch], opts);
+          execGitSync(['checkout', currentBranch], projectPath);
         } catch {
           // Ignore checkout errors
         }

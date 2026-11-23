@@ -6,24 +6,18 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import * as os from 'node:os';
 import { createTask, _resetCacheForTesting } from '../db';
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { gitArgs } from './fakeExecFile';
 import { listWorktrees, shipWorktree } from '../worktree';
 import { createProject } from '../projectCreator';
 import { getTasksWithWorkspaces } from '../taskLifecycle';
 
 // ── Mocks (superset needed by all describe blocks) ──────────────────
 
-vi.mock('node:child_process', () => ({
-  exec: vi.fn((_cmd: string, _opts: unknown, cb: (err: null, result: { stdout: string; stderr: string }) => void) => {
-    cb(null, { stdout: '', stderr: '' });
-  }),
-  execFile: vi.fn(
-    (_file: string, _args: string[], _opts: unknown, cb: (err: null, stdout: string, stderr: string) => void) => {
-      cb(null, '', '');
-    },
-  ),
-  execSync: vi.fn(),
-}));
+vi.mock('node:child_process', async () => {
+  const { fakeExecFile } = await import('./fakeExecFile');
+  return { exec: vi.fn(), execFile: fakeExecFile(() => ''), execSync: vi.fn() };
+});
 
 vi.mock('koffi', () => ({
   default: { load: vi.fn() },
@@ -54,24 +48,25 @@ vi.mock('../hookRunner', () => ({
 const homedir = os.homedir();
 const baseDir = `${homedir}/Ouijit/worktrees/myproject`;
 
+/** Answers each git call from `handler`, given it as the command line its caller wrote. */
 function mockExec(handler: (cmd: string) => { stdout: string; stderr: string } | Error) {
-  vi.mocked(exec).mockImplementation(((...args: unknown[]) => {
-    const cmd = args[0] as string;
-    const cb = args[2] as (err: Error | null, result: { stdout: string; stderr: string }) => void;
+  vi.mocked(execFile).mockImplementation(((...args: unknown[]) => {
+    const cmd = ['git', ...gitArgs(args[1] as string[])].join(' ');
+    const cb = args[3] as (err: Error | null, stdout: string, stderr: string) => void;
     const result = handler(cmd);
     if (result instanceof Error) {
-      cb(result, { stdout: '', stderr: '' });
+      cb(result, '', '');
     } else {
-      cb(null, result);
+      cb(null, result.stdout, result.stderr);
     }
-  }) as typeof exec);
+  }) as typeof execFile);
 }
 
 // ── listWorktrees ───────────────────────────────────────────────────
 
 describe('listWorktrees (async)', () => {
   beforeEach(() => {
-    vi.mocked(exec).mockReset();
+    vi.mocked(execFile).mockClear();
   });
 
   test('returns a Promise (not a synchronous value)', () => {
@@ -145,7 +140,7 @@ describe('listWorktrees (async)', () => {
 
 describe('shipWorktree (async)', () => {
   beforeEach(() => {
-    vi.mocked(exec).mockReset();
+    vi.mocked(execFile).mockClear();
   });
 
   const worktreePorcelain = (branch: string) =>
@@ -227,7 +222,7 @@ describe('createProject path traversal', () => {
 
 describe('getTasksWithWorkspaces', () => {
   beforeEach(() => {
-    vi.mocked(exec).mockReset();
+    vi.mocked(execFile).mockClear();
     _resetCacheForTesting();
   });
 

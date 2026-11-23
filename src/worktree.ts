@@ -3,7 +3,7 @@
  * Creates isolated worktrees for CLI agents to work without affecting the main branch
  */
 
-import { exec, execFile } from 'node:child_process';
+import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -25,12 +25,12 @@ import {
   type TaskMetadata,
 } from './db';
 import { fetchDiffBase, mergeWorktreeBranch } from './git';
+import { execGit } from './gitCommand';
 import { parseWorktreeSettings, worktreeSettingsKey, type WorktreeSettings } from './worktreeSettings';
 
 const worktreeLog = getLogger().scope('worktree');
 
 const execAsync = promisify(exec);
-const execFileAsync = promisify(execFile);
 
 // Coalesces concurrent worktree materializations (start/recover) for the same
 // task. startTask persists worktreePath to the DB before the ignored-file copy
@@ -179,9 +179,10 @@ async function fetchIgnoredFiles(sourcePath: string): Promise<string[]> {
   // --ignored: only show ignored files
   // --exclude-standard: use .gitignore, .git/info/exclude, global gitignore
   // --directory: show directory names instead of their contents (efficient for copying whole dirs)
-  const { stdout } = await execAsync(
-    'git ls-files --others --ignored --exclude-standard --directory',
-    { cwd: sourcePath, maxBuffer: 10 * 1024 * 1024 }, // 10MB buffer for large lists
+  const { stdout } = await execGit(
+    ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory'],
+    sourcePath,
+    { maxBuffer: 10 * 1024 * 1024 }, // 10MB buffer for large lists
   );
   return stdout.split('\n').filter((item) => item.trim());
 }
@@ -236,7 +237,7 @@ async function defaultBase(projectPath: string): Promise<{ ref: string; mergeTar
 }
 
 function symbolicName(projectPath: string, ref: string): Promise<string> {
-  return execFileAsync('git', ['rev-parse', '--verify', '--quiet', '--symbolic-full-name', ref], { cwd: projectPath })
+  return execGit(['rev-parse', '--verify', '--quiet', '--symbolic-full-name', ref], projectPath)
     .then(({ stdout }) => stdout.trim())
     .catch(() => '');
 }
@@ -480,13 +481,13 @@ export async function validateBranchName(
   }
 
   try {
-    await execAsync(`git check-ref-format --branch ${shellEscape(branchName)}`, { cwd: projectPath });
+    await execGit(['check-ref-format', '--branch', branchName], projectPath);
   } catch {
     return { valid: false, error: 'Invalid branch name' };
   }
 
   try {
-    const { stdout } = await execAsync(`git branch --list ${shellEscape(branchName)}`, { cwd: projectPath });
+    const { stdout } = await execGit(['branch', '--list', branchName], projectPath);
     if (stdout.trim()) {
       return { valid: false, error: 'Branch already exists' };
     }
@@ -561,16 +562,16 @@ async function startTaskImpl(
     // the network. An explicit --branch still wins.
     const branch = branchName || task.suggestedBranch || generateBranchName(task.name, taskNumber);
 
-    const headPromise = execAsync('git rev-parse HEAD', { cwd: projectPath }).then(
+    const headPromise = execGit(['rev-parse', 'HEAD'], projectPath).then(
       () => true,
       () => false,
     );
-    const branchHeadPromise = execAsync('git rev-parse --abbrev-ref HEAD', { cwd: projectPath })
+    const branchHeadPromise = execGit(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath)
       .then(({ stdout }) => stdout.trim())
       .catch((): undefined => undefined);
     const mkdirPromise = fs.mkdir(baseDir, { recursive: true });
-    const prunePromise = execAsync('git worktree prune', { cwd: projectPath });
-    const branchExistsPromise = execFileAsync('git', ['rev-parse', '--verify', branch], { cwd: projectPath }).then(
+    const prunePromise = execGit(['worktree', 'prune'], projectPath);
+    const branchExistsPromise = execGit(['rev-parse', '--verify', branch], projectPath).then(
       () => true,
       () => false,
     );
@@ -587,7 +588,7 @@ async function startTaskImpl(
     t.mark('parallelPrelude');
 
     if (!hasHead) {
-      await execAsync('git commit --allow-empty -m "Initial commit"', { cwd: projectPath });
+      await execGit(['commit', '--allow-empty', '-m', 'Initial commit'], projectPath);
     }
 
     const base = branchExists || baseBranch ? null : await defaultBase(projectPath);
@@ -623,7 +624,7 @@ async function startTaskImpl(
           ? ['worktree', 'add', '--no-track', '-b', branch, p, startPoint]
           : ['worktree', 'add', '-b', branch, p];
 
-      await execFileAsync('git', wtAddArgs, { cwd: projectPath });
+      await execGit(wtAddArgs, projectPath);
       t.mark('worktreeAdd');
       return p;
     });
@@ -668,12 +669,12 @@ export async function createTaskWorktree(
   try {
     const [hasHead, branchResult, taskNumber] = await Promise.all([
       // Check if repo has any commits (worktrees require a valid HEAD)
-      execAsync('git rev-parse HEAD', { cwd: projectPath }).then(
+      execGit(['rev-parse', 'HEAD'], projectPath).then(
         () => true,
         () => false,
       ),
       // Capture source branch as the default merge target
-      execAsync('git rev-parse --abbrev-ref HEAD', { cwd: projectPath })
+      execGit(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath)
         .then(({ stdout }) => stdout.trim())
         .catch((): undefined => undefined),
       // Get next task number
@@ -681,7 +682,7 @@ export async function createTaskWorktree(
     ]);
 
     if (!hasHead) {
-      await execAsync('git commit --allow-empty -m "Initial commit"', { cwd: projectPath });
+      await execGit(['commit', '--allow-empty', '-m', 'Initial commit'], projectPath);
     }
 
     const projectName = path.basename(projectPath);
@@ -706,10 +707,10 @@ export async function createTaskWorktree(
     const branch = branchName || generateBranchName(name, currentTaskNumber);
 
     // Prune stale worktree registrations so deleted directories can be reused
-    await execFileAsync('git', ['worktree', 'prune'], { cwd: projectPath });
+    await execGit(['worktree', 'prune'], projectPath);
 
     // Check if branch already exists (e.g. leftover from a previous failed attempt)
-    const branchExists = await execFileAsync('git', ['rev-parse', '--verify', branch], { cwd: projectPath }).then(
+    const branchExists = await execGit(['rev-parse', '--verify', branch], projectPath).then(
       () => true,
       () => false,
     );
@@ -726,7 +727,7 @@ export async function createTaskWorktree(
     // Start ls-files in parallel with git worktree add
     // ls-files reads from source dir, doesn't need the worktree to exist
     const [, ignoredFiles] = await Promise.all([
-      execFileAsync('git', wtAddArgs, { cwd: projectPath }),
+      execGit(wtAddArgs, projectPath),
       copyIgnored ? fetchIgnoredFiles(projectPath) : Promise.resolve<string[]>([]),
     ]);
 
@@ -773,18 +774,12 @@ export async function removeTaskWorktree(
     const branchName = task?.branch;
 
     // Remove the worktree
-    await execFileAsync('git', ['worktree', 'remove', worktreePath, '--force'], {
-      cwd: projectPath,
-      encoding: 'utf8',
-    });
+    await execGit(['worktree', 'remove', worktreePath, '--force'], projectPath);
 
     // Delete the branch
     if (branchName) {
       try {
-        await execFileAsync('git', ['branch', '-D', branchName], {
-          cwd: projectPath,
-          encoding: 'utf8',
-        });
+        await execGit(['branch', '-D', branchName], projectPath);
       } catch {
         // Branch may already be deleted, ignore
       }
@@ -818,10 +813,7 @@ export async function listWorktrees(projectPath: string): Promise<WorktreeInfo[]
     const projectName = path.basename(projectPath);
     const baseDir = getWorktreeBaseDir(projectName);
 
-    const { stdout: output } = await execAsync('git worktree list --porcelain', {
-      cwd: projectPath,
-      encoding: 'utf8',
-    });
+    const { stdout: output } = await execGit(['worktree', 'list', '--porcelain'], projectPath);
 
     const worktrees: WorktreeInfo[] = [];
     const entries = output.split('\n\n').filter(Boolean);
@@ -889,7 +881,7 @@ export async function checkTaskWorktree(projectPath: string, taskNumber: number)
   }
 
   const branchExists = task.branch
-    ? await execAsync(`git rev-parse --verify refs/heads/${shellEscape(task.branch)}`, { cwd: projectPath }).then(
+    ? await execGit(['rev-parse', '--verify', `refs/heads/${task.branch}`], projectPath).then(
         () => true,
         () => false,
       )
@@ -916,18 +908,18 @@ async function recoverTaskWorktreeImpl(projectPath: string, taskNumber: number):
     worktreeLog.info('recovering', { taskNumber, branch: task.branch, oldPath: task.worktreePath });
 
     // Prune stale worktree references so git doesn't complain about the old path
-    await execAsync('git worktree prune', { cwd: projectPath });
+    await execGit(['worktree', 'prune'], projectPath);
 
     // Verify the branch still exists
     try {
-      await execAsync(`git rev-parse --verify refs/heads/${shellEscape(task.branch)}`, { cwd: projectPath });
+      await execGit(['rev-parse', '--verify', `refs/heads/${task.branch}`], projectPath);
     } catch {
       return { success: false, error: 'Branch not found' };
     }
 
     // Check if the branch is already checked out in another worktree
     // (use raw git output — listWorktrees filters to managed dirs only)
-    const { stdout: wtList } = await execAsync('git worktree list --porcelain', { cwd: projectPath, encoding: 'utf8' });
+    const { stdout: wtList } = await execGit(['worktree', 'list', '--porcelain'], projectPath);
     let existing: { path: string } | undefined;
     for (const entry of wtList.split('\n\n').filter(Boolean)) {
       const lines = entry.split('\n');
@@ -967,7 +959,7 @@ async function recoverTaskWorktreeImpl(projectPath: string, taskNumber: number):
 
     // Re-create worktree from the existing branch (no -b flag)
     const [, ignoredFiles] = await Promise.all([
-      execAsync(`git worktree add ${shellEscape(worktreePath)} ${shellEscape(task.branch)}`, { cwd: projectPath }),
+      execGit(['worktree', 'add', worktreePath, task.branch], projectPath),
       copyIgnored ? fetchIgnoredFiles(projectPath) : Promise.resolve<string[]>([]),
     ]);
 
@@ -1003,10 +995,7 @@ export async function shipWorktree(
 
   if (worktree) {
     try {
-      const { stdout: status } = await execAsync('git status --porcelain', {
-        cwd: worktree.path,
-        encoding: 'utf8',
-      });
+      const { stdout: status } = await execGit(['status', '--porcelain'], worktree.path);
       if (status.trim().length > 0) {
         return {
           success: false,

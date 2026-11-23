@@ -3,29 +3,19 @@ import { createTask, setGlobalSetting } from '../db';
 
 import { createTaskWorktree, recoverTaskWorktree } from '../worktree';
 import { beginTask } from '../taskLifecycle';
-import { exec as execMockedRaw } from 'node:child_process';
+import { execFile as execFileMockedRaw } from 'node:child_process';
+import { gitArgs } from './fakeExecFile';
 
+// A branch named bare does not exist yet, so a start takes the -b path; one named
+// in full does, so a recovery has a branch to recover from.
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
+  const { fakeExecFile } = await import('./fakeExecFile');
   return {
     ...actual,
     execSync: vi.fn(),
-    exec: vi.fn((_cmd: string, _opts: unknown, cb: (err: null, result: { stdout: string; stderr: string }) => void) => {
-      cb(null, { stdout: 'main\n', stderr: '' });
-    }),
-    execFile: vi.fn(
-      (
-        _file: string,
-        args: string[],
-        _opts: unknown,
-        cb: (err: Error | null, stdout: string, stderr: string) => void,
-      ) => {
-        if (Array.isArray(args) && args.includes('--verify')) {
-          cb(new Error('not found'), '', '');
-        } else {
-          cb(null, '', '');
-        }
-      },
+    execFile: fakeExecFile((args) =>
+      args.includes('--verify') && !args.some((a) => a.startsWith('refs/heads/')) ? new Error('not found') : 'main\n',
     ),
   };
 });
@@ -47,12 +37,10 @@ vi.mock('koffi', () => ({
   default: { load: vi.fn() },
 }));
 
-const execMocked = vi.mocked(execMockedRaw);
+const execMocked = vi.mocked(execFileMockedRaw);
 
 function findLsFilesCall(): unknown[] | undefined {
-  return execMocked.mock.calls.find(
-    (call) => typeof call[0] === 'string' && (call[0] as string).includes('git ls-files'),
-  ) as unknown[] | undefined;
+  return execMocked.mock.calls.find(([, args]) => gitArgs(args ?? [])[0] === 'ls-files') as unknown[] | undefined;
 }
 
 async function setMode(project: string, mode: 'quick-start' | 'clean-checkout'): Promise<void> {

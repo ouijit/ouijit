@@ -7,7 +7,7 @@
  */
 
 import * as path from 'node:path';
-import { getDatabase, _initTestDatabase } from './database';
+import { getDatabase, isDatabaseOpen, _initTestDatabase } from './database';
 import { ProjectRepo } from './repos/projectRepo';
 import { TaskRepo, type TaskStatus, type TaskRow } from './repos/taskRepo';
 import { HookRepo, type HookType } from './repos/hookRepo';
@@ -180,6 +180,13 @@ export async function getTaskByNumber(projectPath: string, taskNumber: number): 
   const { taskRepo: tr } = repos();
   const row = tr.getByTaskNumber(projectPath, taskNumber);
   return row ? rowToTask(row) : null;
+}
+
+/** The task whose worktree holds `dir`. Undefined, rather than a throw, until the database is open. */
+export function getTaskHoldingPath(dir: string): { projectPath: string; worktreePath: string } | undefined {
+  if (!isDatabaseOpen()) return undefined;
+  const row = repos().taskRepo.getByWorktreeDir(dir);
+  return row?.worktree_path ? { projectPath: row.project_path, worktreePath: row.worktree_path } : undefined;
 }
 
 export async function getNextTaskNumber(projectPath: string): Promise<number> {

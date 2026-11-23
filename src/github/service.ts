@@ -422,7 +422,7 @@ export async function detectPullRequestForTask(
   const identity = await identityIfAvailable(projectPath);
   if (!identity) return { prNumber: null };
 
-  const prNumber = await findPullRequestForBranch(identity, task.branch, task.worktreePath);
+  const prNumber = await findPullRequestForBranch(identity, task.branch, projectPath);
   if (prNumber == null) return { prNumber: null };
   if (!(await claimTaskGithubPr(projectPath, taskNumber, prNumber))) return { prNumber: null };
   return { prNumber };
@@ -828,14 +828,13 @@ export async function createPullRequestForTask(
     return { success: false, error: describeError(error) };
   }
 
-  const cwd = task.worktreePath || projectPath;
-  const push = await pushBranch(cwd, task.branch);
+  const push = await pushBranch(projectPath, task.branch);
   if (!push.success) return { success: false, error: push.error };
 
   const body = buildPrBody(options.body ?? task.prompt ?? '', task.githubIssueNumber, task.linearIssueIdentifier);
 
   try {
-    const result = await createPullRequest(identity, cwd, {
+    const result = await createPullRequest(identity, projectPath, {
       title: options.title || task.name,
       body,
       base: options.base ?? task.mergeTarget,
