@@ -6,7 +6,7 @@ import { getLogger } from '../../logger';
 import type { SandboxProvider } from '../provider';
 import type { SandboxLaunch, SandboxProviderStatus, SandboxSpawnContext } from '../types';
 import { getNonoPath, getVendoredNonoPath, isNonoInstalled, checkPlatformSupport } from './binary';
-import { getMainGitDir } from '../gitDir';
+import { sandboxGitGrants } from '../gitDir';
 import { getNonoProfile } from './config';
 import { ensureUnionProfile } from './profile';
 import { sandboxCacheEnv } from './cacheEnv';
@@ -68,21 +68,21 @@ export const nonoProvider: SandboxProvider = {
 
   async wrapLaunch(launch: SandboxLaunch, ctx: SandboxSpawnContext): Promise<SandboxLaunch> {
     const worktreePath = ctx.worktreePath ?? ctx.cwd;
-    const [mainGitDir, profile] = await Promise.all([getMainGitDir(ctx.projectPath), getNonoProfile(ctx.settings)]);
+    const [git, profile] = await Promise.all([sandboxGitGrants(ctx), getNonoProfile(ctx.settings)]);
     const cliPath = getCliPath();
     const cliDir = cliPath ? path.dirname(cliPath) : undefined;
     const cacheDir = sandboxCacheDir(ctx.projectPath);
 
     nonoLog.info('wrapping launch under nono', {
       worktreePath,
-      mainGitDir,
+      git,
       apiPort: ctx.apiPort,
       profile: profile.path,
     });
 
     return buildNonoLaunch(getNonoPath(), launch, {
       worktreePath,
-      mainGitDir,
+      git,
       apiPort: ctx.apiPort,
       wrapperDir: getOuijitDir(),
       cliDir,

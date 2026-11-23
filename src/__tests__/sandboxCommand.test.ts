@@ -18,7 +18,9 @@ vi.mock('../ptyManager', () => ({
   getPtySpawnContext: () => TASK,
 }));
 vi.mock('../ipc/helpers', () => ({ typedPush: vi.fn() }));
-vi.mock('../sandbox/gitDir', () => ({ getMainGitDir: async () => '/Users/dev/code/proj/.git' }));
+vi.mock('../sandbox/gitDir', () => ({
+  sandboxGitGrants: async () => ({ gitDir: '/Users/dev/code/proj/.git', writableDirs: [], writableFiles: [] }),
+}));
 
 function request(method: string, path: string, token: string, body?: Record<string, unknown>) {
   return new Promise<{ status: number; data: Record<string, unknown> }>((resolve, reject) => {

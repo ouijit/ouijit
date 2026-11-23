@@ -2,12 +2,13 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 
 import { nonoProvider } from '../sandbox/nono/provider';
 import type { SandboxLaunch, SandboxSpawnContext } from '../sandbox/types';
+import type { SandboxGitGrants } from '../sandbox/gitDir';
 
 // Control binary/config resolution so the provider logic is exercised in
 // isolation (no real nono, git, or DB).
 const isNonoInstalled = vi.fn<() => Promise<boolean>>();
 const checkPlatformSupport = vi.fn<() => { supported: boolean; reason?: string }>();
-const getMainGitDir = vi.fn<(wt: string) => Promise<string | null>>();
+const sandboxGitGrants = vi.fn<(ctx: SandboxSpawnContext) => Promise<SandboxGitGrants | null>>();
 const ensureUnionProfile = vi.fn<() => Promise<void>>();
 const getNonoPath = vi.fn<() => string>();
 
@@ -20,7 +21,7 @@ vi.mock('../sandbox/nono/binary', () => ({
   checkPlatformSupport: () => checkPlatformSupport(),
 }));
 vi.mock('../sandbox/gitDir', () => ({
-  getMainGitDir: (wt: string) => getMainGitDir(wt),
+  sandboxGitGrants: (ctx: SandboxSpawnContext) => sandboxGitGrants(ctx),
 }));
 // Keyed by the sandbox settings they belong to, as stored profiles are.
 vi.mock('../sandbox/nono/config', () => ({
@@ -50,7 +51,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   checkPlatformSupport.mockReturnValue({ supported: true });
   isNonoInstalled.mockResolvedValue(true);
-  getMainGitDir.mockResolvedValue('/Users/dev/code/proj/.git');
+  sandboxGitGrants.mockResolvedValue({
+    gitDir: '/Users/dev/code/proj/.git',
+    writableDirs: ['/Users/dev/code/proj/.git/objects'],
+    writableFiles: [],
+  });
   ensureUnionProfile.mockResolvedValue(undefined);
   getNonoPath.mockReturnValue('/opt/bin/nono');
 });
@@ -107,7 +112,7 @@ describe('nonoProvider', () => {
     // Grants derived from the spawn context.
     expect(wrapped.args).toContain('/Users/dev/wt/T-3'); // worktree
     expect(wrapped.args).toContain('/Users/dev/code/proj/.git'); // main git dir (not the worktree's)
-    expect(getMainGitDir).toHaveBeenCalledWith('/proj');
+    expect(sandboxGitGrants).toHaveBeenCalledWith(ctx);
     const openPortIdx = wrapped.args.indexOf('--open-port');
     expect(wrapped.args[openPortIdx + 1]).toBe('7777');
     // The vendored binary itself is read-granted (a single file, so via
@@ -129,7 +134,7 @@ describe('nonoProvider', () => {
   });
 
   test('wrapLaunch grants no .git for a folder that is not a repository, and still grants the folder', async () => {
-    getMainGitDir.mockResolvedValue(null);
+    sandboxGitGrants.mockResolvedValue(null);
     const wrapped = await nonoProvider.wrapLaunch(launch, ctx);
     expect(wrapped.args.some((arg) => arg.includes('.git'))).toBe(false);
     expect(wrapped.args[wrapped.args.indexOf('--allow') + 1]).toBe('/Users/dev/wt/T-3');

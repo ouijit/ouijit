@@ -4,8 +4,7 @@ import { getOuijitDir, getCliPath } from '../../paths';
 import { getLogger } from '../../logger';
 import type { SandboxProvider } from '../provider';
 import type { SandboxLaunch, SandboxProviderStatus, SandboxSpawnContext } from '../types';
-import { GIT_WRITABLE_OVERLAY_DIRS } from '../types';
-import { getMainGitDir } from '../gitDir';
+import { sandboxGitGrants } from '../gitDir';
 import { sandboxCacheDir } from '../cacheDir';
 import { getCustomSandboxConfig } from './config';
 import { buildCustomLaunch } from './argv';
@@ -39,13 +38,13 @@ export const customProvider: SandboxProvider = {
 
   async prepare(ctx: SandboxSpawnContext): Promise<{ cwd: string; env?: Record<string, string> }> {
     const cacheDir = sandboxCacheDir(ctx.projectPath);
-    const [gitDir] = await Promise.all([getMainGitDir(ctx.projectPath), fs.mkdir(cacheDir, { recursive: true })]);
+    const [git] = await Promise.all([sandboxGitGrants(ctx), fs.mkdir(cacheDir, { recursive: true })]);
 
     const env: Record<string, string> = {
       OUIJIT_SANDBOX_WORKTREE: ctx.worktreePath ?? ctx.cwd,
-      ...(gitDir && {
-        OUIJIT_SANDBOX_GIT_DIR: gitDir,
-        OUIJIT_SANDBOX_GIT_WRITABLE_DIRS: GIT_WRITABLE_OVERLAY_DIRS.map((d) => path.join(gitDir, d)).join(':'),
+      ...(git && {
+        OUIJIT_SANDBOX_GIT_DIR: git.gitDir,
+        OUIJIT_SANDBOX_GIT_WRITABLE_DIRS: git.writableDirs.join(':'),
       }),
       OUIJIT_SANDBOX_HOOK_PORT: String(ctx.apiPort),
       OUIJIT_SANDBOX_CACHE_DIR: cacheDir,

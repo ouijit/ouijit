@@ -4,13 +4,14 @@ import * as fs from 'node:fs';
 import { customProvider } from '../sandbox/custom/provider';
 import { customSandboxConfigKey, getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
 import { setGlobalSetting } from '../db';
-import { GIT_WRITABLE_OVERLAY_DIRS, type SandboxLaunch, type SandboxSpawnContext } from '../sandbox/types';
+import type { SandboxLaunch, SandboxSpawnContext } from '../sandbox/types';
+import type { SandboxGitGrants } from '../sandbox/gitDir';
 
 // git is the only subprocess on this path; the config comes from the real
 // settings DB the unit setup provides.
-const getMainGitDir = vi.fn<(dir: string) => Promise<string | null>>();
+const sandboxGitGrants = vi.fn<(ctx: SandboxSpawnContext) => Promise<SandboxGitGrants | null>>();
 vi.mock('../sandbox/gitDir', () => ({
-  getMainGitDir: (dir: string) => getMainGitDir(dir),
+  sandboxGitGrants: (ctx: SandboxSpawnContext) => sandboxGitGrants(ctx),
 }));
 vi.mock('../paths', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../paths')>()),
@@ -30,7 +31,11 @@ const launch: SandboxLaunch = { file: '/bin/zsh', args: ['-il'], env: {} };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getMainGitDir.mockResolvedValue('/Users/dev/code/proj/.git');
+  sandboxGitGrants.mockResolvedValue({
+    gitDir: '/Users/dev/code/proj/.git',
+    writableDirs: ['/Users/dev/code/proj/.git/objects', '/Users/dev/code/proj/.git/worktrees/T-3'],
+    writableFiles: [],
+  });
 });
 
 describe('customProvider', () => {
@@ -64,13 +69,12 @@ describe('customProvider', () => {
     expect(prepared.cwd).toBe(ctx.cwd);
     const env = prepared.env!;
     expect(env.OUIJIT_SANDBOX_WORKTREE).toBe('/Users/dev/wt/T-3');
-    // Resolved from the project path, never the worktree: a linked worktree's
-    // .git pointer file is inside the tree the sandboxed agent can write.
-    expect(getMainGitDir).toHaveBeenCalledWith(ctx.projectPath);
+    expect(sandboxGitGrants).toHaveBeenCalledWith(ctx);
     expect(env.OUIJIT_SANDBOX_GIT_DIR).toBe('/Users/dev/code/proj/.git');
-    expect(env.OUIJIT_SANDBOX_GIT_WRITABLE_DIRS.split(':')).toEqual(
-      GIT_WRITABLE_OVERLAY_DIRS.map((d) => `/Users/dev/code/proj/.git/${d}`),
-    );
+    expect(env.OUIJIT_SANDBOX_GIT_WRITABLE_DIRS.split(':')).toEqual([
+      '/Users/dev/code/proj/.git/objects',
+      '/Users/dev/code/proj/.git/worktrees/T-3',
+    ]);
     expect(env.OUIJIT_SANDBOX_HOOK_PORT).toBe('7777');
     expect(env.OUIJIT_SANDBOX_CACHE_DIR).toMatch(/sandbox-cache\/[0-9a-f]{10}$/);
     expect(fs.existsSync(env.OUIJIT_SANDBOX_CACHE_DIR)).toBe(true);
@@ -82,7 +86,7 @@ describe('customProvider', () => {
 
   test('prepare hints no git dir for a folder that is not a repository', async () => {
     await setCustomSandboxConfig(ctx.projectPath, { command: 'sandbox' });
-    getMainGitDir.mockResolvedValue(null);
+    sandboxGitGrants.mockResolvedValue(null);
     const prepared = await customProvider.prepare(ctx);
     expect(prepared.env?.OUIJIT_SANDBOX_GIT_DIR).toBeUndefined();
     expect(prepared.env?.OUIJIT_SANDBOX_GIT_WRITABLE_DIRS).toBeUndefined();

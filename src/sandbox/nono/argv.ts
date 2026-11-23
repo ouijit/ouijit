@@ -1,6 +1,5 @@
-import * as path from 'node:path';
 import type { SandboxLaunch } from '../types';
-import { GIT_WRITABLE_OVERLAY_DIRS } from '../types';
+import type { SandboxGitGrants } from '../gitDir';
 
 /** Everything the argv builder needs, resolved at spawn time. */
 export interface NonoArgvContext {
@@ -8,8 +7,8 @@ export interface NonoArgvContext {
   readPaths?: string[];
   /** The task worktree — granted read+write. */
   worktreePath: string;
-  /** Absolute main-repo `.git` common dir (a linked worktree's real gitdir); none for a plain folder. */
-  mainGitDir: string | null;
+  /** The project's repository; none for a plain folder. */
+  git: SandboxGitGrants | null;
   /** Host hook-server port to keep reachable from inside the sandbox. */
   apiPort: number;
   /** Ouijit wrapper/CLI dir (`~/.config/Ouijit`) the agent hooks live in. */
@@ -52,13 +51,13 @@ export interface NonoArgvContext {
  * keychain, global git config, runtime groups). Layered on here are the
  * per-task grants that can't live in a static profile:
  *   - the task worktree, read+write
- *   - the main `.git` read-only, with objects/refs/logs/worktrees writable so
- *     commits land while hooks/config stay unwritable
+ *   - the main `.git` read-only, with only what the task's own commits touch
+ *     writable
  *   - the Ouijit wrapper dir (its agent shims are first on PATH) and the
  *     hook-server port
  */
 export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: NonoArgvContext): SandboxLaunch {
-  const git = ctx.mainGitDir;
+  const { git } = ctx;
   const args: string[] = ['run', '--profile', ctx.profile, '--startup-timeout', '0', '--allow-cwd'];
 
   // Harmless when the profile allows network, and what keeps agent status
@@ -70,10 +69,9 @@ export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: No
   // instead of failing on the read-only home caches.
   if (ctx.cacheDir) args.push('--allow', ctx.cacheDir);
   if (git) {
-    args.push('--read', git);
-    for (const dir of GIT_WRITABLE_OVERLAY_DIRS) {
-      args.push('--write', path.join(git, dir));
-    }
+    args.push('--read', git.gitDir);
+    for (const dir of git.writableDirs) args.push('--write', dir);
+    for (const file of git.writableFiles) args.push('--write-file', file);
   }
 
   for (const dir of ctx.readPaths ?? []) args.push('--read', dir);

@@ -6,7 +6,11 @@ const launch: SandboxLaunch = { file: '/bin/zsh', args: ['-il'], env: { FOO: 'ba
 
 const baseCtx: NonoArgvContext = {
   worktreePath: '/Users/dev/Ouijit/worktrees/proj/T-5',
-  mainGitDir: '/Users/dev/code/proj/.git',
+  git: {
+    gitDir: '/Users/dev/code/proj/.git',
+    writableDirs: ['/Users/dev/code/proj/.git/objects', '/Users/dev/code/proj/.git/worktrees/T-5'],
+    writableFiles: ['/Users/dev/code/proj/.git/refs/heads/task-5'],
+  },
   apiPort: 41234,
   wrapperDir: '/Users/dev/.config/Ouijit',
   profile: '/Users/dev/.config/nono/profiles/ouijit-proj-abc123.json',
@@ -55,24 +59,16 @@ describe('buildNonoLaunch', () => {
     expect(allowsOf(build().args)).toEqual(['/Users/dev/Ouijit/worktrees/proj/T-5']);
   });
 
-  test('grants the MAIN repo .git read-only with the writable overlay subdirs', () => {
+  test("grants the repository read-only, and write only on the paths the task's grants name", () => {
     const { args } = build();
-    // Read-only base is the main common dir, not the worktree's .git file.
-    expect(args[args.indexOf('--read') + 1]).toBe('/Users/dev/code/proj/.git');
-    // The four writable overlays needed for commits, under the main .git.
-    const writeTargets = args.reduce<string[]>((acc, a, i) => {
-      if (a === '--write') acc.push(args[i + 1]);
-      return acc;
-    }, []);
-    expect(writeTargets).toEqual([
+    const granted = (flag: string) => args.flatMap((a, i) => (a === flag ? [args[i + 1]] : []));
+    expect(granted('--read')[0]).toBe('/Users/dev/code/proj/.git');
+    expect(granted('--write')).toEqual([
       '/Users/dev/code/proj/.git/objects',
-      '/Users/dev/code/proj/.git/refs',
-      '/Users/dev/code/proj/.git/logs',
-      '/Users/dev/code/proj/.git/worktrees',
+      '/Users/dev/code/proj/.git/worktrees/T-5',
     ]);
-    // .git/config and .git/hooks are never writable (host-RCE class).
-    expect(writeTargets).not.toContain('/Users/dev/code/proj/.git/config');
-    expect(writeTargets).not.toContain('/Users/dev/code/proj/.git/hooks');
+    expect(granted('--write-file')).toEqual(['/Users/dev/code/proj/.git/refs/heads/task-5']);
+    expect(granted('--allow')).not.toContain('/Users/dev/code/proj/.git');
   });
 
   test('grants extra folders, such as every project for Chat, to read and never to write', () => {

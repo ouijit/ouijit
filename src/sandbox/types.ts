@@ -97,16 +97,6 @@ export const SANDBOX_LABELS: Record<SandboxProviderId, string> = {
   custom: 'Custom',
 };
 
-/**
- * Subdirectories of a repo's `.git` that every sandbox backend grants writable
- * on top of an otherwise read-only `.git`, so commits land while `hooks/` and
- * `config` (the host-side RCE surface) stay unwritable. Single source of truth
- * for this security-sensitive overlay set — nono's `--write` flags and the
- * custom backend's `OUIJIT_SANDBOX_GIT_WRITABLE_DIRS` hint both derive from it
- * so the backends can't drift apart.
- */
-export const GIT_WRITABLE_OVERLAY_DIRS = ['objects', 'refs', 'logs', 'worktrees'] as const;
-
 /** Provider-neutral availability status surfaced to the UI. */
 export interface SandboxProviderStatus {
   providerId: SandboxBackendId;
