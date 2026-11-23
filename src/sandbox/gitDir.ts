@@ -32,24 +32,36 @@ export async function getMainGitDir(projectPath: string): Promise<string | null>
 }
 
 /**
- * Of the entries under `.git/worktrees`, a task's sandbox writes its own
- * worktree's alone: another task's would let it steer git in that worktree.
- * `hooks/` and `config` would let it steer git everywhere.
+ * A task's sandbox writes git objects, its own worktree's entry and its own
+ * branch: another task's entry would steer git in that worktree, and another
+ * branch would move what a merge lands on.
+ *
+ * git moves a loose ref by renaming `<ref>.lock` over it and appending to its
+ * reflog. It tries `packed-refs.lock` on every commit and prints an error
+ * without it. That lock alone changes nothing: the sandbox cannot rename it
+ * over `packed-refs`, and git on the host refuses a lock it did not take.
  */
 export async function sandboxGitGrants(ctx: SandboxSpawnContext): Promise<SandboxGitGrants | null> {
   const gitDir = await getMainGitDir(ctx.projectPath);
   if (!gitDir) return null;
-  const writableDirs = [path.join(gitDir, 'objects'), path.join(gitDir, 'refs'), path.join(gitDir, 'logs')];
+  const grants: SandboxGitGrants = { gitDir, writableDirs: [path.join(gitDir, 'objects')], writableFiles: [] };
   const task = ctx.taskId != null ? await getTaskByNumber(ctx.projectPath, ctx.taskId) : null;
-  if (task?.worktreePath) {
-    try {
-      writableDirs.push(worktreeAdminDir(gitDir, task.worktreePath));
-    } catch (error) {
-      sandboxLog.warn('no worktree entry to grant', {
-        worktreePath: task.worktreePath,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+  if (!task?.worktreePath || !task.branch) return grants;
+  try {
+    grants.writableDirs.push(worktreeAdminDir(gitDir, task.worktreePath));
+  } catch (error) {
+    sandboxLog.warn('no worktree entry to grant', {
+      worktreePath: task.worktreePath,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return grants;
   }
-  return { gitDir, writableDirs, writableFiles: [] };
+  const ref = path.join(gitDir, 'refs', 'heads', task.branch);
+  grants.writableFiles.push(
+    ref,
+    `${ref}.lock`,
+    path.join(gitDir, 'logs', 'refs', 'heads', task.branch),
+    path.join(gitDir, 'packed-refs.lock'),
+  );
+  return grants;
 }

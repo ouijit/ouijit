@@ -2,6 +2,8 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { formatAge } from './utils/formatDate';
 import { execGit, execGitBuffer, execGitSync } from './gitCommand';
+import { getTaskProtectedRefs } from './db';
+import { refsMovedOutsideGit } from './protectedRefs';
 
 export interface GitStatus {
   branch: string;
@@ -1178,6 +1180,16 @@ export function mergeWorktreeBranch(
 ): { success: boolean; error?: string; mergedBranch?: string } {
   try {
     const mergeTo = targetBranch || getMainBranch(projectPath);
+
+    const recorded = getTaskProtectedRefs(projectPath, branchToMerge);
+    const moved = recorded ? refsMovedOutsideGit(projectPath, recorded) : [];
+    if (moved.length > 0) {
+      const names = moved.map((ref) => ref.replace(/^refs\/(heads|remotes)\//, '')).join(' and ');
+      return {
+        success: false,
+        error: `${names} moved since this task started, and not by git on this computer. Check ${moved.length > 1 ? 'them' : 'it'} before merging.`,
+      };
+    }
 
     // Check for uncommitted changes in main repo
     try {

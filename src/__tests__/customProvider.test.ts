@@ -34,7 +34,7 @@ beforeEach(() => {
   sandboxGitGrants.mockResolvedValue({
     gitDir: '/Users/dev/code/proj/.git',
     writableDirs: ['/Users/dev/code/proj/.git/objects', '/Users/dev/code/proj/.git/worktrees/T-3'],
-    writableFiles: [],
+    writableFiles: ['/Users/dev/code/proj/.git/refs/heads/task-3', '/Users/dev/code/proj/.git/refs/heads/task-3.lock'],
   });
 });
 
@@ -74,6 +74,10 @@ describe('customProvider', () => {
     expect(env.OUIJIT_SANDBOX_GIT_WRITABLE_DIRS.split(':')).toEqual([
       '/Users/dev/code/proj/.git/objects',
       '/Users/dev/code/proj/.git/worktrees/T-3',
+    ]);
+    expect(env.OUIJIT_SANDBOX_GIT_WRITABLE_FILES.split(':')).toEqual([
+      '/Users/dev/code/proj/.git/refs/heads/task-3',
+      '/Users/dev/code/proj/.git/refs/heads/task-3.lock',
     ]);
     expect(env.OUIJIT_SANDBOX_HOOK_PORT).toBe('7777');
     expect(env.OUIJIT_SANDBOX_CACHE_DIR).toMatch(/sandbox-cache\/[0-9a-f]{10}$/);

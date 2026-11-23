@@ -45,6 +45,7 @@ export const customProvider: SandboxProvider = {
       ...(git && {
         OUIJIT_SANDBOX_GIT_DIR: git.gitDir,
         OUIJIT_SANDBOX_GIT_WRITABLE_DIRS: git.writableDirs.join(':'),
+        OUIJIT_SANDBOX_GIT_WRITABLE_FILES: git.writableFiles.join(':'),
       }),
       OUIJIT_SANDBOX_HOOK_PORT: String(ctx.apiPort),
       OUIJIT_SANDBOX_CACHE_DIR: cacheDir,

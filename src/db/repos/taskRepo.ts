@@ -21,6 +21,8 @@ export interface TaskRow {
   linear_issue_id: string | null;
   linear_issue_identifier: string | null;
   suggested_branch: string | null;
+  /** JSON: ref name to the SHA it held. */
+  protected_refs: string | null;
 }
 
 export class TaskRepo {
@@ -166,6 +168,12 @@ export class TaskRepo {
     this.db
       .prepare('UPDATE tasks SET worktree_path = ? WHERE project_path = ? AND task_number = ?')
       .run(worktreePath, projectPath, taskNumber);
+  }
+
+  updateProtectedRefs(projectPath: string, taskNumber: number, refs: string): void {
+    this.db
+      .prepare('UPDATE tasks SET protected_refs = ? WHERE project_path = ? AND task_number = ?')
+      .run(refs, projectPath, taskNumber);
   }
 
   updateMergeTarget(projectPath: string, taskNumber: number, mergeTarget: string | null): void {

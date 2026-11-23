@@ -189,6 +189,21 @@ export function getTaskHoldingPath(dir: string): { projectPath: string; worktree
   return row?.worktree_path ? { projectPath: row.project_path, worktreePath: row.worktree_path } : undefined;
 }
 
+export async function setTaskProtectedRefs(
+  projectPath: string,
+  taskNumber: number,
+  refs: Record<string, string>,
+): Promise<void> {
+  repos().taskRepo.updateProtectedRefs(projectPath, taskNumber, JSON.stringify(refs));
+}
+
+/** Undefined for a task started before Ouijit recorded them, and until the database is open. */
+export function getTaskProtectedRefs(projectPath: string, branch: string): Record<string, string> | undefined {
+  if (!isDatabaseOpen()) return undefined;
+  const json = repos().taskRepo.getByBranch(projectPath, branch)?.protected_refs;
+  return json ? (JSON.parse(json) as Record<string, string>) : undefined;
+}
+
 export async function getNextTaskNumber(projectPath: string): Promise<number> {
   ensureProject(projectPath);
   const { taskRepo: tr } = repos();

@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import { getMainGitDir, sandboxGitGrants } from '../../sandbox/gitDir';
 import { createTask, _resetCacheForTesting } from '../../db';
 
-test("a sandbox is granted the project's repository, and of the worktree entries in it only its own task's", async () => {
+test("a task's sandbox may read the project's repository and write only its objects, its own worktree entry and its own branch", async () => {
   _resetCacheForTesting();
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-gitdir-')));
   const repo = path.join(root, 'project');
@@ -16,9 +16,9 @@ test("a sandbox is granted the project's repository, and of the worktree entries
   git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'init');
   const own = path.join(root, 'worktrees', 'T-1');
   const other = path.join(root, 'worktrees', 'T-2');
-  git('worktree', 'add', '-q', '-b', 'task-1', own);
+  git('worktree', 'add', '-q', '-b', 'feat/one', own);
   git('worktree', 'add', '-q', '-b', 'task-2', other);
-  await createTask(repo, 1, 'Own', { branch: 'task-1', worktreePath: own });
+  await createTask(repo, 1, 'Own', { branch: 'feat/one', worktreePath: own });
   await createTask(repo, 2, 'Other', { branch: 'task-2', worktreePath: other });
   const plain = path.join(root, 'conversations', 'home-1');
   fs.mkdirSync(plain, { recursive: true });
@@ -29,14 +29,23 @@ test("a sandbox is granted the project's repository, and of the worktree entries
   const spawn = { projectPath: repo, taskId: 1, cwd: own, worktreePath: own, apiPort: 1, settings: repo };
   const grants = await sandboxGitGrants(spawn);
   const gitDir = path.join(repo, '.git');
-  expect(grants?.gitDir).toBe(gitDir);
-  expect(grants?.writableDirs).toContain(path.join(gitDir, 'worktrees', 'T-1'));
-  expect(grants?.writableDirs).not.toContain(path.join(gitDir, 'worktrees'));
-  expect(grants?.writableDirs).not.toContain(path.join(gitDir, 'worktrees', 'T-2'));
+  expect(grants).toEqual({
+    gitDir,
+    writableDirs: [path.join(gitDir, 'objects'), path.join(gitDir, 'worktrees', 'T-1')],
+    writableFiles: [
+      path.join(gitDir, 'refs', 'heads', 'feat', 'one'),
+      path.join(gitDir, 'refs', 'heads', 'feat', 'one.lock'),
+      path.join(gitDir, 'logs', 'refs', 'heads', 'feat', 'one'),
+      path.join(gitDir, 'packed-refs.lock'),
+    ],
+  });
 
-  // A terminal in the project itself is no task's, so it gets no worktree entry.
-  const projectGrants = await sandboxGitGrants({ ...spawn, taskId: undefined, cwd: repo, worktreePath: undefined });
-  expect(projectGrants?.writableDirs.some((dir) => dir.startsWith(path.join(gitDir, 'worktrees')))).toBe(false);
+  // A terminal in the project itself is no task's, so it writes no worktree entry and no branch.
+  expect(await sandboxGitGrants({ ...spawn, taskId: undefined, cwd: repo, worktreePath: undefined })).toEqual({
+    gitDir,
+    writableDirs: [path.join(gitDir, 'objects')],
+    writableFiles: [],
+  });
 
   expect(await getMainGitDir(plain)).toBeNull();
 });

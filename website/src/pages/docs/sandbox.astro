@@ -80,8 +80,10 @@ import Docs from '../../layouts/Docs.astro';
   <h3>What it grants</h3>
   <p>
     Filesystem access is limited to the worktree and the repository's git data. <code>.git</code> is read-only
-    apart from read/write overlays at <code>objects/</code>, <code>refs/</code>, <code>logs/</code>, and
-    <code>worktrees/</code>, so commits land while <code>hooks/</code> and <code>config</code> stay read-only.
+    apart from what the task's own commits write: <code>objects/</code>, the task's entry under
+    <code>worktrees/</code>, and its own branch's ref and reflog. Other branches, other tasks' worktrees,
+    <code>hooks/</code> and <code>config</code> stay read-only, and a merge refuses if the branch it lands on
+    moved while the task ran by anything but git on your machine.
     Ouijit also grants a per-project package cache and keeps its status port reachable, so agent status reports
     back even when the network is blocked. All of this is derived from the task at spawn time.
   </p>
@@ -139,7 +141,8 @@ import Docs from '../../layouts/Docs.astro';
     <tbody>
       <tr><td><code>OUIJIT_SANDBOX_WORKTREE</code></td><td>The task worktree, read+write.</td></tr>
       <tr><td><code>OUIJIT_SANDBOX_GIT_DIR</code></td><td>The repository's <code>.git</code>, read-only. Unset for a folder that is not a repository.</td></tr>
-      <tr><td><code>OUIJIT_SANDBOX_GIT_WRITABLE_DIRS</code></td><td>Colon-separated <code>objects</code>, <code>refs</code>, <code>logs</code>, <code>worktrees</code> under it, writable so commits land while <code>hooks/</code> and <code>config</code> stay read-only.</td></tr>
+      <tr><td><code>OUIJIT_SANDBOX_GIT_WRITABLE_DIRS</code></td><td>Colon-separated directories under it to make writable: <code>objects</code>, and the task's entry under <code>worktrees</code>.</td></tr>
+      <tr><td><code>OUIJIT_SANDBOX_GIT_WRITABLE_FILES</code></td><td>Colon-separated files under it to make writable: the task branch's ref, its <code>.lock</code>, its reflog, and <code>packed-refs.lock</code>. Empty outside a task.</td></tr>
       <tr><td><code>OUIJIT_SANDBOX_HOOK_PORT</code></td><td>The localhost port that must stay reachable for agent status to report back.</td></tr>
       <tr><td><code>OUIJIT_SANDBOX_CACHE_DIR</code></td><td>A per-project package-manager cache outside any worktree, read+write. Shared by every task of the project.</td></tr>
       <tr><td><code>OUIJIT_SANDBOX_WRAPPER_DIR</code></td><td>Ouijit's agent shims and CLI reference, read-only. Its <code>bin/</code> is first on <code>PATH</code>.</td></tr>

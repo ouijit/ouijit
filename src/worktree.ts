@@ -22,10 +22,13 @@ import {
   getGlobalSetting,
   clearDiffNotes,
   deleteWorktreeDiffLenses,
+  getTaskProtectedRefs,
+  setTaskProtectedRefs,
   type TaskMetadata,
 } from './db';
 import { fetchDiffBase, mergeWorktreeBranch } from './git';
 import { execGit } from './gitCommand';
+import { snapshotProtectedRefs } from './protectedRefs';
 import { parseWorktreeSettings, worktreeSettingsKey, type WorktreeSettings } from './worktreeSettings';
 
 const worktreeLog = getLogger().scope('worktree');
@@ -509,6 +512,28 @@ export async function createTodoTask(projectPath: string, name?: string, prompt?
   }
 }
 
+/**
+ * Kept from the task's first worktree, so a merge can tell whether its target
+ * moved behind the task's back. A later snapshot would take in any such move.
+ */
+async function recordProtectedRefs(
+  projectPath: string,
+  taskNumber: number,
+  branch: string,
+  mergeTarget: string | undefined,
+): Promise<void> {
+  if (!mergeTarget || getTaskProtectedRefs(projectPath, branch)) return;
+  try {
+    await setTaskProtectedRefs(projectPath, taskNumber, await snapshotProtectedRefs(projectPath, mergeTarget));
+  } catch (error) {
+    worktreeLog.warn('could not record the merge target', {
+      taskNumber,
+      mergeTarget,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 export function startTask(
   projectPath: string,
   taskNumber: number,
@@ -634,6 +659,7 @@ async function startTaskImpl(
       setTaskWorktreePath(projectPath, taskNumber, worktreePath),
     ];
     if (mergeTarget) dbWrites.push(setTaskMergeTarget(projectPath, taskNumber, mergeTarget));
+    dbWrites.push(recordProtectedRefs(projectPath, taskNumber, branch, mergeTarget));
     await Promise.all(dbWrites);
     t.mark('dbWrites');
 
@@ -737,6 +763,7 @@ export async function createTaskWorktree(
       prompt,
       worktreePath,
     });
+    await recordProtectedRefs(projectPath, currentTaskNumber, branch, mergeTarget);
 
     if (copyIgnored) {
       await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
@@ -965,6 +992,7 @@ async function recoverTaskWorktreeImpl(projectPath: string, taskNumber: number):
 
     // Update metadata with new path
     await setTaskWorktreePath(projectPath, taskNumber, worktreePath);
+    await recordProtectedRefs(projectPath, taskNumber, task.branch, task.mergeTarget);
 
     if (copyIgnored) {
       await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
