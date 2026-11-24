@@ -4,7 +4,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { deleteGlobalSetting, getChatRepo, getGlobalSetting, setGlobalSetting } from '../db';
 import { getLogger } from '../logger';
-import { getUserDataPath } from '../paths';
+import { homeChatDir } from './homeChatDir';
 import { trashItem } from '../platform';
 import { chatHost } from './host';
 import { HOME_CHAT_INSTRUCTIONS } from './homeChatInstructions';
@@ -24,6 +24,8 @@ import {
 } from './preferences';
 import { stillWorking, type ChatSessionInfo, type ChatSnapshot } from './model';
 
+export { homeChatDir };
+
 const chatLog = getLogger().scope('chat:home');
 
 /** One of Chat's conversations, by the role its session was created with. */
@@ -37,10 +39,6 @@ export function isHomeChat(id: string): boolean {
  */
 export function callerIsHomeChat(id: string): boolean {
   return chatHost.list().some((info) => info.id === id && info.role === 'home');
-}
-
-export function homeChatDir(): string {
-  return path.join(getUserDataPath(), 'chat');
 }
 
 export async function loadHomeChatSettings(): Promise<HomeChatSettings> {

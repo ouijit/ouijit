@@ -25,6 +25,7 @@ import {
 import { getSessionSpawnContext } from '../../../sessions';
 import { defaultSandboxSettingKey, sandboxCliAccessSettingKey, type SandboxSpec } from '../../../sandbox/types';
 import { installHomeChatWakes } from '../../../chat/wake';
+import { getNonoProfile } from '../../../sandbox/nono/config';
 import { decide, decisions } from '../../../decisions';
 import { HOME_CHAT_SETTING_KEYS, taskKey, type HomeChatState } from '../../../chat/preferences';
 import type { ChatSnapshot, UserMessageNode } from '../../../chat/model';
@@ -255,5 +256,20 @@ describe('what Chat can do', () => {
     await chatHost.start({ ...opening, id: worker, sandbox: 'none' });
     expect(getSessionSpawnContext(worker)?.sandbox).toEqual(chatsSandbox);
     token = own;
+
+    // The profile written for Chat's sandbox goes when the last session under it does, unless edited.
+    const profile = (await getNonoProfile(homeChatDir())).path;
+    expect(fs.existsSync(profile)).toBe(true);
+    await chatHost.stop(sandboxed);
+    expect(fs.existsSync(profile)).toBe(true);
+    await chatHost.stop(worker);
+    expect(fs.existsSync(profile)).toBe(false);
+    await getNonoProfile(homeChatDir());
+    fs.appendFileSync(profile, ' ');
+    const again = (await newHomeChat()).info.id;
+    await until(() => chatHost.snapshot(again)?.info.status === 'idle', 'Chat to start again');
+    await chatHost.stop(again);
+    expect(fs.existsSync(profile)).toBe(true);
+    fs.rmSync(profile);
   }, 20_000);
 });

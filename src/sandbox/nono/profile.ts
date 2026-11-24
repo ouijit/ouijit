@@ -1,6 +1,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
+import { readFileSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -271,16 +272,30 @@ export function projectProfileName(projectPath: string): string {
  * and never touched again: from then on it is the user's file.
  */
 export async function ensureProjectProfile(projectPath: string): Promise<string> {
-  const name = projectProfileName(projectPath);
-  const file = path.join(nonoProfilesDir(), `${name}.json`);
-  const stub = { meta: { name }, extends: [OUIJIT_PROFILE_NAME] };
+  const { file, stub } = projectProfileStub(projectPath);
   await fs.mkdir(path.dirname(file), { recursive: true });
   try {
-    await fs.writeFile(file, `${JSON.stringify(stub, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
+    await fs.writeFile(file, stub, { encoding: 'utf8', flag: 'wx' });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
   }
   return file;
+}
+
+function projectProfileStub(projectPath: string): { file: string; stub: string } {
+  const name = projectProfileName(projectPath);
+  const stub = { meta: { name }, extends: [OUIJIT_PROFILE_NAME] };
+  return { file: path.join(nonoProfilesDir(), `${name}.json`), stub: `${JSON.stringify(stub, null, 2)}\n` };
+}
+
+/** Remove a profile `ensureProjectProfile` wrote, unless the user has changed it since. */
+export function removeUntouchedProjectProfile(projectPath: string): void {
+  const { file, stub } = projectProfileStub(projectPath);
+  try {
+    if (readFileSync(file, 'utf8') === stub) rmSync(file);
+  } catch {
+    // Already gone, or unreadable: either way, nothing of Ouijit's to remove.
+  }
 }
 
 /**

@@ -11,6 +11,8 @@ import {
 } from './sessionStore';
 import { resolveSandbox } from '../sandbox/resolve';
 import { revokeToken } from '../apiAuth';
+import { removeUntouchedProjectProfile } from '../sandbox/nono/profile';
+import { homeChatDir } from './homeChatDir';
 import { spawnAgentProcess, type DriverProbe, type DriverSession } from '../agents';
 import { generateTitle, titlePrompt } from './title';
 import { getDriver } from './drivers';
@@ -415,6 +417,22 @@ export class ChatHost {
     session.flush();
     this.sessions.delete(id);
     revokeToken(id);
+    this.releaseChatProfile(session);
+  }
+
+  /**
+   * Chat's profile is written at launch under its folder's name, and every
+   * userData has its own folder, so one would be left behind by each. The last
+   * session in Chat's sandbox to end removes it while it is still the stub
+   * Ouijit wrote.
+   */
+  private releaseChatProfile(session: HostedSession): void {
+    const sandbox = session.info.sandbox;
+    if (sandbox?.provider !== 'nono' || sandbox.settings !== homeChatDir()) return;
+    for (const other of this.sessions.values()) {
+      if (other.info.sandbox?.settings === sandbox.settings) return;
+    }
+    removeUntouchedProjectProfile(sandbox.settings);
   }
 
   async discard(id: string): Promise<void> {
@@ -433,7 +451,9 @@ export class ChatHost {
       for (const proc of session.processes) proc.kill('SIGTERM');
       revokeToken(session.info.id);
     }
+    const ended = [...this.sessions.values()];
     this.sessions.clear();
+    for (const session of ended) this.releaseChatProfile(session);
   }
 }
 
