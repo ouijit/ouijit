@@ -19,8 +19,6 @@ import { up as migration017 } from './migrations/017-linear-comment-drafts';
 import { up as migration018 } from './migrations/018-hook-sandbox';
 import { up as migration019 } from './migrations/019-drop-task-tags';
 import { up as migration020 } from './migrations/020-chat';
-import { up as migration021 } from './migrations/021-chat-sandbox-spec';
-import { up as migration022 } from './migrations/022-task-protected-refs';
 
 const migrations = [
   { version: 1, up: migration001 },
@@ -43,8 +41,6 @@ const migrations = [
   { version: 18, up: migration018 },
   { version: 19, up: migration019 },
   { version: 20, up: migration020 },
-  { version: 21, up: migration021 },
-  { version: 22, up: migration022 },
 ];
 
 let db: Database.Database | null = null;

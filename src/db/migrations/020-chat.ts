@@ -8,6 +8,8 @@ import type Database from 'better-sqlite3';
  */
 export function up(db: Database.Database): void {
   db.exec(`
+    ALTER TABLE tasks ADD COLUMN protected_refs TEXT;
+
     CREATE TABLE chat_sessions (
       id TEXT PRIMARY KEY,
       project_path TEXT NOT NULL,
@@ -16,7 +18,7 @@ export function up(db: Database.Database): void {
       worktree_path TEXT,
       agent TEXT NOT NULL,
       agent_session_id TEXT,
-      sandbox_provider TEXT,
+      sandbox TEXT,
       info TEXT NOT NULL,
       seq INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
