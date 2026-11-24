@@ -171,7 +171,7 @@ export function TerminalBody({ ptyId, projectPath, page }: TerminalBodyProps) {
     <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
       <div
         ref={rowRef}
-        className={`relative flex-1 flex flex-row min-h-0 ${page && slotOpen ? 'pr-4 pb-4 pt-1' : 'overflow-hidden'}`}
+        className={`relative flex-1 flex flex-row min-h-0 ${page && slotOpen ? `pr-4 pb-4 pt-1 ${split ? '' : 'pl-4'}` : 'overflow-hidden'}`}
       >
         <div
           data-card-main
