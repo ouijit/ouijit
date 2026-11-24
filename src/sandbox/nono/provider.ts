@@ -8,7 +8,7 @@ import type { SandboxLaunch, SandboxProviderStatus, SandboxSpawnContext } from '
 import { getNonoPath, getVendoredNonoPath, isNonoInstalled, checkPlatformSupport } from './binary';
 import { sandboxGitGrants } from '../gitDir';
 import { getNonoProfile } from './config';
-import { ensureUnionProfile } from './profile';
+import { ensureHooksGuardProfile, ensureUnionProfile } from './profile';
 import { sandboxCacheEnv } from './cacheEnv';
 import { buildNonoLaunch } from './argv';
 import { sandboxCacheDir } from '../cacheDir';
@@ -72,6 +72,11 @@ export const nonoProvider: SandboxProvider = {
     const cliPath = getCliPath();
     const cliDir = cliPath ? path.dirname(cliPath) : undefined;
     const cacheDir = sandboxCacheDir(ctx.projectPath);
+    const checkout = git && !ctx.worktreePath ? path.dirname(git.gitDir) : null;
+    const guard =
+      checkout && process.platform === 'darwin' && existsSync(path.join(checkout, '.git', 'hooks'))
+        ? await ensureHooksGuardProfile(checkout)
+        : null;
 
     nonoLog.info('wrapping launch under nono', {
       worktreePath,
@@ -89,6 +94,7 @@ export const nonoProvider: SandboxProvider = {
       cacheDir,
       nonoBinPath: getVendoredNonoPath() ?? undefined,
       profile: profile.path,
+      ...(guard && { extends: [guard] }),
       // nono refuses a grant for a path that does not exist.
       readPaths: ctx.readPaths?.filter((dir) => existsSync(dir)),
     });

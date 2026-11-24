@@ -34,6 +34,8 @@ export interface NonoArgvContext {
   nonoBinPath?: string;
   /** The project's profile, by file path. */
   profile: string;
+  /** Profiles of Ouijit's own, by name, layered under the project's for this launch. */
+  extends?: string[];
 }
 
 /**
@@ -59,6 +61,7 @@ export interface NonoArgvContext {
 export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: NonoArgvContext): SandboxLaunch {
   const { git } = ctx;
   const args: string[] = ['run', '--profile', ctx.profile, '--startup-timeout', '0', '--allow-cwd'];
+  for (const name of ctx.extends ?? []) args.push('--extends', name);
 
   // Harmless when the profile allows network, and what keeps agent status
   // reporting when it blocks it.

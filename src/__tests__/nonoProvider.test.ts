@@ -1,4 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 import { nonoProvider } from '../sandbox/nono/provider';
 import type { SandboxLaunch, SandboxSpawnContext } from '../sandbox/types';
@@ -10,6 +13,7 @@ const isNonoInstalled = vi.fn<() => Promise<boolean>>();
 const checkPlatformSupport = vi.fn<() => { supported: boolean; reason?: string }>();
 const sandboxGitGrants = vi.fn<(ctx: SandboxSpawnContext) => Promise<SandboxGitGrants | null>>();
 const ensureUnionProfile = vi.fn<() => Promise<void>>();
+const ensureHooksGuardProfile = vi.fn<(checkout: string) => Promise<string>>();
 const getNonoPath = vi.fn<() => string>();
 
 vi.mock('../sandbox/nono/binary', () => ({
@@ -30,6 +34,7 @@ vi.mock('../sandbox/nono/config', () => ({
 }));
 vi.mock('../sandbox/nono/profile', () => ({
   ensureUnionProfile: () => ensureUnionProfile(),
+  ensureHooksGuardProfile: (checkout: string) => ensureHooksGuardProfile(checkout),
 }));
 vi.mock('../paths', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../paths')>()),
@@ -139,6 +144,38 @@ describe('nonoProvider', () => {
     expect(wrapped.args.some((arg) => arg.includes('.git'))).toBe(false);
     expect(wrapped.args[wrapped.args.indexOf('--allow') + 1]).toBe('/Users/dev/wt/T-3');
   });
+
+  test.skipIf(process.platform !== 'darwin')(
+    "a terminal in the project's own checkout takes on the guard over its hooks, and a task's doesn't",
+    async () => {
+      const checkout = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-guarded-'));
+      fs.mkdirSync(path.join(checkout, '.git', 'hooks'), { recursive: true });
+      const gitDir = path.join(checkout, '.git');
+      sandboxGitGrants.mockResolvedValue({ gitDir, writableDirs: [path.join(gitDir, 'objects')], writableFiles: [] });
+      ensureHooksGuardProfile.mockResolvedValue('ouijit-hooks-guard-test');
+
+      const project = await nonoProvider.wrapLaunch(launch, {
+        ...ctx,
+        taskId: undefined,
+        cwd: checkout,
+        worktreePath: undefined,
+      });
+      expect(ensureHooksGuardProfile).toHaveBeenCalledWith(checkout);
+      expect(project.args.slice(0, 5)).toEqual([
+        'run',
+        '--profile',
+        '/profiles/ouijit-proj.json',
+        '--startup-timeout',
+        '0',
+      ]);
+      expect(project.args[project.args.indexOf('--extends') + 1]).toBe('ouijit-hooks-guard-test');
+
+      ensureHooksGuardProfile.mockClear();
+      const task = await nonoProvider.wrapLaunch(launch, ctx);
+      expect(ensureHooksGuardProfile).not.toHaveBeenCalled();
+      expect(task.args).not.toContain('--extends');
+    },
+  );
 
   test('getStatus reports unavailable with a reason on an unsupported platform', async () => {
     checkPlatformSupport.mockReturnValue({ supported: false, reason: 'unsupported OS' });

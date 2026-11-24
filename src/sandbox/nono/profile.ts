@@ -283,6 +283,26 @@ export async function ensureProjectProfile(projectPath: string): Promise<string>
   return file;
 }
 
+/**
+ * Denies a checkout's git hooks to a sandbox that is granted the checkout
+ * itself, where no narrower grant can take them back. Layered on with
+ * `--extends`, which takes a profile name rather than a path. Seatbelt only:
+ * Landlock cannot deny inside a grant, and nono refuses to start rather than
+ * leave such a deny unenforced.
+ */
+export async function ensureHooksGuardProfile(checkout: string): Promise<string> {
+  const name = `${OUIJIT_PROFILE_NAME}-hooks-guard-${createHash('sha1').update(checkout).digest('hex').slice(0, 10)}`;
+  const hooks = path.join(checkout, '.git', 'hooks');
+  const guard = { meta: { name }, filesystem: { deny: [hooks, `${hooks}/**`] } };
+  const file = path.join(nonoProfilesDir(), `${name}.json`);
+  const desired = `${JSON.stringify(guard, null, 2)}\n`;
+  if ((await fs.readFile(file, 'utf8').catch(() => null)) !== desired) {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, desired, 'utf8');
+  }
+  return name;
+}
+
 export function nonoProfilesDir(): string {
   return path.join(nonoConfigRoot(), 'profiles');
 }
