@@ -16,7 +16,9 @@ function Panel({ ledge, children }: { ledge?: string; children: ReactNode }) {
       style={{ background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-panel)' }}
     >
       {ledge && (
-        <div className="pane-ledge relative z-[5] shrink-0 h-9 flex items-center px-4 text-[13px] text-ink/70">{ledge}</div>
+        <div className="pane-ledge relative z-[5] shrink-0 h-9 flex items-center px-4 text-[13px] text-ink/70">
+          {ledge}
+        </div>
       )}
       <div className="flex flex-col divide-y divide-ink/[0.06]">{children}</div>
     </div>
@@ -55,9 +57,9 @@ function WhereThingsRun() {
 }
 
 const ACCESS = [
-  { label: 'Read only', detail: 'Its task, the notes on its diff, drafts, and asking you', on: true },
-  { label: 'Its own task', detail: 'Also move, rename and describe it' },
-  { label: 'Everything', detail: 'What a host terminal can' },
+  { label: 'View', detail: 'Its task, the notes on its diff, drafts, and asking you', on: true },
+  { label: 'Own task', detail: 'Also move, rename and describe it' },
+  { label: 'Whole board', detail: 'Start, move and message tasks, inside its sandbox' },
 ];
 
 function Radio({ on }: { on?: boolean }) {

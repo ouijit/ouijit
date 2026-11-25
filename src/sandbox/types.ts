@@ -83,6 +83,11 @@ export function isSandboxCliAccess(value: unknown): value is SandboxCliAccess {
   return typeof value === 'string' && (SANDBOX_CLI_ACCESS as readonly string[]).includes(value);
 }
 
+/** Chat runs the board, so it starts at Whole board; a task's agent starts at View. */
+export function defaultCliAccess(isChat: boolean): SandboxCliAccess {
+  return isChat ? 'all' : 'read';
+}
+
 export function sandboxCliAccessSettingKey(projectPath: string): string {
   return `sandboxCliAccess:${projectPath}`;
 }

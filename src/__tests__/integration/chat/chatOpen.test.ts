@@ -19,7 +19,8 @@ import { initCliPanels } from '../../../cliPanels';
 import { issueToken } from '../../../apiAuth';
 import { _resetCacheForTesting, createTask, getChatRepo, setGlobalSetting } from '../../../db';
 import { chatHost } from '../../../chat/host';
-import { installHomeChat, startHomeChat } from '../../../chat/homeChat';
+import { homeChatDir, installHomeChat, startHomeChat } from '../../../chat/homeChat';
+import { sandboxCliAccessSettingKey } from '../../../sandbox/types';
 import { HOME_CHAT_SETTING_KEYS } from '../../../chat/preferences';
 import { CONTINUATION_BUDGET_CHARS } from '../../../chat/continuation';
 import type { ChatNode } from '../../../chat/model';
@@ -206,7 +207,8 @@ describe('ouijit chat open', () => {
     // Chat hears what happens on the task its new chat works on.
     expect(await ouijit('chat', 'following')).toEqual([expect.objectContaining({ task: 2, name: 'Fix auth' })]);
 
-    // From a sandbox it is the host's, as opening a terminal is, until the access setting widens it.
+    // From a sandbox at View it is the host's, as opening a terminal is.
+    await setGlobalSetting(sandboxCliAccessSettingKey(homeChatDir()), 'read');
     vi.stubEnv('OUIJIT_API_TOKEN', issueToken(chat, 'sandbox'));
     await expect(ouijit('chat', 'open', '--task', '2')).rejects.toThrow(/Forbidden/);
     expect(opened).toHaveLength(1);

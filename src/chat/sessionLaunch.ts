@@ -23,7 +23,7 @@ import { withConversationCommands } from './conversationCommands';
 const CHAT_SURFACE = `You are talking with the user in Ouijit Chat, which renders your replies as Markdown. To show the user an image, such as a screenshot or a diagram you made, put it in your reply as a Markdown image with an absolute path: ![what it shows](/absolute/path/to/image.png). An image you only read with a tool is seen by you, not by the user.`;
 
 // Stands over the reference's "From a sandbox" section, which is written for a card.
-const CHAT_READ_ONLY = `As Chat at Read only, you reach every project rather than one: every command that reads or lists works, as do following and unfollowing, your own tags and panels, drafts, and ouijit ask. Commands that move a task or message, answer or interrupt an agent are Forbidden; ask the user to raise Ouijit CLI access to Everything in Chat's settings. Even then, tasks you start run in your sandbox, and you steer only the agents running in it.`;
+const CHAT_READ_ONLY = `As Chat at View, you reach every project rather than one: every command that reads or lists works, as do following and unfollowing, your own tags and panels, drafts, and ouijit ask. Commands that move a task or message, answer or interrupt an agent are Forbidden; ask the user to raise Ouijit CLI access to Whole board in Chat's settings. Even then, tasks you start run in your sandbox, and you steer only the agents running in it.`;
 
 export interface LaunchContext {
   probe: (agent: ChatAgentId) => Promise<DriverProbe>;

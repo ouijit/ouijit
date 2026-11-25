@@ -6,21 +6,20 @@ import { SandboxProfileRow } from './SandboxProfileRow';
 import { CustomLauncherRow } from './CustomLauncherRow';
 import { CARD } from './sandboxStyles';
 
-const CLI_ACCESS: Record<SandboxCliAccess, { label: string; detail: string; option: string }> = {
+const CLI_ACCESS: Record<SandboxCliAccess, { label: string; detail: string }> = {
   read: {
-    label: 'Read only',
-    detail: 'Sandboxed commands can read their task, draft comments, and ask you to run a command.',
-    option: 'Read its task, draft comments, ask you to run a command',
+    label: 'View',
+    detail:
+      "Read only. A task's agent sees its own task and the project's pull requests and issues; Chat sees every project. Either can draft comments and ask you to run things.",
   },
   task: {
-    label: 'Its own task',
-    detail: 'Sandboxed commands can also edit and move their task, add to-do tasks, and read its terminals.',
-    option: 'Also edit and move its task, add to-dos, read its terminals',
+    label: 'Own task',
+    detail: 'Also move, rename and describe its own card, and add to-dos.',
   },
   all: {
-    label: 'Everything',
-    detail: 'Sandboxed commands can make Ouijit run anything on the host.',
-    option: 'Run anything on the host through Ouijit',
+    label: 'Whole board',
+    detail:
+      "Start and move tasks across your projects, and message the agents in its sandbox. Can't change hooks, scripts or sandbox settings. Anything that would run outside its sandbox waits for you.",
   },
 };
 
@@ -59,41 +58,27 @@ export function SandboxSection({ projectPath }: { projectPath: string }) {
   );
 }
 
-export const CHAT_CLI_ACCESS: Partial<typeof CLI_ACCESS> = {
-  read: {
-    label: 'Read only',
-    detail: 'Chat can read every project and follow tasks and chats, but not move tasks or message agents.',
-    option: 'Read every project, follow tasks and chats',
-  },
-  all: CLI_ACCESS.all,
-};
-
 export function CliAccessRow({
   value,
   onChange,
   levels = ['read', 'task', 'all'],
-  copy = CLI_ACCESS,
 }: {
   value: SandboxCliAccess;
   onChange: (level: SandboxCliAccess) => void;
   levels?: SandboxCliAccess[];
-  copy?: Partial<typeof CLI_ACCESS>;
 }) {
-  const text = (level: SandboxCliAccess) => copy[level] ?? CLI_ACCESS[level];
   return (
     <div className="flex items-center gap-4 px-4 py-3">
       <div className="min-w-0 flex-1">
         <div className="text-sm text-text-primary">Ouijit CLI access</div>
-        <div className={`mt-0.5 text-xs ${value === 'all' ? 'text-error' : 'text-text-tertiary'}`}>
-          {text(value).detail}
-        </div>
+        <div className="mt-0.5 text-xs text-text-tertiary">{CLI_ACCESS[value].detail}</div>
       </div>
       <QuietPicker<SandboxCliAccess>
         label="Ouijit CLI access"
         value={value}
         options={levels}
-        optionLabel={(level) => text(level).label}
-        optionDetail={(level) => text(level).option}
+        optionLabel={(level) => CLI_ACCESS[level].label}
+        optionDetail={(level) => CLI_ACCESS[level].detail}
         onChange={onChange}
       />
     </div>

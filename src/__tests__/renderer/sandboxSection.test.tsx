@@ -42,19 +42,17 @@ describe('sandbox settings', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Custom' }));
     await waitFor(() => expect(screen.getByText("Custom can't run. Set a launcher first.")).toBeTruthy());
 
-    expect(
-      screen.getByText('Sandboxed commands can read their task, draft comments, and ask you to run a command.'),
-    ).toBeTruthy();
+    expect(screen.getByText(/^Read only\. A task's agent sees its own task/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Ouijit CLI access' }));
     // Each choice says what it allows before it is picked.
-    const everything = screen.getByRole('menuitem', { name: 'Everything' });
-    expect(document.getElementById(everything.getAttribute('aria-describedby')!)?.textContent).toBe(
-      'Run anything on the host through Ouijit',
+    const wholeBoard = screen.getByRole('menuitem', { name: 'Whole board' });
+    expect(document.getElementById(wholeBoard.getAttribute('aria-describedby')!)?.textContent).toMatch(
+      /^Start and move tasks across your projects/,
     );
-    fireEvent.click(everything);
+    fireEvent.click(wholeBoard);
     await waitFor(() => expect(getProjectConfig('/p')?.sandboxCliAccess).toBe('all'));
     expect(window.api.globalSettings.set).toHaveBeenCalledWith('sandboxCliAccess:/p', 'all');
-    expect(screen.getByText('Sandboxed commands can make Ouijit run anything on the host.')).toBeTruthy();
+    expect(screen.getAllByText(/^Start and move tasks across your projects/).length).toBeGreaterThan(0);
   });
 
   test("the sandbox profile is the project's own file until another is chosen, and Reset goes back to it", async () => {

@@ -1,11 +1,18 @@
 import { getGlobalSetting } from '../db';
 import { getCliReferencePath } from '../cliReferencePath';
-import { isSandboxCliAccess, sandboxCliAccessSettingKey, type SandboxCliAccess, type SandboxSpec } from './types';
+import { homeChatDir } from '../chat/homeChatDir';
+import {
+  defaultCliAccess,
+  isSandboxCliAccess,
+  sandboxCliAccessSettingKey,
+  type SandboxCliAccess,
+  type SandboxSpec,
+} from './types';
 
-/** How much of the Ouijit API sandboxes under these settings may use: read only until set. */
+/** How much of the Ouijit API sandboxes under these settings may use. */
 export async function sandboxCliAccessFor(settings: string): Promise<SandboxCliAccess> {
   const stored = await getGlobalSetting(sandboxCliAccessSettingKey(settings));
-  return isSandboxCliAccess(stored) ? stored : 'read';
+  return isSandboxCliAccess(stored) ? stored : defaultCliAccess(settings === homeChatDir());
 }
 
 /**

@@ -162,9 +162,9 @@ export function stopHookServer(): Promise<void> {
 // ── Hook definitions ─────────────────────────────────────────────────
 
 const ACCESS_NOTES: Record<SandboxCliAccess, string> = {
-  read: 'reading your own task and diff notes, and asking',
-  task: 'your own task, which you can also move and rename, and creating to-do cards',
-  all: 'everything a host terminal can',
+  read: 'View, reading your own task and diff notes, and asking',
+  task: 'Own task, your own task, which you can also move and rename, and creating to-do cards',
+  all: 'Whole board, starting, moving and messaging tasks in every project, inside your sandbox',
 };
 
 /** What Ouijit knows about a sandboxed terminal when it starts: the profile or launcher decides the rest. */
@@ -418,6 +418,7 @@ ouijit settings lens agent set claude|codex|pi|auto
 ouijit settings sandbox get                   # host terminals only → {default, profile: {path, own}, cliAccess}
 ouijit settings sandbox set [--default host|nono|custom] [--profile <file>] [--cli-access read|task|all]
                                               # host terminals only; --profile "" goes back to the project's own
+                                              # cli-access: read is View, task is Own task, all is Whole board
 ouijit settings chat get                      # → {enabled, agent, sandbox, instructions, wake}, app-wide
 ouijit settings chat set [--enable|--disable] [--agent <agent>] [--run-in host|nono|custom]
                          [--instructions "<text>"] [--wake <event>=on|off]...
@@ -538,18 +539,20 @@ ouijit theme delete <id>                      # remove a custom theme
 
 ## From a sandbox
 A sandboxed terminal reaches Ouijit in its own project, at that project's CLI access level:
-- Read only, the default: its own task (task current, task get), diff notes,
+- View, the default (Whole board for Chat): its own task (task current, task get), diff notes,
   link, ask, pr list and view, pr and linear drafts, pr lenses, linear list
   and view. On this terminal: terminal read, tags, panel list and read,
   markdown add and remove for files in its worktree, and runner and preview
   panels as above.
-- Its own task: also task set-status, set-name and set-description on its own
+- Own task: also task set-status, set-name and set-description on its own
   task, pr link and issue link to it, and task create for a to-do card.
   terminal read, tags and panels reach every sandboxed terminal on its task. A hook that
   runs on the host waits for the user even with --run-hook, and --hook-command
   and --sandbox are refused.
-- Everything: what a host terminal can, though a hook or --hook-command that
-  runs on the host still waits for the user.
+- Whole board: what a host terminal can, except changing hooks, scripts and
+  sandbox settings. Tasks, terminals and chats it starts, and the hooks they
+  run, run in its own sandbox whatever --sandbox or the project says, and it
+  messages, answers and interrupts only the agents in its sandbox.
 It edits and discards only the drafts a sandbox wrote. Anything else is
 Forbidden, and the error names the ouijit ask that would run it outside the sandbox.
 

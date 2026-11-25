@@ -184,7 +184,10 @@ Examples:
     .description('Change what is given; what is left out stays as it was')
     .option('--default <place>', `where tasks and hooks run unless they say (${PLACE_VALUES})`)
     .option('--profile <path>', 'a nono profile file used in place of the project\'s own; "" for its own')
-    .option('--cli-access <level>', 'what a sandboxed terminal may do with ouijit (read|task|all)')
+    .option(
+      '--cli-access <level>',
+      'what a sandboxed terminal may do with ouijit: read (View), task (Own task) or all (Whole board)',
+    )
     .action(async (opts: { default?: string; profile?: string; cliAccess?: string }) => {
       printJson(
         await put(

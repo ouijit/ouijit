@@ -166,9 +166,14 @@ describe('what Chat can do', () => {
     expect((await asking).data).toMatchObject({ status: 'exited', exitCode: 0, output: 'from the host' });
     expect(decisions()).toEqual([]);
 
-    // Sandboxed at Read only, it reads and follows in any project, and moves nothing until widened.
+    // Sandboxed, it starts at Whole board.
     await createTask(repo, 3, 'Sandboxed', { status: 'todo' });
     token = issueToken(chat, 'sandbox');
+    expect((await api('PATCH', `tasks/3/name?${project}`, { name: 'Renamed by default' })).status).toBe(200);
+
+    // At View, it reads and follows in any project, and moves nothing until widened.
+    await setGlobalSetting(sandboxCliAccessSettingKey(homeChatDir()), 'read');
+    expect((await api('PATCH', `tasks/3/name?${project}`, { name: 'Renamed at View' })).status).toBe(403);
     expect((await api('GET', `tasks?${project}`)).status).toBe(200);
     expect((await api('GET', 'terminals')).status).toBe(200);
     expect((await api('PUT', `following/tasks/3?${project}`, {})).status).toBe(200);
@@ -292,4 +297,33 @@ describe('what Chat can do', () => {
     expect((await api('PUT', `scripts/x?${project}`, script)).status).toBe(200);
     expect((await api('DELETE', `scripts/x?${project}`)).status).toBe(200);
   });
+
+  test('a sandboxed task agent at Whole board starts and steers only inside its own sandbox, as Chat does', async () => {
+    const project = `project=${encodeURIComponent(repo)}`;
+    await setGlobalSetting(defaultSandboxSettingKey(repo), 'none');
+    await setGlobalSetting(sandboxCliAccessSettingKey(repo), 'all');
+    const worktree = path.join(repo, 'wt8');
+    await createTask(repo, 8, 'Agent', { status: 'in_progress', branch: 'T-8', worktreePath: worktree });
+    const opening = { agent: 'claude' as const, projectPath: repo, cwd: repo, worktreePath: worktree, taskId: 8 };
+    const agent = (await chatHost.start({ ...opening, sandbox: 'nono' })).info.id;
+    const sibling = (await chatHost.start({ ...opening, sandbox: 'nono' })).info.id;
+    const onHost = (await chatHost.start({ ...opening, sandbox: 'none' })).info.id;
+    const own = token;
+    token = issueToken(agent, 'sandbox');
+
+    // What it starts runs in its own sandbox, over the host it asked for and the project's host default.
+    await createTask(repo, 9, 'Started by an agent', { status: 'todo' });
+    expect((await api('POST', `tasks/9/start?${project}`, { hookMode: 'run', hookSandbox: 'none' })).status).toBe(200);
+    const push = pushes.findLast(([channel]) => channel === 'cli:task-started')?.[1] as Record<string, unknown>;
+    expect(push).toMatchObject({ taskNumber: 9, sandbox: { provider: 'nono', settings: repo }, fromSandbox: true });
+
+    // It steers the agents in its sandbox, and not one on the host.
+    expect((await api('POST', `chats/${sibling}/messages`, { text: 'Still there?' })).status).toBe(200);
+    const refused = await api('POST', `chats/${onHost}/messages`, { text: 'hi' });
+    expect(refused.status).toBe(403);
+    expect(refused.error).toMatch(/runs outside your sandbox/);
+
+    token = own;
+    for (const id of [agent, sibling, onHost]) await chatHost.stop(id);
+  }, 20_000);
 });

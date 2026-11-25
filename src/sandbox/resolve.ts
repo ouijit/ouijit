@@ -12,8 +12,8 @@ export interface SandboxRequest {
   projectPath: string;
   /** Absent is the project's default. */
   placement?: SandboxPlacement;
-  /** The spec of the sandboxed Chat asking, which what it starts takes over any placement. */
-  chat?: SandboxSpec | null;
+  /** The spec of the sandboxed caller asking, which what it starts takes over any placement. */
+  caller?: SandboxSpec | null;
   /** The hook it runs, if any. */
   hookType?: string | null;
 }
@@ -22,12 +22,12 @@ export interface SandboxRequest {
 export async function resolveSandbox({
   projectPath,
   placement,
-  chat,
+  caller,
   hookType,
 }: SandboxRequest): Promise<SandboxSpec | null> {
   // A hook that cannot run sandboxed goes to the host, where a sandboxed caller's waits for the user.
   if (hookType && !SANDBOXABLE_HOOK_TYPES.includes(hookType)) return null;
-  if (chat) return chat;
+  if (caller) return caller;
   if (typeof placement === 'object') return placement;
   const provider = placement ?? (await getGlobalSetting(defaultSandboxSettingKey(projectPath)));
   return isSandboxProviderId(provider) && isActiveSandbox(provider) ? { provider, settings: projectPath } : null;

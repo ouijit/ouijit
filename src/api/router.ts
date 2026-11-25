@@ -324,7 +324,7 @@ function parseWakes(value: unknown): Partial<Record<WakeEvent, boolean>> | undef
 
 /**
  * For what decides where things run and what a sandbox may do. A sandbox at
- * "Everything" is otherwise served as the host, and these would let it widen
+ * "Whole board" is otherwise served as the host, and these would let it widen
  * its own walls.
  */
 function hostOnly(r: Pick<ParsedRequest, 'auth'>): void {
@@ -334,9 +334,9 @@ function hostOnly(r: Pick<ParsedRequest, 'auth'>): void {
 /** Why an agent asks, in a line or two: anything longer is cut. */
 const MAX_ASK_MESSAGE = 200;
 
-/** A sandboxed Chat's own sandbox, which everything it starts runs in. */
-function chatSandbox(auth: SandboxCaller): SandboxSpec | null {
-  if (!auth.sandboxed || !callerIsHomeChat(auth.ptyId)) return null;
+/** A sandboxed caller's own sandbox, which everything it starts runs in. */
+function callerSandbox(auth: SandboxCaller): SandboxSpec | null {
+  if (!auth.sandboxed) return null;
   return getSessionSpawnContext(auth.ptyId)?.sandbox ?? null;
 }
 
@@ -346,35 +346,35 @@ function cliCaller(auth: SandboxCaller): CliCaller {
 
 /**
  * What a CLI move asks of the hook it fires, with where the hook runs resolved
- * here when the request or a sandboxed Chat decides it; otherwise the window
+ * here when the request or a sandboxed caller decides it; otherwise the window
  * runs it where the hook or the project says.
  */
 async function cliMove(r: Pick<ParsedRequest, 'auth' | 'body'>, project: string, hookType: string): Promise<CliMove> {
   const { hookSandbox, ...control } = parseHookControl(r.body);
-  const chat = chatSandbox(r.auth);
+  const caller = callerSandbox(r.auth);
   const decided =
-    (chat || hookSandbox) &&
-    ((await resolveSandbox({ projectPath: project, placement: hookSandbox, chat, hookType })) ?? 'none');
+    (caller || hookSandbox) &&
+    ((await resolveSandbox({ projectPath: project, placement: hookSandbox, caller, hookType })) ?? 'none');
   return { ...control, ...cliCaller(r.auth), ...(decided && { sandbox: decided }) };
 }
 
-/** Where a session the caller opens runs: as asked, unless the caller is a sandboxed Chat. */
+/** Where a session the caller opens runs: as asked, unless the caller is sandboxed. */
 async function openedSandbox(r: ParsedRequest, projectPath: string): Promise<{ sandbox?: SandboxPlacement }> {
-  const chat = chatSandbox(r.auth);
+  const caller = callerSandbox(r.auth);
   const asked = parseSandbox(r.body.sandbox, 'sandbox');
-  if (!chat && !asked) return {};
-  return { sandbox: (await resolveSandbox({ projectPath, placement: asked, chat })) ?? 'none' };
+  if (!caller && !asked) return {};
+  return { sandbox: (await resolveSandbox({ projectPath, placement: asked, caller })) ?? 'none' };
 }
 
 /**
- * A sandboxed Chat steers only the sessions in its own sandbox: one outside it
- * could act where the sandbox would not let Chat.
+ * A sandboxed caller steers only the sessions in its own sandbox: one outside
+ * it could act where the sandbox would not let the caller.
  */
-function refuseOutsideChatSandbox(r: ParsedRequest, id: string): void {
-  const chat = chatSandbox(r.auth);
-  const info = chat && chatHost.snapshot(id)?.info;
-  if (!chat || !info) return;
-  if (sameSandbox(info.sandbox, chat)) return;
+function refuseOutsideOwnSandbox(r: ParsedRequest, id: string): void {
+  const caller = callerSandbox(r.auth);
+  const info = caller && chatHost.snapshot(id)?.info;
+  if (!caller || !info) return;
+  if (sameSandbox(info.sandbox, caller)) return;
   const instead =
     info.taskId != null
       ? ` To work on its task, open a chat of your own: ouijit chat open --task ${info.taskId} --project ${info.projectPath}`
@@ -444,7 +444,7 @@ async function askUser(r: ParsedRequest, ask: AskRun) {
   const message = askMessage(r);
   // Chat has no terminal for a runner, so its own asks wait here, in Chat.
   if (callerIsHomeChat(r.auth.ptyId)) {
-    // The token cannot say: a sandbox at Everything access is served as the host.
+    // The token cannot say: a sandbox at Whole board is served as the host.
     const sandboxed = chatHost.snapshot(r.auth.ptyId)?.info.sandbox != null;
     const answer = await holdAsk(r.auth.ptyId, ask, message, sandboxed);
     return { command: ask.command, cwd: ask.cwd, ...answer };
@@ -533,7 +533,7 @@ interface Route {
 /**
  * Who in a sandbox may call a route; without one, only the host may. `level`
  * is the project's Ouijit CLI access it needs. `owns` is what the request must
- * name of the caller's own: its terminal, which at "Its own task" widens to
+ * name of the caller's own: its terminal, which at "Own task" widens to
  * every sandboxed terminal on its task; its task, by `:number` or
  * `taskNumber`; or a `:ptyId` in its project. Any `?project=` must be the
  * caller's own project.
@@ -1375,7 +1375,7 @@ const routes: Route[] = [
       const text = typeof r.body.text === 'string' ? r.body.text : '';
       if (!text.trim()) throw new HttpError(400, 'Missing text in body');
       const delivery = r.body.delivery === 'steer' || r.body.delivery === 'queue' ? r.body.delivery : 'auto';
-      refuseOutsideChatSandbox(r, r.segments[1]);
+      refuseOutsideOwnSandbox(r, r.segments[1]);
       try {
         const id = await chatHost.prompt(r.segments[1], { text }, delivery);
         if (callerIsHomeChat(r.auth.ptyId)) follow(r.auth.ptyId, sessionSubject(r.segments[1]));
@@ -1395,7 +1395,7 @@ const routes: Route[] = [
       const id = r.segments[1];
       // An agent answering its own approval would make the approval meaningless.
       if (r.auth.ptyId === id) throw new HttpError(403, 'A chat cannot answer its own requests');
-      refuseOutsideChatSandbox(r, id);
+      refuseOutsideOwnSandbox(r, id);
       const answer = parseAnswer(r.body);
       try {
         if (!chatHost.answer(id, r.segments[3], answer, { byChat: callerIsHomeChat(r.auth.ptyId) })) {
@@ -1508,7 +1508,7 @@ const routes: Route[] = [
     'POST',
     'chats/:id/interrupt',
     async (r) => {
-      refuseOutsideChatSandbox(r, r.segments[1]);
+      refuseOutsideOwnSandbox(r, r.segments[1]);
       try {
         await chatHost.interrupt(r.segments[1]);
         return { success: true };
@@ -1925,13 +1925,13 @@ const routes: Route[] = [
 
 interface SandboxCaller extends AuthContext {
   access: SandboxCliAccess;
-  /** Whether the token is a sandbox's, which its scope stops saying at "Everything". */
+  /** Whether the token is a sandbox's, which its scope stops saying at "Whole board". */
   sandboxed: boolean;
 }
 
 /**
  * A sandboxed terminal's access comes from its project's setting. At
- * "Everything" it is treated as a host caller throughout, handlers included.
+ * "Whole board" it is treated as a host caller throughout, handlers included.
  */
 async function withCliAccess(auth: AuthContext): Promise<SandboxCaller> {
   if (auth.scope === 'host') return { ...auth, scope: 'host', access: 'all', sandboxed: false };
@@ -1962,8 +1962,8 @@ function sandboxAllows(
 }
 
 /**
- * Chat at Read only sees every project: anything read, its own card's tabs and
- * drafts, and following. What moves a task or steers an agent needs Everything.
+ * Chat at View sees every project: anything read, its own card's tabs and
+ * drafts, and following. What moves a task or steers an agent needs Whole board.
  */
 function homeChatAllows(
   method: string,

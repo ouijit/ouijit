@@ -3,6 +3,7 @@ import { Icon } from '../terminal/Icon';
 import { SandboxRing } from '../terminal/StatusDot';
 import {
   SANDBOX_LABELS,
+  defaultCliAccess,
   isSandboxCliAccess,
   sandboxCliAccessSettingKey,
   type SandboxBackendId,
@@ -129,7 +130,7 @@ function sandboxLines(info: ChatSessionInfo, sandbox: SandboxBackendId, access: 
   if (info.role === 'home' && access === 'read') {
     return [
       'It can read your projects and tasks, and follow the agents working on them.',
-      "It can't change files, move tasks or message agents. To let it run your board, set its Ouijit CLI access to Everything in Chat's settings.",
+      "It can't change files, move tasks or message agents. To let it run your board, set its Ouijit CLI access to Whole board in Chat's settings.",
       'It can use the internet, unless its sandbox profile blocks it.',
     ];
   }
@@ -156,7 +157,7 @@ function useChatCliAccess(load: boolean): SandboxCliAccess | null {
     void window.api.homeChat
       .dir()
       .then((dir) => window.api.globalSettings.get(sandboxCliAccessSettingKey(dir)))
-      .then((stored) => setAccess(isSandboxCliAccess(stored) ? stored : 'read'));
+      .then((stored) => setAccess(isSandboxCliAccess(stored) ? stored : defaultCliAccess(true)));
   }, [load]);
   return access;
 }
