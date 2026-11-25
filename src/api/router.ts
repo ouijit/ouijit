@@ -941,6 +941,7 @@ const routes: Route[] = [
     'PUT',
     'task-opening',
     async (r) => {
+      hostOnly(r);
       const project = requireProject(r.query);
       const { surface, agent, setup, firstMessage } = r.body;
       if (surface !== undefined && surface !== 'terminal' && surface !== 'chat') {
@@ -977,6 +978,7 @@ const routes: Route[] = [
     'PUT',
     'worktree-settings',
     async (r) => {
+      hostOnly(r);
       const project = requireProject(r.query);
       const { mode, branchFrom } = r.body;
       if (mode !== undefined && !isWorktreeMode(mode)) {

@@ -549,8 +549,8 @@ A sandboxed terminal reaches Ouijit in its own project, at that project's CLI ac
   terminal read, tags and panels reach every sandboxed terminal on its task. A hook that
   runs on the host waits for the user even with --run-hook, and --hook-command
   and --sandbox are refused.
-- Whole board: what a host terminal can, except changing hooks, scripts and
-  sandbox settings. Tasks, terminals and chats it starts, and the hooks they
+- Whole board: what a host terminal can, except changing hooks, scripts, and
+  task opening, worktree and sandbox settings. Tasks, terminals and chats it starts, and the hooks they
   run, run in its own sandbox whatever --sandbox or the project says, and it
   messages, answers and interrupts only the agents in its sandbox.
 It edits and discards only the drafts a sandbox wrote. Anything else is

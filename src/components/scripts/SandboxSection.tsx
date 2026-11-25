@@ -19,7 +19,7 @@ const CLI_ACCESS: Record<SandboxCliAccess, { label: string; detail: string }> = 
   all: {
     label: 'Whole board',
     detail:
-      "Start and move tasks across your projects, and message the agents in its sandbox. Can't change hooks, scripts or sandbox settings. Anything that would run outside its sandbox waits for you.",
+      "Start and move tasks across your projects, and message the agents in its sandbox. Can't change hooks, scripts, or how tasks open, start their worktrees and are sandboxed. Anything that would run outside its sandbox waits for you.",
   },
 };
 
