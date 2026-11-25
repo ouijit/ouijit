@@ -615,7 +615,7 @@ function readLines(query: URLSearchParams): number | undefined {
 
 /** Of the panels a sandbox may add or remove, only markdown: see the panel routes. */
 function sandboxPanelKind(r: ParsedRequest, kind: CliPanelKind): CliPanelKind {
-  if (r.auth.scope === 'sandbox' && kind !== 'markdown') {
+  if (r.auth.sandboxed && kind !== 'markdown') {
     throw new HttpError(403, `A sandboxed terminal cannot add or remove a ${kind} panel`);
   }
   return kind;
@@ -858,6 +858,7 @@ const routes: Route[] = [
     'PUT',
     'hooks/:type',
     (r) => {
+      hostOnly(r);
       const project = requireProject(r.query);
       const type = r.segments[1];
       if (isActiveSandbox(parseSandbox(r.body.sandbox, 'sandbox')) && !SANDBOXABLE_HOOK_TYPES.includes(type)) {
@@ -872,6 +873,7 @@ const routes: Route[] = [
     'DELETE',
     'hooks/:type',
     (r) => {
+      hostOnly(r);
       const project = requireProject(r.query);
       const type = r.segments[1];
       return deleteHook(project, type as Parameters<typeof deleteHook>[1]);
@@ -1523,6 +1525,7 @@ const routes: Route[] = [
     'PUT',
     'scripts/:id',
     (r) => {
+      hostOnly(r);
       const project = requireProject(r.query);
       return saveScript(project, r.body as unknown as Parameters<typeof saveScript>[1]);
     },
@@ -1533,6 +1536,7 @@ const routes: Route[] = [
     'DELETE',
     'scripts/:id',
     (r) => {
+      hostOnly(r);
       const project = requireProject(r.query);
       const id = r.segments[1];
       return deleteScript(project, id);
@@ -1857,7 +1861,7 @@ const routes: Route[] = [
     (r) => {
       const kind = sandboxPanelKind(r, parsePanelKind(r.segments[2]));
       const value = panelValue(kind, r.body.path, r.body.url, r.body.script);
-      if (r.auth.scope === 'sandbox' && worktreeRelative(r.auth.ptyId, value) === null) {
+      if (r.auth.sandboxed && worktreeRelative(r.auth.ptyId, value) === null) {
         throw new HttpError(403, 'A sandboxed terminal attaches markdown from its own worktree');
       }
       return runPanelOp(r.segments[1], 'add', kind, value);

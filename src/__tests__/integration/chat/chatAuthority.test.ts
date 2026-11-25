@@ -272,4 +272,28 @@ describe('what Chat can do', () => {
     expect(fs.existsSync(profile)).toBe(true);
     fs.rmSync(profile);
   }, 20_000);
+
+  test('sandboxed at Everything, it still cannot change what runs on the host or add panels beyond markdown', async () => {
+    const project = `project=${encodeURIComponent(repo)}`;
+    const hook = { name: 'Agent', command: 'echo planted' };
+    const script = { id: 'x', name: 'Build', command: 'echo planted' };
+    await setGlobalSetting(sandboxCliAccessSettingKey(homeChatDir()), 'all');
+    token = issueToken(chat, 'sandbox');
+
+    expect((await api('PUT', `hooks/start?${project}`, hook)).status).toBe(403);
+    expect((await api('DELETE', `hooks/start?${project}`)).status).toBe(403);
+    expect((await api('PUT', `scripts/x?${project}`, script)).status).toBe(403);
+    expect((await api('DELETE', `scripts/x?${project}`)).status).toBe(403);
+    expect((await api('POST', `panels/${chat}/runner`, { script: 'Build' })).status).toBe(403);
+    expect((await api('POST', `panels/${chat}/preview`, { url: 'https://example.com' })).status).toBe(403);
+    expect((await api('DELETE', `panels/${chat}/runner?script=Build`)).status).toBe(403);
+    expect((await api('DELETE', `panels/${chat}/preview?url=https://example.com`)).status).toBe(403);
+    expect((await api('POST', `panels/${chat}/markdown`, { path: path.join(repo, 'README.md') })).status).toBe(403);
+
+    token = issueToken(chat, 'host');
+    expect((await api('PUT', `hooks/start?${project}`, hook)).status).toBe(200);
+    expect((await api('DELETE', `hooks/start?${project}`)).status).toBe(200);
+    expect((await api('PUT', `scripts/x?${project}`, script)).status).toBe(200);
+    expect((await api('DELETE', `scripts/x?${project}`)).status).toBe(200);
+  });
 });
