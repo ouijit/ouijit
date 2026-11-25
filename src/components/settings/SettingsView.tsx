@@ -6,7 +6,8 @@ import { useExperimentalStore } from '../../stores/experimentalStore';
 import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
 import { useEscape } from '../../hooks/useEscape';
 import { Icon } from '../terminal/Icon';
-import { SettingsDropdown, SettingsDropdownOption } from '../ui/SettingsDropdown';
+import { MenuItem, MenuPopover } from '../ui/Menu';
+import { SettingsTrigger } from '../ui/SettingsTrigger';
 import { AppAppearanceSettings, AppGeneralSettings } from './AppSettingsSections';
 import { ChatSettingsSection } from '../chat/ChatSettingsSection';
 import { LinearSettingsSection } from '../LinearSettingsSection';
@@ -93,15 +94,23 @@ function ProjectPicker({ projectPath, onPick }: { projectPath: string; onPick: (
   const [open, setOpen] = useState(false);
   const current = projects.find((p) => p.path === projectPath);
   return (
-    <SettingsDropdown
+    <MenuPopover
       open={open}
       onOpenChange={setOpen}
-      widthClass="w-[188px]"
-      ariaLabel="Choose a project"
-      triggerLabel={current?.name ?? 'Project'}
+      placement="bottom-start"
+      className="w-56 max-h-[22rem]"
+      trigger={(ref) => (
+        <SettingsTrigger
+          triggerRef={ref}
+          label="Choose a project"
+          value={current?.name ?? 'Project'}
+          open={open}
+          onToggle={() => setOpen(!open)}
+        />
+      )}
     >
       {projects.map((project) => (
-        <SettingsDropdownOption
+        <MenuItem
           key={project.path}
           label={project.name}
           selected={project.path === projectPath}
@@ -111,7 +120,7 @@ function ProjectPicker({ projectPath, onPick }: { projectPath: string; onPick: (
           }}
         />
       ))}
-    </SettingsDropdown>
+    </MenuPopover>
   );
 }
 

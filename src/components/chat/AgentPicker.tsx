@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { SettingsDropdown, SettingsDropdownOption } from '../ui/SettingsDropdown';
+import { MenuItem, MenuPopover } from '../ui/Menu';
+import { SettingsTrigger } from '../ui/SettingsTrigger';
 import { ToggleRow } from '../ui/SettingsRows';
 import { CHAT_AGENT_LABELS, CHAT_SETTING_KEYS } from '../../chat/preferences';
 import { CHAT_AGENT_IDS, type ChatAgentId } from '../../chat/model';
@@ -50,15 +51,22 @@ export function AgentPicker({
         label="Agent"
         description={probe?.problem ?? (probe?.version ? `${CHAT_AGENT_LABELS[agent]} ${probe.version}` : undefined)}
       >
-        <SettingsDropdown
+        <MenuPopover
           open={open}
           onOpenChange={setOpen}
-          widthClass="w-[13rem]"
-          ariaLabel={ariaLabel}
-          triggerLabel={CHAT_AGENT_LABELS[agent]}
+          className="w-56 max-h-[22rem]"
+          trigger={(ref) => (
+            <SettingsTrigger
+              triggerRef={ref}
+              label={ariaLabel}
+              value={CHAT_AGENT_LABELS[agent]}
+              open={open}
+              onToggle={() => setOpen(!open)}
+            />
+          )}
         >
           {CHAT_AGENT_IDS.map((id) => (
-            <SettingsDropdownOption
+            <MenuItem
               key={id}
               label={CHAT_AGENT_LABELS[id]}
               hint={agentHint(id, probes)}
@@ -69,7 +77,7 @@ export function AgentPicker({
               }}
             />
           ))}
-        </SettingsDropdown>
+        </MenuPopover>
       </Row>
       {agent === 'pi' && (
         <ToggleRow

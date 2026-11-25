@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useFloating, offset, flip, shift, autoUpdate, type Placement } from '@floating-ui/react';
 import { Icon } from '../terminal/Icon';
@@ -13,6 +13,7 @@ interface MenuPopoverProps {
   className?: string;
   /** Held above the rows and outside their scroll, for a field that filters them. */
   header?: ReactNode;
+  onMouseLeave?: () => void;
   children: ReactNode;
 }
 
@@ -31,6 +32,7 @@ export function MenuPopover({
   placement = 'bottom-end',
   className = 'w-72 max-h-[22rem]',
   header,
+  onMouseLeave,
   children,
 }: MenuPopoverProps) {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -89,6 +91,7 @@ export function MenuPopover({
               refs.setFloating(el);
             }}
             role="menu"
+            onMouseLeave={onMouseLeave}
             style={{ ...floatingStyles, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-menu)' }}
             // Above every overlay (dialogs at 10001, the composer sheet at
             // 10003): a menu opened from inside one portals to the body as its
@@ -118,10 +121,15 @@ export function MenuItem({
   disabled,
   title,
   selected,
+  labelStyle,
+  onMouseEnter,
   onClick,
 }: {
   icon?: ReactNode;
   label: string;
+  /** For a label drawn in what it names, such as a font. */
+  labelStyle?: CSSProperties;
+  onMouseEnter?: () => void;
   /** A second line under the label, for a choice its name alone does not explain. */
   detail?: string;
   hint?: string;
@@ -140,6 +148,7 @@ export function MenuItem({
       title={title}
       className="w-full text-left px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 text-text-secondary hover:bg-ink/[0.08] hover:text-text-primary disabled:opacity-40 disabled:hover:bg-transparent transition-colors duration-100"
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
     >
       {icon && <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">{icon}</span>}
       {detail ? (
@@ -150,7 +159,9 @@ export function MenuItem({
           </span>
         </span>
       ) : (
-        <span className="flex-1 truncate">{label}</span>
+        <span className="flex-1 truncate" style={labelStyle}>
+          {label}
+        </span>
       )}
       {hint && <span className="text-[11px] text-text-tertiary shrink-0">{hint}</span>}
       {selected && <Icon name="check" className="w-3.5 h-3.5 text-accent shrink-0" />}

@@ -44,6 +44,7 @@ export function SandboxSection({ projectPath }: { projectPath: string }) {
           </div>
         </div>
         <QuietPicker<SandboxProviderId>
+          inSettings
           label="Default"
           value={defaultSandbox}
           options={SANDBOX_PROVIDER_IDS}
@@ -74,6 +75,7 @@ export function CliAccessRow({
         <div className="mt-0.5 text-xs text-text-tertiary">{CLI_ACCESS[value].detail}</div>
       </div>
       <QuietPicker<SandboxCliAccess>
+        inSettings
         label="Ouijit CLI access"
         value={value}
         options={levels}

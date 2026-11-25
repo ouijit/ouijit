@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { SettingsDropdown, SettingsDropdownOption, SettingsDropdownDivider } from './ui/SettingsDropdown';
+import { MenuDivider, MenuItem, MenuPopover } from './ui/Menu';
+import { SettingsTrigger } from './ui/SettingsTrigger';
 import log from 'electron-log/renderer';
 
 const fontPickerLog = log.scope('fontPicker');
@@ -141,31 +142,33 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
         <div className="text-sm text-text-primary">{label}</div>
         <div className="text-xs text-text-tertiary mt-0.5">{description}</div>
       </div>
-      <SettingsDropdown
+      <MenuPopover
         open={open}
         onOpenChange={setOpen}
-        widthClass="w-[16rem]"
-        ariaLabel="Choose terminal font"
-        triggerLabel={triggerLabel}
-        triggerStyle={triggerFont ? { fontFamily: triggerFont } : undefined}
+        className="w-64 max-h-[24rem]"
+        trigger={(ref) => (
+          <SettingsTrigger
+            triggerRef={ref}
+            label="Choose terminal font"
+            value={triggerLabel}
+            valueStyle={triggerFont ? { fontFamily: triggerFont } : undefined}
+            open={open}
+            onToggle={() => setOpen(!open)}
+          />
+        )}
       >
-        <SettingsDropdownOption
-          label={defaultLabel}
-          hint="System default"
-          selected={!trimmedValue}
-          onClick={() => select('')}
-        />
-        <SettingsDropdownDivider />
+        <MenuItem label={defaultLabel} hint="System default" selected={!trimmedValue} onClick={() => select('')} />
+        <MenuDivider />
         {loading && <div className="px-2.5 py-2 text-xs text-text-tertiary">Loading installed fonts…</div>}
         {!loading && options.length === 0 && (
           <div className="px-2.5 py-2 text-xs text-text-tertiary">No monospace fonts found.</div>
         )}
         {!loading &&
           options.map((opt) => (
-            <SettingsDropdownOption
+            <MenuItem
               key={opt.value}
               label={opt.label}
-              fontFamily={opt.value}
+              labelStyle={{ fontFamily: opt.value }}
               selected={trimmedValue === opt.value}
               onClick={() => select(opt.value)}
             />
@@ -175,7 +178,7 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
             Showing fallback list — allow font access to see your installed fonts.
           </div>
         )}
-      </SettingsDropdown>
+      </MenuPopover>
     </div>
   );
 }

@@ -10,7 +10,8 @@ import {
 } from '../theme/themeManager';
 import { parseCustomTheme, type CustomTheme, type ThemePreference } from '../theme/themes';
 import { PRESET_THEMES } from '../theme/presets';
-import { SettingsDropdown, SettingsDropdownOption, SettingsDropdownDivider } from './ui/SettingsDropdown';
+import { MenuDivider, MenuItem, MenuPopover } from './ui/Menu';
+import { SettingsTrigger } from './ui/SettingsTrigger';
 import { DialogOverlay } from './dialogs/DialogOverlay';
 
 const CUSTOM_THEME_TEMPLATE = `{
@@ -133,19 +134,26 @@ function ThemeDropdown({ value, groups, onSelect }: ThemeDropdownProps) {
   };
 
   return (
-    <SettingsDropdown
+    <MenuPopover
       open={open}
       onOpenChange={setOpen}
-      widthClass="w-[13rem]"
-      ariaLabel="Choose theme"
-      triggerLabel={selected?.label ?? 'System'}
-      onMenuMouseLeave={() => previewTheme(null)}
+      className="w-56 max-h-[22rem]"
+      onMouseLeave={() => previewTheme(null)}
+      trigger={(ref) => (
+        <SettingsTrigger
+          triggerRef={ref}
+          label="Choose theme"
+          value={selected?.label ?? 'System'}
+          open={open}
+          onToggle={() => setOpen(!open)}
+        />
+      )}
     >
       {groups.map((group, i) => (
         <div key={i}>
-          {i > 0 && <SettingsDropdownDivider />}
+          {i > 0 && <MenuDivider />}
           {group.map((option) => (
-            <SettingsDropdownOption
+            <MenuItem
               key={option.value}
               label={option.label}
               hint={option.hint}
@@ -156,7 +164,7 @@ function ThemeDropdown({ value, groups, onSelect }: ThemeDropdownProps) {
           ))}
         </div>
       ))}
-    </SettingsDropdown>
+    </MenuPopover>
   );
 }
 

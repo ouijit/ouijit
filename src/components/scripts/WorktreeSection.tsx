@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { DiffBases } from '../../types';
 import { useWorktreeSettingsStore, type WorktreeMode } from '../../stores/worktreeSettingsStore';
 import { MenuDivider, MenuItem, MenuPopover } from '../ui/Menu';
+import { SettingsTrigger } from '../ui/SettingsTrigger';
 import { Icon } from '../terminal/Icon';
 import { MAX_BASE_ROWS, searchDiffBases } from '../diff/diffBaseGroups';
 
@@ -107,15 +108,13 @@ function BasePicker({ projectPath }: { projectPath: string }) {
       placement="bottom-end"
       className="w-72 max-h-[26rem]"
       trigger={(triggerRef) => (
-        <button
-          ref={triggerRef}
-          type="button"
-          className="btn-secondary btn-compact shrink-0 max-w-[14rem] flex items-center gap-1.5"
-          onClick={() => setOpen(!open)}
-        >
-          <span className={`truncate ${base ? 'font-mono text-[13px]' : ''}`}>{base ?? CHECKED_OUT}</span>
-          <Icon name="caret-down" className="w-3 h-3 shrink-0" />
-        </button>
+        <SettingsTrigger
+          triggerRef={triggerRef}
+          value={base ?? CHECKED_OUT}
+          valueClassName={base ? 'font-mono text-[13px]' : ''}
+          open={open}
+          onToggle={() => setOpen(!open)}
+        />
       )}
       header={
         <label className="flex items-center gap-2 h-8 px-2.5 rounded-[7px] bg-ink/[0.05] focus-within:bg-ink/[0.08] transition-colors duration-150">
