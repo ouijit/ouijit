@@ -29,12 +29,15 @@ Examples:
 
   preview
     .command('add')
-    .description('Open a web preview panel on a terminal session')
+    .description(
+      'Open a web preview panel on a terminal session; from a sandbox, a page off localhost waits for approval',
+    )
     .argument('<url>', 'http(s) URL to preview')
     .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
-    .action(async (url: string, explicitPtyId?: string) => {
+    .option('-m, --message <why>', 'why, for the user, when it waits for approval')
+    .action(async (url: string, explicitPtyId: string | undefined, opts: { message?: string }) => {
       const ptyId = resolvePtyId(explicitPtyId);
-      printJson(await post(panelsUrl(ptyId), { url }));
+      printJson(await post(panelsUrl(ptyId), { url, ...(opts.message && { message: opts.message }) }));
     });
 
   preview

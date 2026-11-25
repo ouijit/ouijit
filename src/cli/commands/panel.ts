@@ -5,8 +5,9 @@
 
 import type { Command } from 'commander';
 import { get, post, del } from '../api';
-import { printJson } from '../output';
+import { printError, printJson } from '../output';
 import { resolvePtyId } from '../ptyId';
+import { SANDBOX_FLAG, parseSandboxFlag, sandboxFlagHelp } from '../sandboxFlag';
 
 function panelsUrl(ptyId: string): string {
   return `/api/panels/${encodeURIComponent(ptyId)}`;
@@ -70,11 +71,23 @@ Examples:
 
   runner
     .command('add')
-    .description("Run a script in a panel on a terminal, in the project's default sandbox")
+    .description(
+      "Run a script in a panel on a terminal, in the project's default sandbox; from a sandbox, in its own, or on the host once the user approves",
+    )
     .argument('<script>', 'script id or name, from `script list`')
     .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
-    .action(async (script: string, explicitPtyId?: string) => {
-      printJson(await post(`${panelsUrl(resolvePtyId(explicitPtyId))}/runner`, { script }));
+    .option(SANDBOX_FLAG, sandboxFlagHelp('where it runs'))
+    .option('-m, --message <why>', 'why, for the user, when it waits for approval')
+    .action(async (script: string, explicitPtyId: string | undefined, opts: { sandbox?: string; message?: string }) => {
+      const parsed = parseSandboxFlag(opts.sandbox);
+      if ('error' in parsed) return printError(parsed.error);
+      printJson(
+        await post(`${panelsUrl(resolvePtyId(explicitPtyId))}/runner`, {
+          script,
+          ...parsed,
+          ...(opts.message && { message: opts.message }),
+        }),
+      );
     });
 
   runner

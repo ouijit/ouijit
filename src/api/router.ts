@@ -116,7 +116,7 @@ import { callerIsHomeChat, loadHomeChatSettings, ownTask, reconfigureHomeChats }
 import { follow, following, quietMove, sessionSubject, taskSubject, unfollow, wakeForAsk } from '../chat/wake';
 import { addExistingProject, createAndRegisterProject } from '../services/projectRegistration';
 import { holdAsk } from '../chat/decisions';
-import { holdCardAsk } from '../cardAsks';
+import { holdCardAsk, holdOpen } from '../cardAsks';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext } from '../apiAuth';
@@ -435,6 +435,64 @@ async function askRun(r: ParsedRequest): Promise<AskRun> {
   return { command, cwd, ...fileItRuns(command, cwd), wait };
 }
 
+function askMessage(r: ParsedRequest): string | undefined {
+  const message = typeof r.body.message === 'string' ? r.body.message.trim().slice(0, MAX_ASK_MESSAGE) : '';
+  return message || undefined;
+}
+
+async function askUser(r: ParsedRequest, ask: AskRun) {
+  const message = askMessage(r);
+  // Chat has no terminal for a runner, so its own asks wait here, in Chat.
+  if (callerIsHomeChat(r.auth.ptyId)) {
+    // The token cannot say: a sandbox at Everything access is served as the host.
+    const sandboxed = chatHost.snapshot(r.auth.ptyId)?.info.sandbox != null;
+    const answer = await holdAsk(r.auth.ptyId, ask, message, sandboxed);
+    return { command: ask.command, cwd: ask.cwd, ...answer };
+  }
+  void wakeForAsk(r.auth.ptyId, ask.command, message ?? '');
+  const answer = await holdCardAsk(callerTerminal(r.auth.ptyId), ask, message);
+  return { command: ask.command, cwd: ask.cwd, ...answer };
+}
+
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * What a sandboxed caller adds runs in its own sandbox. A runner on the host,
+ * or a page other than its own machine's, waits for the user as an ask does.
+ */
+async function addSandboxedPanel(r: ParsedRequest, ptyId: string, kind: CliPanelKind, value: string) {
+  if (kind === 'markdown') {
+    if (worktreeRelative(r.auth.ptyId, value) === null) {
+      throw new HttpError(403, 'A sandboxed terminal attaches markdown from its own worktree');
+    }
+    return runPanelOp(ptyId, 'add', kind, value);
+  }
+  if (kind === 'preview') {
+    if (LOOPBACK_HOSTS.has(new URL(value).hostname)) return runPanelOp(ptyId, 'add', kind, value);
+    const ctx = callerContext(r);
+    holdOpen(r.auth.ptyId, ptyId, value, ctx.worktreePath || ctx.projectPath, askMessage(r));
+    return { ptyId, kind, status: 'pending' };
+  }
+  const asked = parseSandbox(r.body.sandbox, 'sandbox');
+  if (asked === 'none') return askUser(r, await askRun(r));
+  const own = getSessionSpawnContext(r.auth.ptyId)?.sandbox;
+  if (!own || (asked && asked !== own.provider)) {
+    throw new HttpError(
+      403,
+      'A sandboxed terminal runs scripts in its own sandbox, or asks for the host with --sandbox host',
+    );
+  }
+  return runPanelOp(ptyId, 'add', kind, value, own);
+}
+
+/** Where a host caller's runner runs: as asked, or where the window's project default says. */
+async function hostRunnerSandbox(r: ParsedRequest, ptyId: string): Promise<SandboxSpec | 'none' | undefined> {
+  const asked = parseSandbox(r.body.sandbox, 'sandbox');
+  const projectPath = getSessionSpawnContext(ptyId)?.projectPath;
+  if (!asked || !projectPath) return undefined;
+  return (await resolveSandbox({ projectPath, placement: asked })) ?? 'none';
+}
+
 async function readCustomThemes(): Promise<CustomTheme[]> {
   return parseCustomThemes(await getGlobalSetting(CUSTOM_THEMES_KEY));
 }
@@ -613,23 +671,16 @@ function readLines(query: URLSearchParams): number | undefined {
   return lines === null ? undefined : Math.max(1, requireInt(lines, 'lines'));
 }
 
-/** Of the panels a sandbox may add or remove, only markdown: see the panel routes. */
-function sandboxPanelKind(r: ParsedRequest, kind: CliPanelKind): CliPanelKind {
-  if (r.auth.sandboxed && kind !== 'markdown') {
-    throw new HttpError(403, `A sandboxed terminal cannot add or remove a ${kind} panel`);
-  }
-  return kind;
-}
-
 /** Forward a panel op to the renderer (via the CLI panel bridge) and shape the reply. */
 async function runPanelOp(
   ptyId: string,
   action: 'list' | 'add' | 'remove',
   kind: CliPanelKind,
   value?: string,
+  sandbox?: SandboxSpec | 'none',
 ): Promise<{ ptyId: string; kind: CliPanelKind; panels: unknown }> {
   if (!isSessionLive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
-  const result = await cliPanelRequest({ ptyId, action, kind, value });
+  const result = await cliPanelRequest({ ptyId, action, kind, value, ...(sandbox && { sandbox }) });
   if (!result.ok) throw new HttpError(404, result.error ?? 'Panel operation failed');
   return { ptyId, kind, panels: result.panels ?? [] };
 }
@@ -1182,26 +1233,7 @@ const routes: Route[] = [
   // ── Asking the user ──────────────────────────────────────────────
   // Reachable at the lowest CLI access because the caller chooses nothing that
   // runs: the user reads the command and presses Run, or nothing happens.
-  route(
-    'POST',
-    'ask/run',
-    async (r) => {
-      const ask = await askRun(r);
-      const message = typeof r.body.message === 'string' ? r.body.message.trim().slice(0, MAX_ASK_MESSAGE) : '';
-      // Chat has no terminal for a runner, so its own asks wait here, in Chat.
-      if (callerIsHomeChat(r.auth.ptyId)) {
-        // The token cannot say: a sandbox at Everything access is served as the host.
-        const sandboxed = chatHost.snapshot(r.auth.ptyId)?.info.sandbox != null;
-        const answer = await holdAsk(r.auth.ptyId, ask, message || undefined, sandboxed);
-        return { command: ask.command, cwd: ask.cwd, ...answer };
-      }
-      void wakeForAsk(r.auth.ptyId, ask.command, message);
-      const answer = await holdCardAsk(callerTerminal(r.auth.ptyId), ask, message || undefined);
-      return { command: ask.command, cwd: ask.cwd, ...answer };
-    },
-    false,
-    READ,
-  ),
+  route('POST', 'ask/run', async (r) => askUser(r, await askRun(r)), false, READ),
 
   // ── Diff notes ───────────────────────────────────────────────────
   route(
@@ -1858,13 +1890,12 @@ const routes: Route[] = [
   route(
     'POST',
     'panels/:ptyId/:kind',
-    (r) => {
-      const kind = sandboxPanelKind(r, parsePanelKind(r.segments[2]));
+    async (r) => {
+      const ptyId = r.segments[1];
+      const kind = parsePanelKind(r.segments[2]);
       const value = panelValue(kind, r.body.path, r.body.url, r.body.script);
-      if (r.auth.sandboxed && worktreeRelative(r.auth.ptyId, value) === null) {
-        throw new HttpError(403, 'A sandboxed terminal attaches markdown from its own worktree');
-      }
-      return runPanelOp(r.segments[1], 'add', kind, value);
+      if (r.auth.sandboxed) return addSandboxedPanel(r, ptyId, kind, value);
+      return runPanelOp(ptyId, 'add', kind, value, kind === 'runner' ? await hostRunnerSandbox(r, ptyId) : undefined);
     },
     true,
     OWN_TERMINAL,
@@ -1874,7 +1905,7 @@ const routes: Route[] = [
     'DELETE',
     'panels/:ptyId/:kind',
     (r) => {
-      const kind = sandboxPanelKind(r, parsePanelKind(r.segments[2]));
+      const kind = parsePanelKind(r.segments[2]);
       // DELETE carries no body through the CLI client; the target comes in the
       // query string (?path= / ?url= / ?script=).
       const value = panelValue(

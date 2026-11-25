@@ -70,6 +70,7 @@ import type { ActiveSession } from './ptyManager';
 import type {
   SandboxProviderId,
   SandboxPlacement,
+  SandboxSpec,
   SandboxProviderStatus,
   NonoProfile,
   CustomSandboxConfig,
@@ -1041,6 +1042,8 @@ export interface CliPanelOp {
   value?: string;
   /** read: how many lines of a runner's screen. */
   lines?: number;
+  /** add runner: where its script runs, `none` for the host. Absent is the project's default. */
+  sandbox?: SandboxSpec | 'none';
 }
 
 /**

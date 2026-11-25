@@ -102,6 +102,27 @@ function QueuedCard({ item }: { item: Waiting }) {
   const remove = () => useWaitingStore.getState().remove(item.id);
   const asker = useAskerName(item.from);
   const taskName = useTaskName(item.kind === 'ask' ? '' : item.projectPath, item.kind === 'ask' ? -1 : item.taskNumber);
+  if (item.kind === 'ask' && item.ask.url) {
+    return (
+      <Card
+        title={`${asker} asks to open this page`}
+        actions={
+          <>
+            <button type="button" className="btn-secondary btn-compact" onClick={remove}>
+              Decline
+            </button>
+            <button type="button" className="btn-primary btn-compact" onClick={() => runWaiting(item)}>
+              Open
+            </button>
+          </>
+        }
+      >
+        <Command text={item.ask.url} />
+        {item.ask.message && <div className="text-text-secondary">{item.ask.message}</div>}
+        <div className="text-[12px] text-text-tertiary">Opens in a preview, outside the sandbox.</div>
+      </Card>
+    );
+  }
   if (item.kind === 'ask') {
     return (
       <Card

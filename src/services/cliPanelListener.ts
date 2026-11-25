@@ -7,7 +7,7 @@ import { startRunner } from '../components/terminal/terminalActions';
 import { panelLabel, type TerminalPanel } from '../components/terminal/panelTypes';
 import { bufferText } from '../components/terminal/terminalText';
 import { projectDefaultSandbox } from '../stores/projectDataStore';
-import { isActiveSandbox } from '../sandbox/types';
+import type { SandboxSpec } from '../sandbox/types';
 import {
   TERMINAL_READY_WAIT_MS,
   type CliPanelInfo,
@@ -58,7 +58,12 @@ async function scriptNamed(projectPath: string, value: string) {
   return scripts.find((s) => s.id === value) ?? scripts.find((s) => s.name === value);
 }
 
-async function add(instance: OuijitTerminal, kind: CliPanelKind, value: string): Promise<string | null> {
+async function add(
+  instance: OuijitTerminal,
+  kind: CliPanelKind,
+  value: string,
+  sandbox?: SandboxSpec | 'none',
+): Promise<string | null> {
   if (kind === 'runner') {
     const script = await scriptNamed(instance.projectPath, value);
     if (!script) return `No script named ${value}`;
@@ -67,8 +72,9 @@ async function add(instance: OuijitTerminal, kind: CliPanelKind, value: string):
       instance.activatePanel(existing.id);
       return null;
     }
-    const sandbox = await projectDefaultSandbox(instance.projectPath);
-    await startRunner(instance.ptyId, script, isActiveSandbox(sandbox) ? sandbox : undefined);
+    const placement = sandbox ?? (await projectDefaultSandbox(instance.projectPath));
+    // The project's default host leaves the card to decide; an asked-for host is the host.
+    await startRunner(instance.ptyId, script, placement === 'none' && !sandbox ? undefined : placement);
     return null;
   }
   const existing = findPanel(instance, kind, value);
@@ -129,7 +135,7 @@ async function run(instance: OuijitTerminal, op: CliPanelOp): Promise<CliPanelRe
 
   if (!kind) return { ok: false, error: 'Missing panel kind' };
   let error: string | null = null;
-  if (action === 'add') error = value ? await add(instance, kind, value) : 'Missing value for add';
+  if (action === 'add') error = value ? await add(instance, kind, value, op.sandbox) : 'Missing value for add';
   if (action === 'remove') error = await remove(instance, kind, value);
   if (error) return { ok: false, error };
   return respondWith(instance, panelsOfKind(instance, kind));

@@ -103,6 +103,24 @@ function Detail({ item, titleId }: { item: Waiting; titleId: string }) {
 
   const { ask } = item;
   const risks = scriptRisks(ask.file);
+  if (ask.url) {
+    return (
+      <>
+        <h2 id={titleId} data-testid="dialog-title">
+          <AskerRow ptyId={item.from} />
+        </h2>
+        {ask.message && (
+          <p className="mt-3.5 max-h-28 overflow-y-auto whitespace-pre-wrap break-words text-[15px] leading-[22px] text-text-primary">
+            {ask.message}
+          </p>
+        )}
+        <p data-testid="waiting-command" className="mt-4 font-mono text-[13px] break-all text-text-primary">
+          {ask.url}
+        </p>
+        <p className="mt-4 text-xs leading-[17px] text-text-tertiary">Opens in a preview, outside its sandbox.</p>
+      </>
+    );
+  }
   return (
     <>
       <h2 id={titleId} data-testid="dialog-title">
@@ -214,13 +232,14 @@ export function WaitingDialog({ ptyId }: { ptyId: string }) {
       <button data-testid="waiting-decline" className="btn-secondary" onClick={() => remove(item.id)}>
         {item.kind === 'ask' ? 'Decline' : 'Skip'}
       </button>
-      {item.kind === 'ask' && (
+      {item.kind === 'ask' && !item.ask.url && (
         <button data-testid="waiting-run-private" className="btn-secondary" onClick={() => runWaiting(item, true)}>
           Run privately
         </button>
       )}
       <button data-testid="waiting-run" className="btn-primary" onClick={() => runWaiting(item)}>
-        Run <kbd className="ml-1 font-sans opacity-60">{isMac ? '⌘↵' : 'Ctrl+↵'}</kbd>
+        {item.kind === 'ask' && item.ask.url ? 'Open' : 'Run'}{' '}
+        <kbd className="ml-1 font-sans opacity-60">{isMac ? '⌘↵' : 'Ctrl+↵'}</kbd>
       </button>
     </div>
   );

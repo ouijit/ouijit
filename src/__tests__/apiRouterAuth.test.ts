@@ -3,7 +3,7 @@
  * hook server with a real HTTP client. Covers:
  *   - Unauthenticated requests get 401.
  *   - Host-only routes reject sandbox-scoped tokens with 403.
- *   - A sandbox reaches its own terminal's panels, and attaches only markdown from its worktree.
+ *   - A sandbox reaches its own terminal's panels, and attaches markdown only from its worktree.
  *   - POST /api/tasks/start with sandboxed:false is refused on sandbox scope.
  */
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -339,7 +339,7 @@ describe('theme routes', () => {
 });
 
 describe('panel scope', () => {
-  test("a sandbox reaches its own terminal's panels, and attaches only markdown from its worktree", async () => {
+  test("a sandbox reaches its own terminal's panels, and attaches markdown only from its worktree", async () => {
     const token = issueToken('pty-42', 'sandbox');
     const post = (kind: string, body: Record<string, unknown>) =>
       request('POST', `/api/panels/pty-42/${kind}`, token, body).then((r) => r.status);
@@ -349,8 +349,6 @@ describe('panel scope', () => {
     expect(await post('markdown', { path: '/tmp/test-project/T-7/plan.md' })).toBe(200);
     expect(await post('markdown', { path: '/tmp/x.md' })).toBe(403);
     expect(await post('markdown', { path: '/tmp/test-project/T-7/../../x.md' })).toBe(403);
-    expect(await post('preview', { url: 'http://localhost:3000' })).toBe(403);
-    expect(await post('runner', { script: 'Dev server' })).toBe(403);
   });
 
   test('host token can POST a markdown panel', async () => {

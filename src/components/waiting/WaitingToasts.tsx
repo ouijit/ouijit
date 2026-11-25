@@ -65,7 +65,7 @@ function WaitingToast({ item }: { item: Waiting }) {
             className={`${pill} bg-accent text-accent-ink hover:bg-accent-hover`}
             onClick={() => runWaiting(item)}
           >
-            Run
+            {item.kind === 'ask' && item.ask.url ? 'Open' : 'Run'}
           </button>
         )}
         {item.kind === 'move' && (

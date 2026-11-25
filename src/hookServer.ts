@@ -500,14 +500,20 @@ ouijit markdown list                          # → {ptyId, kind, panels: [{id, 
 ouijit markdown remove <path.md>              # close that markdown panel
 
 ## Web Preview Commands (open a URL as a tab in this terminal)
-ouijit preview add <url>                      # open a web preview panel (http/https) on this terminal
+ouijit preview add <url> [-m "<why>"]         # open a web preview panel (http/https) on this terminal
 ouijit preview list                           # → {ptyId, kind, panels: [{id, label, url, active}, ...]}
 ouijit preview remove <url>                   # close that preview panel
 
 ## Runner Commands (run a project script in a tab on this terminal)
 ouijit runner add <script>                    # by id or name from script list, in the project's default sandbox
+ouijit runner add <script> --sandbox host|nono|custom [-m "<why>"]   # somewhere else
 ouijit runner list                            # → {ptyId, kind, panels: [{id, label, script, active}, ...]}
 ouijit runner remove <script>                 # close it, stopping the script
+
+From a sandbox, a runner runs in that sandbox, and a preview of localhost,
+127.0.0.1 or [::1] opens at once. A runner with --sandbox host, or a preview of
+any other page, waits for the user to press Run or Open, as an ask does, and
+the reply is pending until then.
 
 ## Panel Commands (every kind of tab on a terminal)
 ouijit panel list [pty-id]                    # → {ptyId, panels: [{id, kind, label, active, ...}], diffOpen}
@@ -534,8 +540,9 @@ ouijit theme delete <id>                      # remove a custom theme
 A sandboxed terminal reaches Ouijit in its own project, at that project's CLI access level:
 - Read only, the default: its own task (task current, task get), diff notes,
   link, ask, pr list and view, pr and linear drafts, pr lenses, linear list
-  and view. On this terminal: terminal read, tags, panel list and read, and
-  markdown add and remove for files in its worktree.
+  and view. On this terminal: terminal read, tags, panel list and read,
+  markdown add and remove for files in its worktree, and runner and preview
+  panels as above.
 - Its own task: also task set-status, set-name and set-description on its own
   task, pr link and issue link to it, and task create for a to-do card.
   terminal read, tags and panels reach every sandboxed terminal on its task. A hook that

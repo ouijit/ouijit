@@ -16,7 +16,10 @@ function notify(decision: Decision): void {
   const display = useTerminalStore.getState().displayStates[decision.from];
   if (!display) return;
   const project = useAppStore.getState().projects.find((p) => p.path === display.projectPath);
-  notifyUnfocused(project?.name ?? 'Ouijit', `${display.label} asks to run ${decision.ask.command}`);
+  notifyUnfocused(
+    project?.name ?? 'Ouijit',
+    `${display.label} asks to ${decision.ask.url ? 'open' : 'run'} ${decision.ask.command}`,
+  );
 }
 
 /**

@@ -21,6 +21,8 @@ export interface AskRun {
   runCommand?: string;
   /** Answer once the run ends, rather than once it is asked. */
   wait?: boolean;
+  /** A page to open in a preview on the asker's card rather than a command to run; `command` is the url. */
+  url?: string;
 }
 
 /**
