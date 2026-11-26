@@ -23,6 +23,7 @@ import { diffBaseSettingKey } from '../../diffSource';
 import { parseOsc133ExitCodes } from './osc133';
 import type { TerminalPanel, RunnerPanel, WebPreviewPanel } from './panelTypes';
 import { terminalInstances } from './terminalRegistry';
+import type { RegisteredTerminal, RunnerPanelScript } from './terminalTypes';
 
 // ── Idle fallback timer constants ────────────────────────────────────
 const IDLE_FALLBACK_MS = 3000;
@@ -313,7 +314,7 @@ function scheduleTerminalGitStatusRefresh(term: OuijitTerminal): void {
  * for the same one, or the file list and the hunks under it are two different
  * comparisons.
  */
-function statusArgs(term: OuijitTerminal): [string, string | undefined, DiffDefaults] {
+function statusArgs(term: RegisteredTerminal): [string, string | undefined, DiffDefaults] {
   return [
     term.worktreePath || term.projectPath,
     term.diffBase,
@@ -321,7 +322,7 @@ function statusArgs(term: OuijitTerminal): [string, string | undefined, DiffDefa
   ];
 }
 
-function diffBaseKey(term: OuijitTerminal): string {
+function diffBaseKey(term: RegisteredTerminal): string {
   return diffBaseSettingKey(term.worktreePath || term.projectPath);
 }
 
@@ -339,12 +340,12 @@ async function restoreDiffBase(term: OuijitTerminal): Promise<void> {
   await refreshTerminalGitStatus(term);
 }
 
-function applyGitStatus(term: OuijitTerminal, fileStatus: GitFileStatus | null): void {
+function applyGitStatus(term: RegisteredTerminal, fileStatus: GitFileStatus | null): void {
   term.gitFileStatus = fileStatus;
   term.pushDisplayState({ gitFileStatus: fileStatus });
 }
 
-export async function refreshTerminalGitStatus(term: OuijitTerminal): Promise<void> {
+export async function refreshTerminalGitStatus(term: RegisteredTerminal): Promise<void> {
   applyGitStatus(term, await window.api.getGitFileStatus(...statusArgs(term)));
 }
 
@@ -354,7 +355,7 @@ export async function refreshTerminalsGitStatus(ptyIds: string[]): Promise<void>
   // Grouped by everything the comparison depends on, so a child task diffing
   // against its parent branch and a terminal the reader pointed at a remote
   // each get their own answer.
-  const groupToTerminals = new Map<string, OuijitTerminal[]>();
+  const groupToTerminals = new Map<string, RegisteredTerminal[]>();
   for (const ptyId of ptyIds) {
     const term = terminalInstances.get(ptyId);
     if (!term) continue;
@@ -377,7 +378,7 @@ export async function refreshTerminalsGitStatus(ptyIds: string[]): Promise<void>
 
 // ── OuijitTerminal class ─────────────────────────────────────────────
 
-export class OuijitTerminal {
+export class OuijitTerminal implements RegisteredTerminal {
   // ── Identity ────────────────────────────────────────────────────────
   // Sandboxed terminals register in the store before their real PTY id is
   // known. Use a unique placeholder per instance so concurrent pending
@@ -787,18 +788,7 @@ export class OuijitTerminal {
     this.syncPanels();
   }
 
-  addRunnerPanel(
-    script?: {
-      name: string;
-      command: string;
-      source?: 'hook' | 'script';
-      restartIfRunning?: boolean;
-      sandboxProvider?: SandboxProviderId;
-      env?: Record<string, string>;
-      private?: boolean;
-    } | null,
-    activate = true,
-  ): string {
+  addRunnerPanel(script?: RunnerPanelScript | null, activate = true): string {
     const id = generateId('panel');
     const panel: RunnerPanel = {
       id,

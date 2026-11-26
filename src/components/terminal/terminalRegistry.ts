@@ -1,12 +1,12 @@
 /**
  * Where live terminals are looked up by PTY id.
  *
- * Deliberately free of runtime imports (the `OuijitTerminal` import is
- * type-only) so anything can reach a terminal without pulling in xterm.
+ * Free of runtime imports so anything can reach a terminal without pulling in
+ * xterm, and typed by an interface so it does not import terminalReact.
  */
-import type { OuijitTerminal } from './terminalReact';
+import type { RegisteredTerminal } from './terminalTypes';
 
-export const terminalInstances = new Map<string, OuijitTerminal>();
+export const terminalInstances = new Map<string, RegisteredTerminal>();
 
 const restoresInFlight = new Map<string, Promise<unknown>>();
 
@@ -45,7 +45,7 @@ export async function restoreTerminalOnce(ptyId: string, restore: () => Promise<
  * replaces `panels` wholesale — so a panel added in between is silently
  * dropped.
  */
-export async function whenTerminalReady(ptyId: string, timeoutMs: number): Promise<OuijitTerminal | null> {
+export async function whenTerminalReady(ptyId: string, timeoutMs: number): Promise<RegisteredTerminal | null> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const instance = terminalInstances.get(ptyId);

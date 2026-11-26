@@ -1,5 +1,5 @@
 import log from 'electron-log/renderer';
-import type { OuijitTerminal } from '../components/terminal/terminalReact';
+import type { RegisteredTerminal } from '../components/terminal/terminalTypes';
 import { whenTerminalReady } from '../components/terminal/terminalRegistry';
 import { startRunner } from '../components/terminal/terminalActions';
 import { panelLabel, type TerminalPanel } from '../components/terminal/panelTypes';
@@ -29,15 +29,15 @@ function panelValue(panel: TerminalPanel): string | undefined {
   return panel.scriptName ?? undefined;
 }
 
-function panelsOfKind(instance: OuijitTerminal, kind: CliPanelKind): TerminalPanel[] {
+function panelsOfKind(instance: RegisteredTerminal, kind: CliPanelKind): TerminalPanel[] {
   return instance.panels.filter((p) => p.kind === INTERNAL_KIND[kind]);
 }
 
-function findPanel(instance: OuijitTerminal, kind: CliPanelKind, value: string): TerminalPanel | undefined {
+function findPanel(instance: RegisteredTerminal, kind: CliPanelKind, value: string): TerminalPanel | undefined {
   return panelsOfKind(instance, kind).find((p) => panelValue(p) === value);
 }
 
-function describe(instance: OuijitTerminal, panel: TerminalPanel): CliPanelInfo {
+function describe(instance: RegisteredTerminal, panel: TerminalPanel): CliPanelInfo {
   const kind = CLI_KIND[panel.kind];
   const field = { markdown: 'path', preview: 'url', runner: 'script' }[kind];
   return {
@@ -55,7 +55,7 @@ async function scriptNamed(projectPath: string, value: string) {
   return scripts.find((s) => s.id === value) ?? scripts.find((s) => s.name === value);
 }
 
-async function add(instance: OuijitTerminal, kind: CliPanelKind, value: string): Promise<string | null> {
+async function add(instance: RegisteredTerminal, kind: CliPanelKind, value: string): Promise<string | null> {
   if (kind === 'runner') {
     const script = await scriptNamed(instance.projectPath, value);
     if (!script) return `No script named ${value}`;
@@ -75,7 +75,11 @@ async function add(instance: OuijitTerminal, kind: CliPanelKind, value: string):
   return null;
 }
 
-async function remove(instance: OuijitTerminal, kind: CliPanelKind, value: string | undefined): Promise<string | null> {
+async function remove(
+  instance: RegisteredTerminal,
+  kind: CliPanelKind,
+  value: string | undefined,
+): Promise<string | null> {
   const name = kind === 'runner' && value ? ((await scriptNamed(instance.projectPath, value))?.name ?? value) : value;
   const match = name ? findPanel(instance, kind, name) : undefined;
   if (!match) return `No ${kind} panel matching ${value ?? '(none)'}`;
@@ -83,7 +87,7 @@ async function remove(instance: OuijitTerminal, kind: CliPanelKind, value: strin
   return null;
 }
 
-function focus(instance: OuijitTerminal, id: string | undefined): string | null {
+function focus(instance: RegisteredTerminal, id: string | undefined): string | null {
   if (id === 'terminal') {
     instance.deactivatePanel();
     return null;
@@ -93,7 +97,7 @@ function focus(instance: OuijitTerminal, id: string | undefined): string | null 
   return null;
 }
 
-function read(instance: OuijitTerminal, id: string | undefined, lines: number | undefined): CliPanelRead | string {
+function read(instance: RegisteredTerminal, id: string | undefined, lines: number | undefined): CliPanelRead | string {
   const panel = instance.panels.find((p) => p.id === id);
   if (!panel) return `No panel ${id ?? '(none)'}`;
   if (panel.kind === 'plan') return { kind: 'markdown', path: panel.planPath };
@@ -104,11 +108,11 @@ function read(instance: OuijitTerminal, id: string | undefined, lines: number | 
   return { kind: 'runner', text: child ? bufferText(child.xterm, lines ?? DEFAULT_READ_LINES) : '', ...ended };
 }
 
-function respondWith(instance: OuijitTerminal, panels: TerminalPanel[]): CliPanelResponse {
+function respondWith(instance: RegisteredTerminal, panels: TerminalPanel[]): CliPanelResponse {
   return { ok: true, panels: panels.map((p) => describe(instance, p)), diffOpen: instance.diffPanelOpen };
 }
 
-async function run(instance: OuijitTerminal, op: CliPanelOp): Promise<CliPanelResponse> {
+async function run(instance: RegisteredTerminal, op: CliPanelOp): Promise<CliPanelResponse> {
   const { action, kind, value } = op;
   if (action === 'read') {
     const result = read(instance, value, op.lines);
