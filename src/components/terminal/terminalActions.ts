@@ -507,9 +507,16 @@ async function homeChatSandbox(ptyId: string): Promise<SandboxSpec | undefined> 
 }
 
 /**
- * `sandbox` absent is wherever the card runs its runners; 'none' is the host
- * even beside a sandboxed Chat, for an ask the user approved to run there.
+ * Where a runner on this card runs. Beside a sandboxed Chat, Chat's sandbox,
+ * unless the user approved an ask for somewhere else: the host ('none'), or a
+ * resolved sandbox of its own.
  */
+async function cardPlacement(ptyId: string, sandbox?: SandboxPlacement): Promise<SandboxPlacement | undefined> {
+  if (sandbox === 'none' || typeof sandbox === 'object') return sandbox;
+  return (await homeChatSandbox(ptyId)) ?? sandbox;
+}
+
+/** `sandbox` absent is wherever the card runs its runners. */
 export async function startRunner(
   ptyId: string,
   script?: RunnerScript,
@@ -518,7 +525,7 @@ export async function startRunner(
 ): Promise<string | null> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return null;
-  const placement = sandbox === 'none' ? sandbox : ((await homeChatSandbox(ptyId)) ?? sandbox);
+  const placement = await cardPlacement(ptyId, sandbox);
 
   const resolved = await resolveRunnable(instance.projectPath, script);
   if (!resolved) {
@@ -537,19 +544,30 @@ export async function startRunner(
   return panelId;
 }
 
-/** A shell beside the card, in its worktree: where the card runs its runners unless `sandbox` says. */
+/**
+ * A shell beside the card, in its worktree: where the card runs its runners
+ * unless `sandbox` says. One the user opened for a sandboxed agent's ask is
+ * `askedBy` it, which may then read it unless it is private.
+ */
 export async function startShell(
   ptyId: string,
   sandbox?: SandboxPlacement,
-  replacing?: string,
+  opts: { replacing?: string; private?: boolean; askedBy?: string } = {},
 ): Promise<string | null> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return null;
-  const placement = sandbox === 'none' ? sandbox : ((await homeChatSandbox(ptyId)) ?? sandbox);
+  const placement = await cardPlacement(ptyId, sandbox);
   const panelId = instance.addRunnerPanel(
-    { name: SHELL_LABEL, command: '', sandbox: placement, shell: true },
+    {
+      name: SHELL_LABEL,
+      command: '',
+      sandbox: placement,
+      shell: true,
+      ...(opts.private && { private: true }),
+      ...(opts.askedBy && { askedBy: opts.askedBy }),
+    },
     true,
-    replacing,
+    opts.replacing,
   );
   await spawnRunner(ptyId, panelId);
   return panelId;

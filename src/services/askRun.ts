@@ -1,4 +1,4 @@
-import { startRunner } from '../components/terminal/terminalActions';
+import { startRunner, startShell } from '../components/terminal/terminalActions';
 import { terminalInstances } from '../components/terminal/terminalRegistry';
 import { homePanelHost } from '../components/chat/homeChatPanels';
 import { isHomeChat } from '../stores/homeChatStore';
@@ -41,6 +41,10 @@ function outcome(ptyId: string, panelId: string): Promise<AskAnswer> {
 export async function runApprovedAsk(fromPtyId: string, ask: AskRun, privately: boolean): Promise<AskAnswer> {
   // One of Chat's conversations runs it beside itself, in its own folder.
   if (isHomeChat(fromPtyId)) await homePanelHost(fromPtyId);
+  if (ask.shell) {
+    const shell = await startShell(fromPtyId, ask.sandbox ?? 'none', { private: privately, askedBy: fromPtyId });
+    return shell ? { status: 'pending', panelId: shell } : { status: 'declined' };
+  }
   const panelId = await startRunner(
     fromPtyId,
     {
@@ -49,7 +53,7 @@ export async function runApprovedAsk(fromPtyId: string, ask: AskRun, privately: 
       env: NO_PAGER,
       private: privately,
     },
-    'none',
+    ask.sandbox ?? 'none',
   );
   if (!panelId) return { status: 'declined' };
   return ask.wait ? outcome(fromPtyId, panelId) : { status: 'pending', panelId };

@@ -167,7 +167,7 @@ describe('a new tab', () => {
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, 'custom', TAB));
     // A shell opens in the same place as the scripts.
     fireEvent.click(screen.getByText('Shell'));
-    expect(startShell).toHaveBeenLastCalledWith(PTY, 'custom', TAB);
+    expect(startShell).toHaveBeenLastCalledWith(PTY, 'custom', { replacing: TAB });
 
     fireEvent.click(screen.getByLabelText('Run in'));
     fireEvent.click(await screen.findByRole('button', { name: 'Host' }));
@@ -178,7 +178,7 @@ describe('a new tab', () => {
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, undefined, TAB));
     type('shell');
     press('Enter');
-    expect(startShell).toHaveBeenLastCalledWith(PTY, 'none', TAB);
+    expect(startShell).toHaveBeenLastCalledWith(PTY, 'none', { replacing: TAB });
 
     type('');
     const runs = vi.mocked(startRunner).mock.calls.length;
@@ -241,6 +241,6 @@ describe('a new tab', () => {
     expect(card.addPlanPanel).toHaveBeenCalledWith(`${PROJECT}/calendar.md`, true, TAB);
     type('', chatField);
     fireEvent.click(within(list).getByText('Shell'));
-    expect(startShell).toHaveBeenCalledWith(PTY, undefined, TAB);
+    expect(startShell).toHaveBeenCalledWith(PTY, undefined, { replacing: TAB });
   });
 });

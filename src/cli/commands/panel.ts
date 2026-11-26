@@ -73,7 +73,7 @@ Examples:
   runner
     .command('add')
     .description(
-      "Run a script in a panel on a terminal, in the project's default sandbox; from a sandbox, in its own, or on the host once the user approves",
+      "Run a script in a panel on a terminal, in the project's default sandbox; from a sandbox, in its own, or anywhere else once the user approves",
     )
     .argument('<script>', 'script id or name, from `script list`')
     .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
@@ -94,14 +94,21 @@ Examples:
   runner
     .command('shell')
     .description(
-      "Open a shell in a panel on a terminal, in its worktree, in the project's default sandbox; from a sandbox, only in its own",
+      "Open a shell in a panel on a terminal, in its worktree, in the project's default sandbox; from a sandbox, in its own, or anywhere else once the user approves",
     )
     .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
     .option(SANDBOX_FLAG, sandboxFlagHelp('where it runs'))
-    .action(async (explicitPtyId: string | undefined, opts: { sandbox?: string }) => {
+    .option('-m, --message <why>', 'why, for the user, when it waits for approval')
+    .action(async (explicitPtyId: string | undefined, opts: { sandbox?: string; message?: string }) => {
       const parsed = parseSandboxFlag(opts.sandbox);
       if ('error' in parsed) return printError(parsed.error);
-      printJson(await post(`${panelsUrl(resolvePtyId(explicitPtyId))}/runner`, { shell: true, ...parsed }));
+      printJson(
+        await post(`${panelsUrl(resolvePtyId(explicitPtyId))}/runner`, {
+          shell: true,
+          ...parsed,
+          ...(opts.message && { message: opts.message }),
+        }),
+      );
     });
 
   runner

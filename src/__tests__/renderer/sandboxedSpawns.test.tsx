@@ -49,14 +49,16 @@ vi.mock('../../components/terminal/terminalReact', () => {
       this.worktreePath = opts.worktreePath;
       this.sandbox = opts.sandbox;
     }
-    addRunnerPanel(script: { name: string; command: string; sandbox?: SandboxPlacement }) {
+    addRunnerPanel(script: { name: string; command: string; sandbox?: SandboxPlacement } & Record<string, unknown>) {
       const id = `panel-${this.panels.length}`;
+      const { name, command, sandbox, ...rest } = script;
       this.panels.push({
         id,
         kind: 'runner',
-        scriptName: script.name,
-        scriptCommand: script.command,
-        ...(script.sandbox && script.sandbox !== 'none' && { sandbox: script.sandbox }),
+        scriptName: name,
+        scriptCommand: command,
+        ...rest,
+        ...(sandbox && sandbox !== 'none' && { sandbox }),
         status: 'idle',
       });
       return id;
@@ -123,6 +125,21 @@ describe('sandboxed spawns', () => {
 
     await runApprovedAsk('home-1', { command: 'git push', cwd: '/chat' }, false);
     expect(sandboxOfLastSpawn()).toBeUndefined();
+
+    // A shell the user opens on its ask is on the host, or where the ask said, and is the asker's to read.
+    const shell = (await runApprovedAsk('home-1', { command: '/bin/zsh', cwd: '/chat', shell: true }, true)) as {
+      panelId: string;
+    };
+    expect(sandboxOfLastSpawn()).toBeUndefined();
+    expect(vi.mocked(window.api.pty.spawn).mock.lastCall?.[0]).toMatchObject({ command: '', isRunner: true });
+    expect(host.panels.find((p) => p.id === shell.panelId)).toMatchObject({
+      shell: true,
+      private: true,
+      askedBy: 'home-1',
+    });
+    const elsewhere = { provider: 'custom' as const, settings: '/elsewhere' };
+    await runApprovedAsk('home-1', { command: 'make', cwd: '/chat', sandbox: elsewhere }, false);
+    expect(sandboxOfLastSpawn()).toEqual(elsewhere);
 
     vi.mocked(window.api.chat.snapshot).mockResolvedValue({
       info: { id: 'home-1', role: 'home', sandbox: null },

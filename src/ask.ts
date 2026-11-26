@@ -1,3 +1,5 @@
+import type { SandboxSpec } from './sandbox/types';
+
 /** What `ouijit ask run` asks the user to run on the host, resolved before the user sees it. */
 export interface AskRun {
   command: string;
@@ -23,6 +25,21 @@ export interface AskRun {
   wait?: boolean;
   /** A page to open in a preview on the asker's card rather than a command to run; `command` is the url. */
   url?: string;
+  /** A shell to open beside the asker's card rather than a command to run; `command` is the shell. */
+  shell?: boolean;
+  /** Where it runs when not on the host: a sandbox other than the asker's own. */
+  sandbox?: SandboxSpec;
+}
+
+/** What approving it does, as its button says. */
+export function askVerb(ask: AskRun): 'Open' | 'Run' {
+  return ask.url || ask.shell ? 'Open' : 'Run';
+}
+
+/** Where it runs, for the line under it. */
+export function askPlace(ask: AskRun): string {
+  if (!ask.sandbox) return 'on your computer';
+  return ask.sandbox.provider === 'custom' ? 'in the Custom sandbox' : 'in the sandbox';
 }
 
 /**

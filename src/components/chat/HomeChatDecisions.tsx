@@ -1,3 +1,4 @@
+import { askPlace, askVerb } from '../../types';
 import { useEffect, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useWaitingStore, type Waiting } from '../../stores/waitingStore';
@@ -126,17 +127,21 @@ function QueuedCard({ item }: { item: Waiting }) {
   if (item.kind === 'ask') {
     return (
       <Card
-        title={`${asker} asks to run this on your computer`}
+        title={
+          item.ask.shell
+            ? `${asker} asks to open a shell ${askPlace(item.ask)}`
+            : `${asker} asks to run this ${askPlace(item.ask)}`
+        }
         actions={
           <>
             <button type="button" className="btn-secondary btn-compact" onClick={remove}>
               Decline
             </button>
             <button type="button" className="btn-secondary btn-compact" onClick={() => runWaiting(item, true)}>
-              Run privately
+              {askVerb(item.ask)} privately
             </button>
             <button type="button" className="btn-primary btn-compact" onClick={() => runWaiting(item)}>
-              Run
+              {askVerb(item.ask)}
             </button>
           </>
         }
@@ -144,8 +149,9 @@ function QueuedCard({ item }: { item: Waiting }) {
         <Command text={item.ask.command} />
         {item.ask.message && <div className="text-text-secondary">{item.ask.message}</div>}
         <div className="text-[12px] text-text-tertiary">
-          Runs outside the sandbox. Run privately and {asker === 'Chat' ? 'Chat' : 'the agent'} learns only whether it
-          succeeded.
+          {item.ask.shell
+            ? `Outside the sandbox. Open privately and ${asker === 'Chat' ? 'Chat' : 'the agent'} cannot read it.`
+            : `Runs outside the sandbox. Run privately and ${asker === 'Chat' ? 'Chat' : 'the agent'} learns only whether it succeeded.`}
         </div>
       </Card>
     );

@@ -3,7 +3,7 @@ import { useTerminalStore } from '../stores/terminalStore';
 import { useAppStore } from '../stores/appStore';
 import { isHomeChat } from '../stores/homeChatStore';
 import { notifyUnfocused } from '../utils/notifications';
-import type { Decision, DecisionChoice } from '../types';
+import { askVerb, type Decision, type DecisionChoice } from '../types';
 
 /** Each decision the main process holds, by the waiting item that shows it. */
 const shown = new Map<string, number>();
@@ -18,7 +18,7 @@ function notify(decision: Decision): void {
   const project = useAppStore.getState().projects.find((p) => p.path === display.projectPath);
   notifyUnfocused(
     project?.name ?? 'Ouijit',
-    `${display.label} asks to ${decision.ask.url ? 'open' : 'run'} ${decision.ask.command}`,
+    `${display.label} asks to ${decision.ask.shell ? 'open a shell' : `${askVerb(decision.ask).toLowerCase()} ${decision.ask.command}`}`,
   );
 }
 

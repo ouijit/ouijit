@@ -183,7 +183,7 @@ function FilesAndPages({ ptyId, panelId }: { ptyId: string; panelId: string }) {
   const query = useNewTabStore((s) => s.query[panelId] ?? '');
   const open = useOpeners(ptyId, panelId);
   const files = useFileGroup(open.dir, query, open.openFile);
-  const shell = shellRow(query, () => void startShell(ptyId, undefined, panelId));
+  const shell = shellRow(query, () => void startShell(ptyId, undefined, { replacing: panelId }));
   const groups = shell ? [{ rows: [shell] }, files] : [files];
   return <List panelId={panelId} query={query} groups={withUrl(query, groups, open.openUrl)} onCancel={open.cancel} />;
 }
@@ -216,7 +216,7 @@ function ScriptsFilesAndPages({ ptyId, panelId }: { ptyId: string; panelId: stri
   const groups: Group[] = [];
   if (config && scripts) {
     const rows: Row[] = [];
-    const shell = shellRow(query, () => void startShell(ptyId, place, panelId));
+    const shell = shellRow(query, () => void startShell(ptyId, place, { replacing: panelId }));
     if (shell) rows.push(shell);
     const runHook = config.hooks.run;
     if (runHook && matches(query, 'Run', runHook.command))

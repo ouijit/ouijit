@@ -108,7 +108,15 @@ describe('a panel a sandboxed terminal adds', () => {
     // A runner runs in the caller's sandbox, over the project's host default.
     expect((await add(token, sandboxed, 'runner', { script: 'Dev' })).status).toBe(200);
     expect(panelOps()).toMatchObject([{ action: 'add', kind: 'runner', value: 'Dev', sandbox: ownSandbox }]);
-    expect((await add(token, sandboxed, 'runner', { script: 'Dev', sandbox: 'nono' })).status).toBe(403);
+    // In another sandbox it waits as one on the host does, and runs there once approved.
+    const other = await add(token, sandboxed, 'runner', { script: 'Dev', sandbox: 'nono' });
+    expect(other.data).toMatchObject({ status: 'pending' });
+    const dev = decisions().find((d) => d.ask.command === 'npm run dev')!;
+    expect(dev.ask.sandbox).toEqual({ provider: 'nono', settings: repo });
+    await decide(dev.id, { kind: 'run' });
+    expect(await until(() => sent.find(([c]) => c === 'cli:ask-op')?.[1] as CliAskOp, 'the run')).toMatchObject({
+      ask: { command: 'npm run dev', sandbox: { provider: 'nono', settings: repo } },
+    });
 
     // On the host it waits, showing the script, and runs on the card once the user presses Run.
     const asked = await add(token, sandboxed, 'runner', { script: 'Deploy', sandbox: 'none', message: 'Keychain' });
@@ -163,19 +171,34 @@ describe('a panel a sandboxed terminal adds', () => {
 });
 
 describe('a shell beside a terminal', () => {
-  test('from a sandbox opens only in that sandbox, and a sandbox reaches only the terminals and shells in its own', async () => {
+  test('from a sandbox opens in that sandbox, or anywhere else once the user approves, and a sandbox reaches only the terminals in its own', async () => {
     const ownSandbox = { provider: 'custom', settings: repo };
     const token = issueToken(sandboxed, 'sandbox');
     expect((await add(token, sandboxed, 'runner', { shell: true })).status).toBe(200);
     expect(panelOps()).toMatchObject([{ action: 'add', kind: 'runner', shell: true, sandbox: ownSandbox }]);
-    for (const sandbox of ['none', 'nono']) {
-      expect((await add(token, sandboxed, 'runner', { shell: true, sandbox })).status).toBe(403);
+    // Anywhere else it is an ask, which the user opens, privately or not, on the card that asked.
+    for (const [sandbox, place] of [
+      ['none', undefined],
+      ['nono', { provider: 'nono', settings: repo }],
+    ] as const) {
+      const asked = await add(token, sandboxed, 'runner', { shell: true, sandbox, message: 'To sign in' });
+      expect(asked.data).toMatchObject({ status: 'pending' });
       expect(panelOps()).toEqual([]);
+      const shell = decisions().find((d) => d.ask.shell)!;
+      expect(shell).toMatchObject({ from: sandboxed, message: 'To sign in', ask: { cwd: repo } });
+      expect(shell.ask.sandbox).toEqual(place);
+      await decide(shell.id, { kind: 'run', privately: true });
+      expect(await until(() => sent.find(([c]) => c === 'cli:ask-op')?.[1] as CliAskOp, 'the shell')).toMatchObject({
+        fromPtyId: sandboxed,
+        privately: true,
+        ask: { shell: true },
+      });
     }
+    expect(decisions()).toEqual([]);
 
-    // A panel read carries the reader's sandbox, which the window holds a shell's screen to.
+    // A panel read carries the reader, which the window holds a shell's screen to.
     expect((await call(token, 'GET', `panels/${sandboxed}/panel-1/screen`)).status).toBe(200);
-    expect(panelOps()).toMatchObject([{ action: 'read', readerSandbox: ownSandbox }]);
+    expect(panelOps()).toMatchObject([{ action: 'read', readerSandbox: ownSandbox, readerPtyId: sandboxed }]);
 
     // Even at Whole board, a terminal on the host is out of reach: it may be the user's own shell.
     await setGlobalSetting(sandboxCliAccessSettingKey(repo), 'all');

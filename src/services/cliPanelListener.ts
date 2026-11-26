@@ -127,6 +127,7 @@ function read(instance: OuijitTerminal, op: CliPanelOp): CliPanelRead | string {
     panel.kind === 'runner' &&
     panel.shell &&
     op.readerSandbox !== undefined &&
+    !(panel.askedBy && panel.askedBy === op.readerPtyId) &&
     (!op.readerSandbox || !sameSandbox(runsIn(panel.sandbox, instance.projectPath), op.readerSandbox))
   ) {
     return `The shell ${panel.id} runs outside your sandbox`;

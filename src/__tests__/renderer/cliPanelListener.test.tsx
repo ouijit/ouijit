@@ -17,6 +17,7 @@ type Panel = {
   private?: boolean;
   shell?: boolean;
   sandbox?: unknown;
+  askedBy?: string;
 };
 
 /** The slice of `OuijitTerminal`'s panel surface the listener drives. */
@@ -190,6 +191,19 @@ describe('CLI panel listener', () => {
       false,
     );
     expect((await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-host' })).read?.text).toContain('me');
+
+    // One the user opened on its ask, it reads; one opened privately, it learns only how it ended.
+    term.panels[0] = { ...term.panels[0], askedBy: 'pty-agent' };
+    const asked = { ptyId: 'pty-agent', action: 'read' as const, value: 'panel-host', readerSandbox: inBox };
+    expect((await run({ ...asked, readerPtyId: 'pty-agent' })).read?.text).toContain('me');
+    expect((await run({ ...asked, readerPtyId: 'pty-other' })).ok).toBe(false);
+    term.panels[0] = { ...term.panels[0], private: true };
+    expect((await run({ ...asked, readerPtyId: 'pty-agent' })).read).toEqual({
+      kind: 'runner',
+      status: 'running',
+      exitCode: null,
+      private: true,
+    });
   });
 
   it('holds an op until a reconnecting terminal has finished restoring', async () => {

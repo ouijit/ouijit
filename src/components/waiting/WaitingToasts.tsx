@@ -1,3 +1,4 @@
+import { askVerb } from '../../types';
 import { useShallow } from 'zustand/react/shallow';
 import { toasted, useWaitingStore, type Waiting } from '../../stores/waitingStore';
 import { focusTerminal } from '../navigation';
@@ -65,7 +66,7 @@ function WaitingToast({ item }: { item: Waiting }) {
             className={`${pill} bg-accent text-accent-ink hover:bg-accent-hover`}
             onClick={() => runWaiting(item)}
           >
-            {item.kind === 'ask' && item.ask.url ? 'Open' : 'Run'}
+            {item.kind === 'ask' ? askVerb(item.ask) : 'Run'}
           </button>
         )}
         {item.kind === 'move' && (

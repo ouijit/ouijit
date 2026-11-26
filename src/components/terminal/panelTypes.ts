@@ -44,6 +44,8 @@ export interface RunnerPanel {
   private?: boolean;
   /** A shell to type in rather than a command: `scriptCommand` is empty, and each command's exit is not the panel's. */
   shell?: boolean;
+  /** The sandboxed agent a shell was opened for, on its ask: it may read it though it runs outside its sandbox. */
+  askedBy?: string;
   status: RunnerStatus;
   /** The last command's exit code, once one has finished. */
   exitCode?: number | null;

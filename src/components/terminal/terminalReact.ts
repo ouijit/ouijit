@@ -862,6 +862,7 @@ export class OuijitTerminal {
       env?: Record<string, string>;
       private?: boolean;
       shell?: boolean;
+      askedBy?: string;
     } | null,
     activate = true,
     replacing?: string,
@@ -879,6 +880,7 @@ export class OuijitTerminal {
       ...(script?.env && { env: script.env }),
       ...(script?.private && { private: true }),
       ...(script?.shell && { shell: true }),
+      ...(script?.askedBy && { askedBy: script.askedBy }),
       status: 'idle',
     };
     this.appendPanel(panel, activate, replacing);

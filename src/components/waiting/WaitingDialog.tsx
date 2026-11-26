@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '../../stores/appStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { useWaitingStore, type Waiting } from '../../stores/waitingStore';
+import { useWaitingStore, type PendingAsk, type Waiting } from '../../stores/waitingStore';
 import { CodePreview } from '../common/CodePreview';
 import { homeRelative } from '../sidebar/SidebarRows';
-import { isActiveSandbox } from '../../types';
+import { askPlace, askVerb, isActiveSandbox } from '../../types';
 import { ScriptPreview, scriptRisks } from './ScriptPreview';
 import { StageIcon } from '../sidebar/StageIcon';
 import { Icon } from '../terminal/Icon';
@@ -148,13 +148,20 @@ function Detail({ item, titleId }: { item: Waiting; titleId: string }) {
         </div>
       )}
       <p className="mt-4 text-xs leading-[17px] text-text-tertiary">
-        {sandboxed ? 'Runs on your computer, outside its sandbox.' : 'Runs on your computer.'}
+        {whereItRuns(ask, sandboxed)}
         {ask.runCommand && ' The script runs as it was when asked, even if the file changes.'}
-        {' Run privately and the agent learns only whether it succeeded.'}
+        {ask.shell
+          ? ' Open privately and the agent cannot read it.'
+          : ' Run privately and the agent learns only whether it succeeded.'}
         {risks.length > 0 && <span className="text-error"> {risks.join('. ')}.</span>}
       </p>
     </>
   );
+}
+
+function whereItRuns(ask: PendingAsk, sandboxed: boolean): string {
+  const what = ask.shell ? `Opens a shell ${askPlace(ask)}` : `Runs ${askPlace(ask)}`;
+  return sandboxed || ask.sandbox ? `${what}, outside its sandbox.` : `${what}.`;
 }
 
 function AskerRow({ ptyId }: { ptyId: string }) {
@@ -234,11 +241,11 @@ export function WaitingDialog({ ptyId }: { ptyId: string }) {
       </button>
       {item.kind === 'ask' && !item.ask.url && (
         <button data-testid="waiting-run-private" className="btn-secondary" onClick={() => runWaiting(item, true)}>
-          Run privately
+          {askVerb(item.ask)} privately
         </button>
       )}
       <button data-testid="waiting-run" className="btn-primary" onClick={() => runWaiting(item)}>
-        {item.kind === 'ask' && item.ask.url ? 'Open' : 'Run'}{' '}
+        {item.kind === 'ask' ? askVerb(item.ask) : 'Run'}{' '}
         <kbd className="ml-1 font-sans opacity-60">{isMac ? '⌘↵' : 'Ctrl+↵'}</kbd>
       </button>
     </div>

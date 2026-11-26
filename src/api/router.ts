@@ -443,8 +443,8 @@ function askMessage(r: ParsedRequest): string | undefined {
 
 async function askUser(r: ParsedRequest, ask: AskRun) {
   const message = askMessage(r);
-  // Chat has no terminal for a runner, so its own asks wait here, in Chat.
-  if (callerIsHomeChat(r.auth.ptyId)) {
+  // A command for the host that Chat asks runs here, with no panel; a shell, or anything in a sandbox, opens beside it.
+  if (callerIsHomeChat(r.auth.ptyId) && !ask.shell && !ask.sandbox) {
     // The token cannot say: a sandbox at Whole board is served as the host.
     const sandboxed = chatHost.snapshot(r.auth.ptyId)?.info.sandbox != null;
     const answer = await holdAsk(r.auth.ptyId, ask, message, sandboxed);
@@ -474,33 +474,37 @@ async function addSandboxedPanel(r: ParsedRequest, ptyId: string, kind: CliPanel
     holdOpen(r.auth.ptyId, ptyId, value, ctx.worktreePath || ctx.projectPath, askMessage(r));
     return { ptyId, kind, status: 'pending' };
   }
-  const asked = parseSandbox(r.body.sandbox, 'sandbox');
-  if (asked === 'none') return askUser(r, await askRun(r));
-  const own = getSessionSpawnContext(r.auth.ptyId)?.sandbox;
-  if (!own || (asked && asked !== own.provider)) {
-    throw new HttpError(
-      403,
-      'A sandboxed terminal runs scripts in its own sandbox, or asks for the host with --sandbox host',
-    );
-  }
-  return runPanelOp(ptyId, 'add', kind, value, own);
+  const place = await elsewhere(r);
+  if (place) return askUser(r, { ...(await askRun(r)), ...place });
+  return runPanelOp(ptyId, 'add', kind, value, callerSandbox(r.auth)!);
 }
 
 /**
- * A sandboxed caller's shell opens in its own sandbox and nowhere else: there
- * is no one command for the user to approve, and what is typed in it could be
- * read back.
+ * Where a sandboxed caller asked for something to run, when that is outside
+ * its own sandbox: the host, or another sandbox, which the user approves.
  */
+async function elsewhere(r: ParsedRequest): Promise<{ sandbox?: SandboxSpec } | null> {
+  const asked = parseSandbox(r.body.sandbox, 'sandbox');
+  const own = callerSandbox(r.auth);
+  if (own && (!asked || asked === own.provider)) return null;
+  if (!asked || asked === 'none') return {};
+  const projectPath = callerContext(r).projectPath;
+  const sandbox = await resolveSandbox({ projectPath, placement: asked });
+  return sandbox ? { sandbox } : {};
+}
+
+/** A sandboxed caller's shell opens in its own sandbox; anywhere else, once the user approves. */
 async function addShell(r: ParsedRequest, ptyId: string) {
   if (!r.auth.sandboxed) {
     return runPanelOp(ptyId, 'add', 'runner', SHELL_LABEL, await hostRunnerSandbox(r, ptyId), true);
   }
-  const asked = parseSandbox(r.body.sandbox, 'sandbox');
-  const own = callerSandbox(r.auth);
-  if (!own || (asked && asked !== own.provider)) {
-    throw new HttpError(403, 'A sandboxed terminal opens a shell only in its own sandbox');
+  const place = await elsewhere(r);
+  if (place) {
+    const ctx = callerContext(r);
+    const shell = process.env.SHELL || '/bin/sh';
+    return askUser(r, { command: shell, cwd: ctx.worktreePath || ctx.projectPath, shell: true, ...place });
   }
-  return runPanelOp(ptyId, 'add', 'runner', SHELL_LABEL, own, true);
+  return runPanelOp(ptyId, 'add', 'runner', SHELL_LABEL, callerSandbox(r.auth)!, true);
 }
 
 /**
@@ -1920,7 +1924,7 @@ const routes: Route[] = [
         action: 'read',
         value: r.segments[2],
         lines: readLines(r.query),
-        ...(r.auth.sandboxed && { readerSandbox: callerSandbox(r.auth) }),
+        ...(r.auth.sandboxed && { readerSandbox: callerSandbox(r.auth), readerPtyId: r.auth.ptyId }),
       });
       if (!result.ok) throw new HttpError(404, result.error ?? 'Panel read failed');
       return { ptyId: r.segments[1], id: r.segments[2], ...result.read };

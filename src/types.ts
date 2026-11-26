@@ -79,6 +79,7 @@ import type {
 } from './sandbox/types';
 import type { HookStatus, HookStatusEntry } from './hookStatus';
 export type { AskRun, Decision, DecisionChoice } from './ask';
+export { askPlace, askVerb } from './ask';
 
 export type {
   GitStatus,
@@ -1049,6 +1050,8 @@ export interface CliPanelOp {
   shell?: boolean;
   /** read: the sandbox of a sandboxed caller, which reads a shell only inside it; null for one with no spec. */
   readerSandbox?: SandboxSpec | null;
+  /** read: the sandboxed caller, which also reads a shell the user opened for it. */
+  readerPtyId?: string;
 }
 
 /**
