@@ -391,9 +391,12 @@ async function spawnTerminalForInProgress(
   if (await opensAsChat(projectPath, surface)) {
     const worktree = { path: task.worktreePath, branch: task.branch || '' };
     const live = (await window.api.task.getByNumber(projectPath, task.taskNumber)) ?? task;
-    // Back in progress, a task picks up its last chat rather than starting over, unless another agent is asked for.
-    if (hookType === 'continue' && !agent) {
+    // Back in progress, a task picks up its last chat rather than starting over, unless that was another agent's.
+    const latest =
+      hookType === 'continue' && agent ? await window.api.chat.latestForTask(projectPath, task.taskNumber) : null;
+    if (hookType === 'continue' && (!agent || latest?.info.agent === agent)) {
       await addChatCard(projectPath, {
+        agent,
         worktree,
         taskId: task.taskNumber,
         sandbox,

@@ -601,6 +601,33 @@ describe('taskStartService.beginTransition', () => {
     expect(resumed).toMatchObject({ taskId: 7, resumeLatest: true });
     expect(resumed.firstPrompt).toBeUndefined();
     expect(resumed.setup).toBeUndefined();
+
+    // Started with an agent, it picks its last chat back up when that is the same agent's, so it keeps its conversation.
+    const latest = (agent: string) => ({ info: { id: 'chat-earlier', agent } }) as never;
+    const reopen = async (asked: 'codex', last: unknown) => {
+      vi.mocked(addChatCard).mockClear();
+      vi.mocked(window.api.chat.latestForTask).mockResolvedValue(last as never);
+      beginTransition(PROJECT, {
+        origStatus: 'in_review',
+        newStatus: 'in_progress',
+        task: reviewed,
+        hookControl: { mode: 'run' },
+        surface: 'chat',
+        agent: asked,
+      });
+      await waitFor(() => vi.mocked(addChatCard).mock.calls.length > 0);
+      return vi.mocked(addChatCard).mock.calls[0][1];
+    };
+    const same = await reopen('codex', latest('codex'));
+    expect(same).toMatchObject({ agent: 'codex', resumeLatest: true });
+    expect(same.firstPrompt).toBeUndefined();
+    // Another agent's chat, or none at all, and it starts afresh with that agent and the first message.
+    for (const last of [latest('claude'), null]) {
+      const fresh = await reopen('codex', last);
+      expect(fresh).toMatchObject({ agent: 'codex', firstPrompt: 'with oauth' });
+      expect(fresh.resumeLatest).toBeUndefined();
+    }
+    vi.mocked(window.api.chat.latestForTask).mockResolvedValue(null);
   });
 });
 
