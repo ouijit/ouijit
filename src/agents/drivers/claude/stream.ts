@@ -43,6 +43,7 @@ export class ClaudeStream {
   private readonly listed = new Set<string>();
   private reportedModel: string | undefined;
   private lastContext: { tokens: number; model: string | undefined } | null = null;
+  private lastWindow: number | undefined;
 
   constructor(
     private readonly sink: DriverSink,
@@ -129,9 +130,19 @@ export class ClaudeStream {
     if (!this.lastContext) return {};
     const models = (result.modelUsage ?? {}) as Record<string, Json>;
     const window = this.lastContext.model ? models[this.lastContext.model]?.contextWindow : undefined;
-    return {
-      usage: { contextTokens: this.lastContext.tokens, contextWindow: typeof window === 'number' ? window : undefined },
-    };
+    this.lastWindow = typeof window === 'number' ? window : undefined;
+    return { usage: { contextTokens: this.lastContext.tokens, contextWindow: this.lastWindow } };
+  }
+
+  /** No assistant message follows a compaction, so until the next one its size comes from the boundary or is unknown. */
+  private compacted(postTokens: unknown): void {
+    if (typeof postTokens === 'number' && this.lastContext) {
+      this.lastContext = { ...this.lastContext, tokens: postTokens };
+      this.sink.session({ usage: { contextTokens: postTokens, contextWindow: this.lastWindow } });
+    } else {
+      this.lastContext = null;
+      this.sink.session({ usage: undefined });
+    }
   }
 
   private system(message: Json): void {
@@ -173,6 +184,7 @@ export class ClaudeStream {
       case 'compact_boundary': {
         const metadata = (message.compact_metadata ?? {}) as Json;
         this.transcript.compaction(String(message.uuid), metadata.trigger === 'manual' ? 'manual' : 'auto');
+        this.compacted(metadata.post_tokens);
         return;
       }
       case 'commands_changed': {

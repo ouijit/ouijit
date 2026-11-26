@@ -361,6 +361,19 @@ describe.each(['codex', 'pi', 'opencode'] as const)('%s compacted', (agent) => {
       await host.start({ id, agent, projectPath: cwd, cwd, taskId: null });
       await host.prompt(id, { text: first });
       await until(host, id, replies(1), timeout);
+      const uncompacted = host.snapshot(id)!.info.usage!.contextTokens;
+      // What the meter shows between the compaction and the next turn.
+      const meterAfterCompaction: (number | undefined)[] = [];
+      let phase: 'before' | 'compacted' | 'next turn' = 'before';
+      const unsubscribe = host.subscribe((sessionId, { event }) => {
+        if (sessionId !== id || (event.type !== 'node' && event.type !== 'session')) return;
+        if (event.type === 'node' && event.node.kind === 'compaction' && phase === 'before') phase = 'compacted';
+        else if (event.type === 'node' && event.node.kind === 'assistant_message' && phase === 'compacted') {
+          phase = 'next turn';
+        } else if (phase === 'compacted' && event.type === 'session' && 'usage' in event.patch) {
+          meterAfterCompaction.push(event.patch.usage?.contextTokens);
+        }
+      });
       const compacting = host.compact(id);
       expect(host.snapshot(id)!.info).toMatchObject({ status: 'running', compacting: expect.any(Number) });
       // Asked before the compaction is done, it waits for it rather than being summarized away.
@@ -374,7 +387,11 @@ describe.each(['codex', 'pi', 'opencode'] as const)('%s compacted', (agent) => {
         (s) => s.info.status === 'idle' && s.nodes.some((n) => n.kind === 'assistant_message' && /apple/i.test(n.text)),
         timeout,
       );
+      unsubscribe();
       expect(live.info.compacting).toBeNull();
+      // Codex reports the size it compacted to; pi and opencode report none until the next turn.
+      expect(meterAfterCompaction).not.toEqual([]);
+      expect(meterAfterCompaction[0] ?? 0).toBeLessThan(uncompacted);
       const order = live.nodes.map((n) => n.kind);
       expect(order.indexOf('compaction')).toBeLessThan(order.lastIndexOf('user_message'));
       await host.stop(id);

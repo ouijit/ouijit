@@ -486,6 +486,7 @@ class OpencodeSession implements DriverSession {
           createdAt: Date.now(),
           trigger: 'auto',
         });
+        this.sink.session({ usage: undefined });
         return;
       case 'session.retry.scheduled':
         this.notice('warning', `Retrying: ${String(data.message ?? 'transient error')}`, parentId);

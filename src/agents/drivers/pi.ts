@@ -364,6 +364,8 @@ class PiSession implements DriverSession {
           createdAt: Date.now(),
           trigger: event.reason === 'manual' ? 'manual' : 'auto',
         });
+        // Its estimatedTokensAfter counts the summary alone, not the turns kept after it.
+        this.sink.session({ usage: undefined });
         return;
       case 'auto_retry_start':
         this.notice('warning', `Retrying: ${String(event.errorMessage ?? 'transient error')}`);
