@@ -80,7 +80,12 @@ export function StatusGlyph({ status, sandboxProvider, size = 6, unread }: Statu
       {status === 'thinking' && !unread ? (
         <Grid color={background} />
       ) : (
-        <span className="status-dot-fill rounded-full transition-all duration-200 ease-out" style={{ background }} />
+        // Not `transition-all`: visibility would be eased too, so the dot would stay
+        // for the whole transition when a row hides it for its "…".
+        <span
+          className="status-dot-fill rounded-full transition-[background-color,width,height] duration-200 ease-out"
+          style={{ background }}
+        />
       )}
     </SandboxRing>
   );
