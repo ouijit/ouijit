@@ -1,0 +1,47 @@
+name: Homebrew
+
+# Drafts become releases by hand, so this follows the publish rather than the
+# tag push. Betas share the version scheme but never reach the tap.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to point the cask at, e.g. v1.12.0
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  bump-cask:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    if: ${{ !github.event.release.prerelease && !contains(github.event.release.tag_name || inputs.tag, '-') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ouijit/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Bump cask
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/bump-homebrew-cask.sh "$TAG" tap/Casks/ouijit.rb
+
+      - name: Push to tap
+        working-directory: tap
+        run: |
+          if git diff --quiet; then
+            echo "Cask already at $TAG"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "ouijit ${TAG#v}"
+          git push
