@@ -540,7 +540,15 @@ function UserMessageView({ node, waiting, onEdit }: { node: UserMessageNode; wai
   }
   return (
     <div className="group/user flex flex-col items-end">
-      <div className="max-w-[85%] rounded-[12px] bg-ink/[0.07] px-3 py-2 text-sm text-text-primary whitespace-pre-wrap break-words">
+      <Tooltip
+        text={waiting && 'Waiting for the current step'}
+        placement="left"
+        referenceClassName={`max-w-[85%] rounded-[12px] px-3 py-2 text-sm whitespace-pre-wrap break-words ${
+          waiting
+            ? 'outline-dashed outline-1 -outline-offset-1 outline-ink/25 text-text-secondary'
+            : 'bg-ink/[0.07] text-text-primary'
+        }`}
+      >
         {node.text}
         {node.attachments.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -552,10 +560,10 @@ function UserMessageView({ node, waiting, onEdit }: { node: UserMessageNode; wai
             ))}
           </div>
         )}
-      </div>
+      </Tooltip>
       <div className="mt-1 -mb-2.5 -mr-1 flex items-center gap-2 h-[22px] text-[11px] text-text-tertiary">
         {node.delivery === 'queued' && <span>Queued</span>}
-        {node.delivery === 'steer' && <span>{waiting ? 'Waiting for the current step' : 'Sent mid-turn'}</span>}
+        {node.delivery === 'steer' && !waiting && <span>Sent mid-turn</span>}
         <span className="flex items-center opacity-0 group-hover/user:opacity-100 focus-within:opacity-100 transition-opacity duration-100">
           <CopyAction text={node.text} />
           {onEdit && <MessageAction icon="pencil-simple" label="Edit" onClick={onEdit} />}

@@ -690,7 +690,7 @@ describe('a background shell', () => {
 });
 
 describe('a message sent mid-turn', () => {
-  test('waits under the step the agent is on, then the turn reads as if never broken', () => {
+  test('waits under the step the agent is on, then the turn reads as if never broken', async () => {
     const user = (id: string, text: string, delivery: 'prompt' | 'steer'): ChatNode => ({
       id,
       kind: 'user_message',
@@ -728,7 +728,11 @@ describe('a message sent mid-turn', () => {
     render(<ChatView cardId={ID} />);
     expect(screen.getAllByRole('status', { name: 'Working' })).toHaveLength(1);
     expect(screen.getByRole('status', { name: 'Working' }).textContent).toContain('Run the tests');
-    expect(screen.getByText('Waiting for the current step')).toBeTruthy();
+    // Not yet sent, it says so when hovered.
+    expect(screen.queryByText('Waiting for the current step')).toBeNull();
+    fireEvent.mouseEnter(screen.getByText('Pull main too'));
+    expect(await screen.findByText('Waiting for the current step')).toBeTruthy();
+    fireEvent.mouseLeave(screen.getByText('Pull main too'));
 
     // Once it moves on, it has been read; finished, a remark before it folds as it would in an unbroken turn.
     live('idle', [
