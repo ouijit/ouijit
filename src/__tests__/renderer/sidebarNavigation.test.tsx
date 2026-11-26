@@ -777,6 +777,16 @@ describe('a chat on a project', () => {
     expect(cards()).toHaveLength(2);
     expect(row(section('Projects'), 'Chat')).toBeTruthy();
 
+    // The project's menu offers one too, beside its terminals, and in each sandbox that can run.
+    vi.mocked(window.api.chat.start).mockClear();
+    vi.mocked(window.api.globalSettings.get).mockResolvedValue(undefined);
+    fireEvent.contextMenu(document.querySelector(`[data-project-path="${ALPHA.path}"]`)!);
+    fireEvent.click(await screen.findByText('New sandbox chat'));
+    await waitFor(() => expect(window.api.chat.start).toHaveBeenCalled());
+    expect(vi.mocked(window.api.chat.start).mock.calls[0][0]).toMatchObject({ taskId: null, sandbox: 'nono' });
+    fireEvent.contextMenu(document.querySelector(`[data-project-path="${ALPHA.path}"]`)!);
+    expect(await screen.findByText('New chat')).toBeTruthy();
+
     act(() => useHomeChatStore.getState().setEnabled(false));
     vi.mocked(window.api.globalSettings.get).mockResolvedValue(undefined);
     vi.mocked(window.api.sandbox.status).mockResolvedValue([]);

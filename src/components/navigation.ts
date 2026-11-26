@@ -61,9 +61,9 @@ export async function openShell(projectPath: string, sandboxProvider?: SandboxBa
  * A chat in the project's own checkout, as `openShell` opens a shell there: no
  * task, in the project's default sandbox, with the agent tasks open with.
  */
-export async function openProjectChat(projectPath: string): Promise<void> {
+export async function openProjectChat(projectPath: string, sandboxProvider?: SandboxBackendId): Promise<void> {
   const { selection } = useAppStore.getState();
-  const sandbox = await projectDefaultSandbox(projectPath);
+  const sandbox = sandboxProvider ?? (await projectDefaultSandbox(projectPath));
   if (!(await addChatCard(projectPath, { sandbox, label: PROJECT_CHAT_LABEL }))) return;
   const [front] = useTerminalStore.getState().order;
   if (!front) return;

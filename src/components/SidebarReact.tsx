@@ -28,7 +28,7 @@ import { ResizeHandle } from './common/ResizeHandle';
 import { Icon } from './terminal/Icon';
 import { StatusGlyph } from './terminal/StatusDot';
 import { Tooltip } from './ui/Tooltip';
-import { openProject, openProjectPage, openShell, openTaskTerminal } from './navigation';
+import { openProject, openProjectChat, openProjectPage, openShell, openTaskTerminal } from './navigation';
 import { isModKey } from '../utils/modKey';
 import { openTaskSheet } from '../utils/openTaskComposer';
 import { ContextMenu, type ContextMenuEntry, type ContextMenuItem } from './ui/ContextMenu';
@@ -617,6 +617,7 @@ function ProjectGroup({ project }: { project: Project }) {
   const flags = useProjectFlags(project.path);
   const config = useProjectDataStore((s) => s.configByProject[project.path]);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const chatEnabled = useHomeChatStore((s) => s.enabled);
   const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: project.path });
 
   // Everything the row's own buttons do not: the other pages, a shell, and removal.
@@ -640,6 +641,16 @@ function ProjectGroup({ project }: { project: Project }) {
       icon: 'terminal',
       onClick: () => void openShell(project.path, backend),
     })),
+    ...(chatEnabled
+      ? [
+          { label: 'New chat', icon: 'chat-circle', onClick: () => void openProjectChat(project.path) },
+          ...(config?.availableSandboxProviders ?? []).map((backend): ContextMenuItem => ({
+            label: `New ${SANDBOX_LABELS[backend].toLowerCase()} chat`,
+            icon: 'chat-circle',
+            onClick: () => void openProjectChat(project.path, backend),
+          })),
+        ]
+      : []),
     ...(ptyIds.length > 0
       ? [{ label: 'All terminals', icon: 'cards-three', onClick: () => showProject(project.path, ptyIds) }]
       : []),
