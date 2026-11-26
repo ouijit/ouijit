@@ -63,4 +63,44 @@ describe("what Chat is told while it can't take it", () => {
     await mailbox.deliver('b');
     expect(sent).toHaveLength(3);
   });
+
+  test('drops what stopped being so while it waited, and wakes nobody for news that all went stale', async () => {
+    const sent: string[] = [];
+    const woken: string[] = [];
+    let ready = false;
+    const note = (text: string) => ({ kind: 'event' as const, text });
+    const mailbox = new Mailbox({
+      exists: () => true,
+      ready: () => ready,
+      wake: (id) => woken.push(id),
+      send: async (_id, text) => void sent.push(text),
+    });
+
+    // Chat is mid-turn: a worker's question waits for it, and Chat answers it in that same turn.
+    let pending = true;
+    await mailbox.post(
+      'chat',
+      'T-642 is waiting on an approval: Which one?',
+      note('T-642 has a question'),
+      () => pending,
+    );
+    let idle = true;
+    await mailbox.post('chat', 'T-7 finished its turn.', note('T-7 finished its turn'), () => idle);
+    await mailbox.post('chat', 'T-8 moved to In review.', note('T-8 moved to In review'));
+    pending = false;
+    ready = true;
+    await mailbox.deliver('chat');
+    expect(sent).toEqual(['Ouijit: while you were busy or away:\n- T-7 finished its turn.\n- T-8 moved to In review.']);
+
+    // Not running, it is not started for news that is no longer news.
+    ready = false;
+    woken.length = 0;
+    await mailbox.post('chat', 'T-7 finished its turn.', note('T-7 finished its turn'), () => idle);
+    idle = false;
+    await mailbox.deliver('chat');
+    ready = true;
+    await mailbox.deliver('chat');
+    expect(woken).toEqual(['chat']);
+    expect(sent).toHaveLength(1);
+  });
 });

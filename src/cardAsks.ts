@@ -10,9 +10,14 @@ const cardAsksLog = getLogger().scope('cardAsks');
  * waits here for the user; approved, it runs in a runner on the card that
  * asked, which only the window can start.
  */
-export function holdCardAsk(from: string, ask: AskRun, message: string | undefined): Promise<AskAnswer> {
+export function holdCardAsk(
+  from: string,
+  ask: AskRun,
+  message: string | undefined,
+): { decision: string; answer: Promise<AskAnswer> } {
+  let decision = '';
   const answer = new Promise<AskAnswer>((resolve) => {
-    hold({ kind: 'ask', from, ask, ...(message && { message }) }, async (choice) => {
+    decision = hold({ kind: 'ask', from, ask, ...(message && { message }) }, async (choice) => {
       if (choice.kind === 'decline') {
         resolve({ status: 'declined' });
         return;
@@ -22,11 +27,14 @@ export function holdCardAsk(from: string, ask: AskRun, message: string | undefin
       resolve(ran.answer ?? { status: 'declined' });
     });
   });
-  if (!ask.wait) return Promise.resolve({ status: 'pending' });
-  return Promise.race([
-    answer,
-    new Promise<AskAnswer>((resolve) => setTimeout(() => resolve({ status: 'pending' }), ASK_WAIT_MS).unref()),
-  ]);
+  if (!ask.wait) return { decision, answer: Promise.resolve({ status: 'pending' }) };
+  return {
+    decision,
+    answer: Promise.race([
+      answer,
+      new Promise<AskAnswer>((resolve) => setTimeout(() => resolve({ status: 'pending' }), ASK_WAIT_MS).unref()),
+    ]),
+  };
 }
 
 /** A page a sandboxed agent asks to open in a preview, which could reach anything the host can. */

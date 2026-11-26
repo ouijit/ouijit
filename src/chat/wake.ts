@@ -7,7 +7,14 @@ import { chatHost } from './host';
 import { Mailbox } from './mailbox';
 import { announce, loadHomeChatSettings, restartingHomeChat, resumeHomeChat } from './homeChat';
 import { taskKey, taskOfKey, type TaskRef, type WakeEvent } from './preferences';
-import type { ChatSessionInfo, ChatSessionStatus, RequestNode, ToolCallNode, WakeNote } from './model';
+import {
+  pendingRequests,
+  type ChatSessionInfo,
+  type ChatSessionStatus,
+  type RequestNode,
+  type ToolCallNode,
+  type WakeNote,
+} from './model';
 
 const wakeLog = getLogger().scope('chat:wake');
 
@@ -119,13 +126,13 @@ export async function wakeHomeChat(
   text: string,
   note: WakeNote,
   subject: string | null,
-  { release = false }: { release?: boolean } = {},
+  { release = false, current }: { release?: boolean; current?: () => boolean } = {},
 ): Promise<void> {
   const to = subject ? getChatRepo().follower(subject) : null;
   if (!to) return;
   if (release) unfollow(subject!);
   if (kind && !(await loadHomeChatSettings()).wake[kind]) return;
-  await mailbox.post(to, text, note);
+  await mailbox.post(to, text, note, current);
 }
 
 /** Straight to one conversation, whatever the settings: the answer to something it asked. */
@@ -150,7 +157,12 @@ function busy(status: ChatSessionStatus | undefined): boolean {
 }
 
 /** A worker that has asked the user to run something outside its sandbox is stuck until they do. */
-export async function wakeForAsk(ptyId: string, command: string, message: string): Promise<void> {
+export async function wakeForAsk(
+  ptyId: string,
+  command: string,
+  message: string,
+  pending: () => boolean,
+): Promise<void> {
   const info = chatHost.snapshot(ptyId)?.info;
   const context = getSessionSpawnContext(ptyId);
   const who = info
@@ -169,6 +181,7 @@ export async function wakeForAsk(ptyId: string, command: string, message: string
     `${who} is waiting on the user to run \`${command}\` outside its sandbox${why}. Only the user can run it.`,
     eventNote(`${name} asks you to run \`${command}\``),
     sessionSubject(ptyId),
+    { current: pending },
   );
 }
 
@@ -176,8 +189,6 @@ export async function wakeForAsk(ptyId: string, command: string, message: string
 function requestNote(sessionId: string, info: ChatSessionInfo, name: string, request: RequestNode): WakeNote {
   const nodes = chatHost.snapshot(sessionId)?.nodes ?? [];
   const call = nodes.find((node): node is ToolCallNode => node.kind === 'tool_call' && node.id === request.toolCallId);
-  // Answered while the names were being looked up: the note starts out current.
-  const latest = nodes.find((node): node is RequestNode => node.kind === 'request' && node.id === request.id);
   const command = call?.tool === 'command' ? (call.command ?? request.title) : undefined;
   const edited = call?.tool === 'edit' ? call.files[0]?.path : undefined;
   const asks =
@@ -194,7 +205,7 @@ function requestNote(sessionId: string, info: ChatSessionInfo, name: string, req
     request: {
       session: sessionId,
       name: info.taskId != null ? `${name} (T-${info.taskId})` : name,
-      node: latest ?? request,
+      node: request,
       ...(command && { command }),
       ...(command &&
         call &&
@@ -209,7 +220,6 @@ function reviseRequest(sessionId: string, request: RequestNode): void {
     note.request?.session === sessionId && note.request.node.id === request.id
       ? { ...note, request: { ...note.request, node: request } }
       : note;
-  mailbox.revise(revise);
   chatHost.reviseWakeNotes(revise);
 }
 
@@ -233,6 +243,7 @@ export function installHomeChatWakes(): void {
             `${who} finished its turn.`,
             eventNote(`${name} finished its turn`),
             sessionSubject(sessionId),
+            { current: () => !busy(chatHost.snapshot(sessionId)?.info.status) },
           ),
         );
       }
@@ -250,6 +261,10 @@ export function installHomeChatWakes(): void {
           `${who} is waiting on an approval: ${request.title} (request ${request.id}).`,
           requestNote(sessionId, info, name, request),
           sessionSubject(sessionId),
+          {
+            current: () =>
+              pendingRequests(chatHost.snapshot(sessionId)?.nodes ?? []).some((node) => node.id === request.id),
+          },
         ),
       );
     }

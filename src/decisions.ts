@@ -24,10 +24,15 @@ function changed(): void {
   for (const listener of listeners) listener(all);
 }
 
-export function hold(decision: Omit<Decision, 'id' | 'at'>, settle: Held['settle']): void {
+export function hold(decision: Omit<Decision, 'id' | 'at'>, settle: Held['settle']): string {
   const id = randomUUID();
   held.set(id, { decision: { ...decision, id, at: Date.now() }, settle });
   changed();
+  return id;
+}
+
+export function isHeld(id: string): boolean {
+  return held.has(id);
 }
 
 /** Decided once. False when it was already decided, here or in another window. */

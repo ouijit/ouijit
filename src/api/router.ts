@@ -117,6 +117,7 @@ import { follow, following, quietMove, sessionSubject, taskSubject, unfollow, wa
 import { addExistingProject, createAndRegisterProject } from '../services/projectRegistration';
 import { holdAsk } from '../chat/decisions';
 import { holdCardAsk, holdOpen } from '../cardAsks';
+import { isHeld } from '../decisions';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext } from '../apiAuth';
@@ -461,8 +462,9 @@ async function askUser(r: ParsedRequest, ask: AskRun) {
     const answer = await holdAsk(r.auth.ptyId, ask, message, sandboxed);
     return { command: ask.command, cwd: ask.cwd, ...answer };
   }
-  void wakeForAsk(r.auth.ptyId, ask.command, message ?? '');
-  const answer = await holdCardAsk(callerTerminal(r.auth.ptyId), ask, message);
+  const held = holdCardAsk(callerTerminal(r.auth.ptyId), ask, message);
+  void wakeForAsk(r.auth.ptyId, ask.command, message ?? '', () => isHeld(held.decision));
+  const answer = await held.answer;
   return { command: ask.command, cwd: ask.cwd, ...answer };
 }
 

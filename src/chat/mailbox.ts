@@ -3,8 +3,15 @@ import type { WakeNote } from './model';
 /** Most kept for one conversation; past that the oldest go, and it is told how many. */
 const MAX_HELD = 50;
 
+interface Held {
+  text: string;
+  note: WakeNote;
+  /** False once what it reports is no longer so: it is dropped rather than delivered late. */
+  current?: () => boolean;
+}
+
 interface Box {
-  messages: { text: string; note: WakeNote }[];
+  messages: Held[];
   dropped: number;
 }
 
@@ -30,16 +37,9 @@ export class Mailbox {
     },
   ) {}
 
-  /** Rewrite the notes still held. */
-  revise(revise: (note: WakeNote) => WakeNote): void {
-    for (const box of this.boxes.values()) {
-      box.messages = box.messages.map((message) => ({ ...message, note: revise(message.note) }));
-    }
-  }
-
-  async post(id: string, text: string, note: WakeNote): Promise<void> {
+  async post(id: string, text: string, note: WakeNote, current?: () => boolean): Promise<void> {
     const box = this.boxes.get(id) ?? { messages: [], dropped: 0 };
-    box.messages.push({ text, note });
+    box.messages.push({ text, note, current });
     if (box.messages.length > MAX_HELD) box.dropped += box.messages.splice(0, box.messages.length - MAX_HELD).length;
     this.boxes.set(id, box);
     await this.deliver(id);
@@ -50,6 +50,11 @@ export class Mailbox {
     const box = this.boxes.get(id);
     if (!box || this.sending.has(id)) return;
     if (!this.target.exists(id)) {
+      this.boxes.delete(id);
+      return;
+    }
+    box.messages = box.messages.filter((message) => message.current?.() ?? true);
+    if (box.messages.length === 0 && box.dropped === 0) {
       this.boxes.delete(id);
       return;
     }
