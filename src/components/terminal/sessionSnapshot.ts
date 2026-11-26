@@ -7,7 +7,7 @@
 import log from 'electron-log/renderer';
 import { useAppStore, type ProjectView } from '../../stores/appStore';
 import { renameInStack, useTerminalStore } from '../../stores/terminalStore';
-import { type OuijitTerminal } from './terminalReact';
+import type { RegisteredTerminal } from './terminalTypes';
 import { terminalInstances } from './terminalRegistry';
 import {
   SNAPSHOT_KEY,
@@ -23,7 +23,7 @@ export { SNAPSHOT_KEY };
 
 // ── Gather ───────────────────────────────────────────────────────────
 
-function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
+function uiFor(term: RegisteredTerminal): SnapshotTerminalUi {
   const panels: SnapshotPanel[] = [];
   let activePanelIndex: number | null = null;
 

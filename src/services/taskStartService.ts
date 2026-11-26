@@ -10,7 +10,7 @@
 
 import log from 'electron-log/renderer';
 import { addProjectTerminal } from '../components/terminal/terminalActions';
-import { STATUS_LABELS } from '../components/kanban/taskMenu';
+import { STATUS_LABELS } from '../components/kanban/statusLabels';
 import { completeTask } from './taskCompletion';
 import { headlessHookRun, hookSandbox, hookTypeForTransition, type HookControl } from './hookRun';
 import { useProjectStore } from '../stores/projectStore';

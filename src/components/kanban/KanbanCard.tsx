@@ -2,7 +2,8 @@ import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode
 import { useDraggable } from '@dnd-kit/core';
 import { useShallow } from 'zustand/react/shallow';
 import type { TaskWithWorkspace, SandboxBackendId, SandboxProviderId } from '../../types';
-import { moveToEntry, taskEntries, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
+import { moveToEntry, taskEntries, type TaskMenuActions } from './taskMenu';
+import { STATUS_LABELS } from './statusLabels';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { getProjectTasks, loadTasks } from '../../stores/projectDataStore';

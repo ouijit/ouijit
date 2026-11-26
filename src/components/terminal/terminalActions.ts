@@ -22,6 +22,7 @@ import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore } from '../../stores/appStore';
 import { OuijitTerminal, resolveTerminalLabel } from './terminalReact';
 import { terminalInstances, restoreTerminalOnce } from './terminalRegistry';
+import type { RegisteredTerminal } from './terminalTypes';
 import type { TerminalPanel } from './panelTypes';
 import { generateId } from '../../utils/ids';
 import { parseOsc133ExitCodes } from './osc133';
@@ -290,7 +291,7 @@ export async function addProjectTerminal(
     worktreePath: worktreeInfo?.path,
     worktreeBranch: worktreeInfo?.branch,
     mergeTarget,
-    autoCloseOnSuccess: options?.autoCloseOnSuccess,
+    closeOnSuccess: options?.autoCloseOnSuccess ? closeProjectTerminal : undefined,
   });
 
   // The viewport element is not in the DOM yet; XTermContainer attaches it.
@@ -478,7 +479,7 @@ export async function reconnectTerminal(
  * never for a long-running runner — OSC 133 is the per-command signal that
  * actually reflects whether the script succeeded or failed.
  */
-export function updateRunnerStatusFromOsc133(data: string, parent: OuijitTerminal, panelId: string): void {
+export function updateRunnerStatusFromOsc133(data: string, parent: RegisteredTerminal, panelId: string): void {
   // Only the most recent exit code in this batch matters — earlier codes are
   // already visually obsolete by the time the renderer sees them.
   const codes = parseOsc133ExitCodes(data);
@@ -562,7 +563,7 @@ export async function spawnRunner(ptyId: string, panelId: string): Promise<void>
   }
 }
 
-async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Promise<void> {
+async function _spawnRunnerInner(instance: RegisteredTerminal, panelId: string): Promise<void> {
   const path = instance.projectPath;
 
   const panel = instance.panels.find((p) => p.id === panelId);

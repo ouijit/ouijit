@@ -32,7 +32,7 @@ import { BulkActionBar } from './BulkActionBar';
 import { OnboardingPanel } from './OnboardingPanel';
 import { KanbanShellBar } from './KanbanShellBar';
 import { focusKanbanAddInput } from './KanbanAddInput';
-import { STATUS_LABELS } from './taskMenu';
+import { STATUS_LABELS } from './statusLabels';
 import { useAppStore } from '../../stores/appStore';
 import { useUIStore } from '../../stores/uiStore';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';

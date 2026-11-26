@@ -71,15 +71,8 @@ import { fileItRuns } from '../askFile';
 import { getCustomSandboxConfig, setCustomSandboxConfig } from '../sandbox/custom/config';
 import { releaseCommand, wrapCommand } from '../sandbox/commandWrap';
 import { cliAskRequest, cliPanelRequest, cliTagRequest, cliTerminalRequest } from '../cliPanels';
-import {
-  isPtyActive,
-  getPtyTaskContext,
-  getActiveSessions,
-  getPtySpawnContext,
-  callerTerminal,
-  type ActiveSession,
-} from '../ptyManager';
-import { getHookStatus } from '../hookServer';
+import { isPtyActive, getPtyTaskContext, getActiveSessions, getPtySpawnContext, callerTerminal } from '../ptyManager';
+import { getHookStatus } from '../hookStatus';
 import { liveNotes } from '../diffNotesService';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
@@ -95,6 +88,7 @@ import type {
   CliCaller,
   SandboxCliAccess,
   SandboxProviderId,
+  ActiveSession,
 } from '../types';
 import {
   SANDBOXABLE_HOOK_TYPES,

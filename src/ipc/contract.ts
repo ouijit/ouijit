@@ -101,7 +101,7 @@ import type {
   SandboxLaunchFailedPayload,
   TerminalSandboxPayload,
 } from '../sandbox/types';
-import type { HookStatusEntry } from '../hookServer';
+import type { HookStatusEntry } from '../hookStatus';
 import type { HealthStatus } from '../healthCheck';
 import type { CaptureNavigatePayload } from '../capture/types';
 
@@ -481,7 +481,7 @@ export interface IpcSendContract {
  */
 export interface IpcPushContract {
   'fullscreen-change': { args: [isFullscreen: boolean] };
-  'agent-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
+  'agent-hook-status': { args: [ptyId: string, status: import('../hookStatus').HookStatus] };
   'cli:panel-op': { args: [op: CliPanelOp] };
   'cli:tag-op': { args: [op: CliTagOp] };
   'cli:terminal-op': { args: [op: CliTerminalOp] };

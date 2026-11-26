@@ -13,13 +13,14 @@ import { registerPrCommands } from '../../cli/commands/pr';
 import { registerAskCommands } from '../../cli/commands/ask';
 import { registerLinkCommands } from '../../cli/commands/link';
 import { requireProject } from '../../cli/detect';
-import { startHookServer, stopHookServer, getApiPort } from '../../hookServer';
+import { startHookServer, stopHookServer } from '../../hookServer';
+import { getApiPort } from '../../apiPort';
 import { issueToken, revokeAllTokens } from '../../apiAuth';
 import { createTask, getTaskByNumber, setGlobalSetting, _resetCacheForTesting } from '../../db';
 import { sandboxCliAccessSettingKey } from '../../sandbox/types';
 import { saveNote } from '../../diffNotesService';
 import { setTrashItem } from '../../platform';
-import type { ActiveSession } from '../../ptyManager';
+import type { ActiveSession } from '../../types';
 
 const { sessions } = vi.hoisted(() => ({ sessions: [] as ActiveSession[] }));
 

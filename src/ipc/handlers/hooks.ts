@@ -1,6 +1,6 @@
 import { typedHandle } from '../helpers';
 import { getHooks, saveHook, deleteHook } from '../../db';
-import { getHookStatus } from '../../hookServer';
+import { getHookStatus } from '../../hookStatus';
 
 export function registerHookHandlers(): void {
   typedHandle('hooks:get', (projectPath) => getHooks(projectPath));

@@ -1,4 +1,4 @@
-import type { ChangedFile, FileDiff, DiffHunk } from '../types';
+import type { ChangedFile, FileDiff, DiffHunk } from '../git';
 import type { DiffSignals } from '../analysis/types';
 import { hunkSpan } from './lens';
 import { count } from '../analysis/advice';

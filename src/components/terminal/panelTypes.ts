@@ -11,7 +11,7 @@
  * tracked separately in `OuijitTerminal.runnerChildren`, keyed by panel id.
  */
 
-import type { SandboxBackendId } from '../../types';
+import type { SandboxBackendId } from '../../sandbox/types';
 
 export type PanelKind = 'runner' | 'webPreview' | 'plan';
 

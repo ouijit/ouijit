@@ -1,4 +1,5 @@
-import type { GitFileStatus, SandboxProviderId } from '../types';
+import type { GitFileStatus } from '../git';
+import type { SandboxProviderId } from '../sandbox/types';
 import type { TerminalPanel } from '../components/terminal/panelTypes';
 
 export type TerminalStatus = 'thinking' | 'ready' | 'success' | 'error';

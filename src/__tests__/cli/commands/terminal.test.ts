@@ -5,11 +5,11 @@ import type { BrowserWindow } from 'electron';
 import { registerTerminalCommands } from '../../../cli/commands/terminal';
 import { registerPanelCommands } from '../../../cli/commands/panel';
 import { registerDiffCommands } from '../../../cli/commands/diff';
-import { startHookServer, stopHookServer, getApiPort } from '../../../hookServer';
+import { startHookServer, stopHookServer } from '../../../hookServer';
+import { getApiPort } from '../../../apiPort';
 import { issueToken, revokeAllTokens } from '../../../apiAuth';
 import { initCliPanels } from '../../../cliPanels';
-import type { ActiveSession } from '../../../ptyManager';
-import type { CliPanelOp, CliPanelResponse, CliTerminalOp, CliTerminalResponse } from '../../../types';
+import type { ActiveSession, CliPanelOp, CliPanelResponse, CliTerminalOp, CliTerminalResponse } from '../../../types';
 
 const { ipcHandlers, sessions, renderer } = vi.hoisted(() => ({
   ipcHandlers: new Map<string, (event: unknown, ...args: unknown[]) => unknown>(),
