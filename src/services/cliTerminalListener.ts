@@ -19,9 +19,9 @@ async function open(op: CliTerminalOp): Promise<CliTerminalResponse> {
   if (!projectPath) return { ok: false, error: 'Missing project' };
   const before = new Set(useTerminalStore.getState().terminalsByProject[projectPath] ?? []);
 
-  // Named here rather than found as the session that wasn't there before: a
-  // sandboxed terminal on the task can still be re-keying from its placeholder.
-  const chatId = op.chat ? generateId('pty') : undefined;
+  // Named here rather than found as the session that wasn't there before:
+  // another terminal on the task can still be re-keying from its placeholder.
+  const ptyId = generateId('pty');
   let opened: boolean;
   if (op.taskNumber != null) {
     const task = await window.api.task.getByNumber(projectPath, op.taskNumber);
@@ -32,19 +32,21 @@ async function open(op: CliTerminalOp): Promise<CliTerminalResponse> {
       mode: op.resume || op.chat ? 'resume' : 'shell',
       sandbox: op.sandbox,
       background: true,
-      ...(op.chat && { fresh: 'chat' as const, chat: { ...op.chat, id: chatId } }),
+      ptyId,
+      ...(op.chat && { fresh: 'chat' as const, chat: { ...op.chat, id: ptyId } }),
     });
   } else {
     opened = await addProjectTerminal(projectPath, undefined, {
+      ptyId,
       sandbox: op.sandbox,
       background: true,
     });
   }
-
-  const ptyId =
-    chatId ?? (useTerminalStore.getState().terminalsByProject[projectPath] ?? []).find((id) => !before.has(id));
-  if (!opened || !ptyId) return { ok: false, error: 'The terminal did not open' };
-  return { ok: true, ptyId };
+  if (!opened) return { ok: false, error: 'The terminal did not open' };
+  if (terminalInstances.has(ptyId)) return { ok: true, ptyId };
+  // Resuming a task that opens as a chat picks its last conversation back up, under that one's own id.
+  const resumed = (useTerminalStore.getState().terminalsByProject[projectPath] ?? []).find((id) => !before.has(id));
+  return resumed ? { ok: true, ptyId: resumed } : { ok: false, error: 'The terminal did not open' };
 }
 
 /** A runner is registered under its own PTY too, so its panel's privacy has to hold here as well. */

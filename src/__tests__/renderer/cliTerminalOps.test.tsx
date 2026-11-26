@@ -27,7 +27,11 @@ vi.mock('electron-log/renderer', () => ({
 // xterm cannot construct under jsdom. The fake keeps the panel list the way
 // OuijitTerminal does — one active panel or none, the diff beside them — and
 // spawns the next PTY id it is handed.
-const spawned = vi.hoisted(() => ({ next: [] as string[], calls: [] as PtySpawnOptions[] }));
+const spawned = vi.hoisted(() => ({
+  next: [] as string[],
+  calls: [] as PtySpawnOptions[],
+  during: undefined as (() => void) | undefined,
+}));
 vi.mock('../../components/terminal/terminalReact', () => {
   class FakeTerminal {
     ptyId = 'pending';
@@ -55,7 +59,9 @@ vi.mock('../../components/terminal/terminalReact', () => {
     setRunnerChild = vi.fn();
     spawnPty = vi.fn(async (opts: PtySpawnOptions) => {
       spawned.calls.push(opts);
-      const ptyId = spawned.next.shift() ?? null;
+      spawned.during?.();
+      // As the main process does: the id the caller chose, else a new one.
+      const ptyId = opts.ptyId ?? spawned.next.shift() ?? null;
       if (ptyId) this.ptyId = ptyId;
       return ptyId;
     });
@@ -164,17 +170,25 @@ describe('terminals an agent opens and closes', () => {
     const front = terminalInstances.get('pty-front')!;
     vi.mocked(front.xterm.focus).mockClear();
 
-    spawned.next = ['pty-task', 'pty-shell'];
-    expect(await terminalOp({ action: 'open', projectPath: PROJECT, taskNumber: 4 })).toEqual({
-      ok: true,
-      ptyId: 'pty-task',
-    });
-    expect(spawned.calls.at(-1)).toEqual(expect.objectContaining({ cwd: '/wt/T-4' }));
-    expect(await terminalOp({ action: 'open', projectPath: PROJECT })).toEqual({ ok: true, ptyId: 'pty-shell' });
+    // Another terminal on the task gets its real id while this one opens; the reply still names this one.
+    useTerminalStore
+      .getState()
+      .addTerminal(PROJECT, 'loading-terminal', { taskId: 4, isLoading: true }, { background: true });
+    spawned.during = () => useTerminalStore.getState().rekeyTerminal('loading-terminal', 'pty-other');
+    spawned.next = ['pty-minted', 'pty-minted-2'];
+    const onTask = await terminalOp({ action: 'open', projectPath: PROJECT, taskNumber: 4 });
+    spawned.during = undefined;
+    expect(onTask.ok).toBe(true);
+    const task = onTask.ptyId!;
+    expect(task).not.toBe('pty-other');
+    expect(spawned.calls.at(-1)).toEqual(expect.objectContaining({ cwd: '/wt/T-4', ptyId: task }));
+    expect(useTerminalStore.getState().displayStates[task]).toMatchObject({ taskId: 4 });
+    const shell = (await terminalOp({ action: 'open', projectPath: PROJECT })).ptyId!;
+    expect(spawned.calls.at(-1)).toEqual(expect.objectContaining({ ptyId: shell }));
 
     expect(useTerminalStore.getState().order[0]).toBe('pty-front');
-    expect(terminalInstances.get('pty-task')!.xterm.focus).not.toHaveBeenCalled();
-    expect(terminalInstances.get('pty-shell')!.xterm.focus).not.toHaveBeenCalled();
+    expect(terminalInstances.get(task)!.xterm.focus).not.toHaveBeenCalled();
+    expect(terminalInstances.get(shell)!.xterm.focus).not.toHaveBeenCalled();
 
     expect(await terminalOp({ action: 'open', projectPath: PROJECT, taskNumber: 9 })).toEqual({
       ok: false,
@@ -182,8 +196,8 @@ describe('terminals an agent opens and closes', () => {
     });
     expect(window.api.task.start).not.toHaveBeenCalled();
 
-    expect(await terminalOp({ action: 'close', ptyId: 'pty-task' })).toEqual({ ok: true, ptyId: 'pty-task' });
-    expect(useTerminalStore.getState().terminalsByProject[PROJECT]).toEqual(['pty-front', 'pty-shell']);
+    expect(await terminalOp({ action: 'close', ptyId: task })).toEqual({ ok: true, ptyId: task });
+    expect(useTerminalStore.getState().terminalsByProject[PROJECT]).toEqual(['pty-front', 'pty-other', shell]);
   });
 
   test("opens a new chat on a started task the way its menu's New chat does, sends it the first message, and names it though another session on the task lands meanwhile", async () => {

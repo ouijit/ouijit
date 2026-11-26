@@ -41,6 +41,8 @@ const actionsLog = log.scope('terminalActions');
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface AddProjectTerminalOptions {
+  /** The id its session takes, chosen by the caller; one is minted otherwise. Must not be live. */
+  ptyId?: string;
   existingWorktree?: WorktreeInfo & { prompt?: string };
   /**
    * Overrides a restored terminal's sandbox, or where the continue hook runs.
@@ -306,6 +308,7 @@ export async function addProjectTerminal(
     worktreePath: worktreeInfo?.path,
     env: startEnv,
     sandbox,
+    ...(options?.ptyId && { ptyId: options.ptyId }),
   };
 
   try {

@@ -127,6 +127,8 @@ export interface OpenTaskShellOptions {
   sandbox?: SandboxPlacement;
   /** A new one of these, in place of picking the task back up the way the chat setting says. */
   fresh?: TaskSurface;
+  /** The id the terminal's session takes, where one opens; a chat's is in `chat`. */
+  ptyId?: string;
   /** A fresh chat: its id, its agent where not the chat setting's, and its first message. */
   chat?: { id?: string; agent?: ChatAgentId; prompt?: string };
   replaceLoadingId?: string;
@@ -185,6 +187,7 @@ export async function openTaskShell(
   }
 
   return addProjectTerminal(projectPath, undefined, {
+    ptyId: options.ptyId,
     existingWorktree: worktree,
     taskId: task.taskNumber,
     skipAutoHook,
