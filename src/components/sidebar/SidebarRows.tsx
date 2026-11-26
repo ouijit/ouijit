@@ -163,8 +163,17 @@ function RenameField({ initial, onCommit, onCancel }: Rename) {
  * A row's menu from its "…", at the button rather than the pointer: the same
  * menu right-clicking it opens, whose handler reads only where to put it.
  */
-function MoreButton({ title, onMenu }: { title: string; onMenu: (e: React.MouseEvent) => void }) {
-  const [open, setOpen] = useState(false);
+function MoreButton({
+  title,
+  onMenu,
+  open,
+  setOpen,
+}: {
+  title: string;
+  onMenu: (e: React.MouseEvent) => void;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}) {
   useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
@@ -178,7 +187,7 @@ function MoreButton({ title, onMenu }: { title: string; onMenu: (e: React.MouseE
       document.removeEventListener('mousedown', close);
       document.removeEventListener('keydown', close);
     };
-  }, [open]);
+  }, [open, setOpen]);
   return (
     <button
       type="button"
@@ -225,6 +234,7 @@ export function SidebarRow({
   ptyId,
 }: RowProps) {
   const ref = useRevealed(selected);
+  const [menuOpen, setMenuOpen] = useState(false);
   // The click is taken here rather than on the button so the icon, which has a
   // tooltip of its own, opens the row too; the button's click bubbles to it.
   return (
@@ -250,7 +260,9 @@ export function SidebarRow({
               {...tipProps}
               type="button"
               className={`flex-1 min-w-0 h-full flex items-center gap-2 bg-transparent border-none p-0 text-left outline-none ${
-                onContextMenu && !trailing ? 'group-hover/row:pr-5 group-has-[:focus-visible]/row:pr-5' : ''
+                onContextMenu && !trailing
+                  ? `group-hover/row:pr-5 group-has-[:focus-visible]/row:pr-5 ${menuOpen ? 'pr-5' : ''}`
+                  : ''
               }`}
               aria-current={selected ? 'true' : undefined}
               data-bright={bright ? 'true' : undefined}
@@ -267,7 +279,12 @@ export function SidebarRow({
               </span>
               {detail && <span className="shrink-0 font-mono text-[10.5px] text-text-tertiary">{detail}</span>}
               {onContextMenu && trailing ? (
-                <span className="flex shrink-0 group-hover/row:invisible group-has-[:focus-visible]/row:invisible">
+                // Hidden under the row's "…" while it can be pressed, and while its menu is open,
+                // when the pointer has moved off the row into the menu.
+                <span
+                  className="flex shrink-0 group-hover/row:invisible group-has-[:focus-visible]/row:invisible group-has-[[aria-haspopup]:focus]/row:invisible"
+                  style={menuOpen ? { visibility: 'hidden' } : undefined}
+                >
                   {trailing}
                 </span>
               ) : (
@@ -278,7 +295,9 @@ export function SidebarRow({
         </Tooltip>
       )}
       {end}
-      {onContextMenu && !rename && <MoreButton title={title} onMenu={onContextMenu} />}
+      {onContextMenu && !rename && (
+        <MoreButton title={title} onMenu={onContextMenu} open={menuOpen} setOpen={setMenuOpen} />
+      )}
     </div>
   );
 }

@@ -810,6 +810,24 @@ describe('the sidebar tree', () => {
     untrackedFiles: [{ path: 'b.ts', status: '?', additions: 12, deletions: 0 }],
   } as GitFileStatus;
 
+  test("a row's status dot stays hidden under its … while the menu it opened is open, and comes back when it closes", async () => {
+    seed('tidy', { taskId: 11, label: 'Tidy up', status: 'thinking' });
+    render(<Sidebar onAddProject={() => {}} onCloneSelect={() => {}} />);
+    const tidy = document.querySelector<HTMLElement>('[data-sidebar-row][data-pty-id="tidy"]')!;
+    const dotHidden = () => !!tidy.querySelector('.status-dot')!.closest('[style*="visibility: hidden"]');
+    expect(dotHidden()).toBe(false);
+
+    // The pointer leaves the row for the menu, which no longer hovers it.
+    fireEvent.click(within(tidy).getByRole('button', { name: /^More for / }));
+    expect(await screen.findByText('Rename terminal')).toBeTruthy();
+    expect(dotHidden()).toBe(true);
+
+    // Closing it brings the dot back.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    fireEvent.mouseDown(document.body);
+    await waitFor(() => expect(dotHidden()).toBe(false));
+  });
+
   test('lists tasks in board order, branches multi-terminal tasks, groups by tag, and keeps every terminal reachable', async () => {
     seed('docs', { taskId: 9, label: 'Write docs', tags: ['Docs'] });
     seed('ship-a', { taskId: 8, label: 'Ship it', lastOscTitle: 'claude', gitFileStatus: diff, tags: ['release'] });
