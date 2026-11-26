@@ -14,10 +14,14 @@ type Panel = {
   scriptName?: string;
   status?: string;
   exitCode?: number;
+  private?: boolean;
+  shell?: boolean;
+  sandbox?: unknown;
 };
 
 /** The slice of `OuijitTerminal`'s panel surface the listener drives. */
 class FakeTerminal {
+  projectPath = '/repo';
   panels: Panel[] = [];
   activePanelId: string | null = null;
   runnerChildren = new Map<string, { xterm: Terminal }>();
@@ -160,6 +164,32 @@ describe('CLI panel listener', () => {
       ok: false,
       error: 'No panel panel-x',
     });
+  });
+
+  it("reads a shell only for a reader in the shell's own sandbox, or the host", async () => {
+    const term = new FakeTerminal();
+    register('pty-agent', term);
+    const screen = new Terminal({ cols: 40, rows: 5, allowProposedApi: true });
+    const written = new Promise<void>((done) => screen.write('$ whoami\r\nme\r\n', done));
+    await vi.advanceTimersByTimeAsync(50);
+    await written;
+    term.panels = [
+      { id: 'panel-host', kind: 'runner', scriptName: 'Shell', shell: true, status: 'running' },
+      { id: 'panel-box', kind: 'runner', scriptName: 'Shell', shell: true, sandbox: 'nono', status: 'running' },
+    ];
+    term.runnerChildren.set('panel-host', { xterm: screen });
+    term.runnerChildren.set('panel-box', { xterm: screen });
+    const inBox = { provider: 'nono' as const, settings: '/repo' };
+
+    const host = await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-host', readerSandbox: inBox });
+    expect(host).toEqual({ ok: false, error: 'The shell panel-host runs outside your sandbox' });
+    const box = await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-box', readerSandbox: inBox });
+    expect(box.read?.text).toContain('me');
+    const other = { provider: 'nono' as const, settings: '/elsewhere' };
+    expect((await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-box', readerSandbox: other })).ok).toBe(
+      false,
+    );
+    expect((await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-host' })).read?.text).toContain('me');
   });
 
   it('holds an op until a reconnecting terminal has finished restoring', async () => {

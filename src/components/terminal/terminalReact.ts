@@ -861,6 +861,7 @@ export class OuijitTerminal {
       sandbox?: SandboxPlacement;
       env?: Record<string, string>;
       private?: boolean;
+      shell?: boolean;
     } | null,
     activate = true,
     replacing?: string,
@@ -877,6 +878,7 @@ export class OuijitTerminal {
       ...(placementProvider(script?.sandbox) && { sandbox: script!.sandbox }),
       ...(script?.env && { env: script.env }),
       ...(script?.private && { private: true }),
+      ...(script?.shell && { shell: true }),
       status: 'idle',
     };
     this.appendPanel(panel, activate, replacing);

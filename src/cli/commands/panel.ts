@@ -65,6 +65,7 @@ Examples:
       `
 Examples:
   ouijit runner add "Dev server"
+  ouijit runner shell
   ouijit runner list
   ouijit runner remove "Dev server"`,
     );
@@ -88,6 +89,19 @@ Examples:
           ...(opts.message && { message: opts.message }),
         }),
       );
+    });
+
+  runner
+    .command('shell')
+    .description(
+      "Open a shell in a panel on a terminal, in its worktree, in the project's default sandbox; from a sandbox, only in its own",
+    )
+    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
+    .option(SANDBOX_FLAG, sandboxFlagHelp('where it runs'))
+    .action(async (explicitPtyId: string | undefined, opts: { sandbox?: string }) => {
+      const parsed = parseSandboxFlag(opts.sandbox);
+      if ('error' in parsed) return printError(parsed.error);
+      printJson(await post(`${panelsUrl(resolvePtyId(explicitPtyId))}/runner`, { shell: true, ...parsed }));
     });
 
   runner

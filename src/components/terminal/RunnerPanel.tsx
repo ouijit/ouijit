@@ -4,6 +4,13 @@ import { XTermContainer } from './XTermContainer';
 import { PaneCorner } from './PanelTabs';
 import { Icon } from './Icon';
 import { LabelTip, PanelTip } from './PanelTips';
+import { placementProvider, type SandboxPlacement } from '../../sandbox/types';
+
+const SHELL_PLACE = { none: 'On your computer', nono: 'In the sandbox', custom: 'In the Custom sandbox' } as const;
+
+function shellPlace(sandbox: SandboxPlacement | undefined): string {
+  return SHELL_PLACE[placementProvider(sandbox) ?? 'none'];
+}
 
 interface RunnerPanelProps {
   ptyId: string;
@@ -17,13 +24,22 @@ export function RunnerPanel({ ptyId, panelId, onRestart, onKill }: RunnerPanelPr
   const instance = terminalInstances.get(ptyId);
   const runner = instance?.runnerChildren.get(panelId);
   const runnerPtyId = runner?.ptyId;
-  // The tab names a script by its name; what it runs is said under it.
-  const command = panel?.kind === 'runner' && panel.scriptName ? panel.command || panel.scriptCommand : null;
+  const runnerPanel = panel?.kind === 'runner' ? panel : undefined;
+  const shell = !!runnerPanel?.shell;
+  // The tab names a script by its name; what it runs is said under it. A shell says where it runs.
+  const command = shell
+    ? shellPlace(runnerPanel?.sandbox)
+    : runnerPanel?.scriptName
+      ? runnerPanel.command || runnerPanel.scriptCommand
+      : null;
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       {command && (
-        <div className="px-4 pb-1.5 shrink-0 text-[12px] text-ink/45 font-mono truncate" title={command}>
+        <div
+          className={`px-4 pb-1.5 shrink-0 text-[12px] text-ink/45 truncate ${shell ? '' : 'font-mono'}`}
+          title={command}
+        >
           {command}
         </div>
       )}
@@ -42,23 +58,25 @@ export function RunnerPanel({ ptyId, panelId, onRestart, onKill }: RunnerPanelPr
               </button>
             </PanelTip>
           )}
-          <PanelTip tip={<LabelTip text="Restart" />} placement="bottom-end">
-            <button
-              className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/60 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRestart();
-              }}
-            >
-              <Icon name="arrow-counter-clockwise" />
-            </button>
-          </PanelTip>
+          {!shell && (
+            <PanelTip tip={<LabelTip text="Restart" />} placement="bottom-end">
+              <button
+                className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/60 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRestart();
+                }}
+              >
+                <Icon name="arrow-counter-clockwise" />
+              </button>
+            </PanelTip>
+          )}
         </PaneCorner>
         {runnerPtyId ? (
           <XTermContainer ptyId={runnerPtyId} className="runner-xterm-container w-full h-full overflow-hidden" />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-ink/40">
-            <div className="font-mono text-sm">Runner stopped</div>
+            <div className="font-mono text-sm">{shell ? 'Shell exited' : 'Runner stopped'}</div>
             <button
               className="px-3 py-1 rounded-md bg-ink/10 hover:bg-ink/15 text-ink/80 text-xs border-none transition-colors flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5"
               onClick={(e) => {
@@ -67,7 +85,7 @@ export function RunnerPanel({ ptyId, panelId, onRestart, onKill }: RunnerPanelPr
               }}
             >
               <Icon name="arrow-counter-clockwise" />
-              Restart
+              {shell ? 'Open again' : 'Restart'}
             </button>
           </div>
         )}

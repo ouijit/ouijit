@@ -3,11 +3,11 @@ import type { OuijitTerminal } from '../components/terminal/terminalReact';
 import { whenTerminalReady } from '../components/terminal/terminalRegistry';
 import { homePanelHost } from '../components/chat/homeChatPanels';
 import { isHomeChat } from '../stores/homeChatStore';
-import { startRunner } from '../components/terminal/terminalActions';
+import { startRunner, startShell } from '../components/terminal/terminalActions';
 import { panelLabel, type TerminalPanel } from '../components/terminal/panelTypes';
 import { bufferText } from '../components/terminal/terminalText';
 import { projectDefaultSandbox } from '../stores/projectDataStore';
-import type { SandboxSpec } from '../sandbox/types';
+import { isActiveSandbox, sameSandbox, type SandboxPlacement, type SandboxSpec } from '../sandbox/types';
 import {
   TERMINAL_READY_WAIT_MS,
   type CliPanelInfo,
@@ -63,7 +63,17 @@ async function add(
   kind: CliPanelKind,
   value: string,
   sandbox?: SandboxSpec | 'none',
+  shell?: boolean,
 ): Promise<string | null> {
+  if (kind === 'runner' && shell) {
+    const existing = instance.panels.find((p) => p.kind === 'runner' && p.shell);
+    if (existing) instance.activatePanel(existing.id);
+    else {
+      const projectDefault = await projectDefaultSandbox(instance.projectPath);
+      await startShell(instance.ptyId, sandbox ?? (isActiveSandbox(projectDefault) ? projectDefault : undefined));
+    }
+    return null;
+  }
   if (kind === 'runner') {
     const script = await scriptNamed(instance.projectPath, value);
     if (!script) return `No script named ${value}`;
@@ -102,9 +112,25 @@ function focus(instance: OuijitTerminal, id: string | undefined): string | null 
   return null;
 }
 
-function read(instance: OuijitTerminal, id: string | undefined, lines: number | undefined): CliPanelRead | string {
+/** Where a runner runs, as its session resolved it: a backend alone runs under its project's settings. */
+function runsIn(placement: SandboxPlacement | undefined, projectPath: string): SandboxSpec | null {
+  if (typeof placement === 'object') return placement;
+  return isActiveSandbox(placement) ? { provider: placement, settings: projectPath } : null;
+}
+
+function read(instance: OuijitTerminal, op: CliPanelOp): CliPanelRead | string {
+  const { value: id, lines } = op;
   const panel = instance.panels.find((p) => p.id === id);
   if (!panel || panel.kind === 'newTab') return `No panel ${id ?? '(none)'}`;
+  // A shell outside the reader's sandbox may be the user's own, typing on their computer.
+  if (
+    panel.kind === 'runner' &&
+    panel.shell &&
+    op.readerSandbox !== undefined &&
+    (!op.readerSandbox || !sameSandbox(runsIn(panel.sandbox, instance.projectPath), op.readerSandbox))
+  ) {
+    return `The shell ${panel.id} runs outside your sandbox`;
+  }
   if (panel.kind === 'plan') return { kind: 'markdown', path: panel.planPath };
   if (panel.kind === 'webPreview') return { kind: 'preview', url: panel.url ?? undefined };
   const ended = { status: panel.status, exitCode: panel.exitCode ?? null };
@@ -121,7 +147,7 @@ function respondWith(instance: OuijitTerminal, panels: TerminalPanel[]): CliPane
 async function run(instance: OuijitTerminal, op: CliPanelOp): Promise<CliPanelResponse> {
   const { action, kind, value } = op;
   if (action === 'read') {
-    const result = read(instance, value, op.lines);
+    const result = read(instance, op);
     return typeof result === 'string' ? { ok: false, error: result } : { ok: true, read: result };
   }
   if (action === 'list-all' || action === 'focus' || action === 'diff-open' || action === 'diff-close') {
@@ -135,7 +161,8 @@ async function run(instance: OuijitTerminal, op: CliPanelOp): Promise<CliPanelRe
 
   if (!kind) return { ok: false, error: 'Missing panel kind' };
   let error: string | null = null;
-  if (action === 'add') error = value ? await add(instance, kind, value, op.sandbox) : 'Missing value for add';
+  if (action === 'add')
+    error = value ? await add(instance, kind, value, op.sandbox, op.shell) : 'Missing value for add';
   if (action === 'remove') error = await remove(instance, kind, value);
   if (error) return { ok: false, error };
   return respondWith(instance, panelsOfKind(instance, kind));

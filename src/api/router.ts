@@ -133,6 +133,7 @@ import type {
   SandboxCliAccess,
   SandboxProviderId,
 } from '../types';
+import { SHELL_LABEL } from '../types';
 import {
   SANDBOXABLE_HOOK_TYPES,
   SANDBOX_CLI_ACCESS,
@@ -485,6 +486,34 @@ async function addSandboxedPanel(r: ParsedRequest, ptyId: string, kind: CliPanel
   return runPanelOp(ptyId, 'add', kind, value, own);
 }
 
+/**
+ * A sandboxed caller's shell opens in its own sandbox and nowhere else: there
+ * is no one command for the user to approve, and what is typed in it could be
+ * read back.
+ */
+async function addShell(r: ParsedRequest, ptyId: string) {
+  if (!r.auth.sandboxed) {
+    return runPanelOp(ptyId, 'add', 'runner', SHELL_LABEL, await hostRunnerSandbox(r, ptyId), true);
+  }
+  const asked = parseSandbox(r.body.sandbox, 'sandbox');
+  const own = callerSandbox(r.auth);
+  if (!own || (asked && asked !== own.provider)) {
+    throw new HttpError(403, 'A sandboxed terminal opens a shell only in its own sandbox');
+  }
+  return runPanelOp(ptyId, 'add', 'runner', SHELL_LABEL, own, true);
+}
+
+/**
+ * A sandboxed caller reads and types into only the terminals in its own
+ * sandbox: one outside it may be the user's own shell.
+ */
+function refuseTerminalOutsideOwnSandbox(r: ParsedRequest, ptyId: string): void {
+  if (!r.auth.sandboxed || ptyId === r.auth.ptyId) return;
+  const own = callerSandbox(r.auth);
+  if (own && sameSandbox(getSessionSpawnContext(ptyId)?.sandbox, own)) return;
+  throw new HttpError(403, `Terminal ${ptyId} runs outside your sandbox`);
+}
+
 /** Where a host caller's runner runs: as asked, or where the window's project default says. */
 async function hostRunnerSandbox(r: ParsedRequest, ptyId: string): Promise<SandboxSpec | 'none' | undefined> {
   const asked = parseSandbox(r.body.sandbox, 'sandbox');
@@ -678,9 +707,17 @@ async function runPanelOp(
   kind: CliPanelKind,
   value?: string,
   sandbox?: SandboxSpec | 'none',
+  shell?: boolean,
 ): Promise<{ ptyId: string; kind: CliPanelKind; panels: unknown }> {
   if (!isSessionLive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
-  const result = await cliPanelRequest({ ptyId, action, kind, value, ...(sandbox && { sandbox }) });
+  const result = await cliPanelRequest({
+    ptyId,
+    action,
+    kind,
+    value,
+    ...(sandbox && { sandbox }),
+    ...(shell && { shell }),
+  });
   if (!result.ok) throw new HttpError(404, result.error ?? 'Panel operation failed');
   return { ptyId, kind, panels: result.panels ?? [] };
 }
@@ -1207,6 +1244,7 @@ const routes: Route[] = [
     'GET',
     'terminals/:ptyId/screen',
     async (r) => {
+      refuseTerminalOutsideOwnSandbox(r, r.segments[1]);
       const { text, alternateScreen } = await runTerminalOp({
         action: 'read',
         ptyId: r.segments[1],
@@ -1223,6 +1261,7 @@ const routes: Route[] = [
     'terminals/:ptyId/paste',
     async (r) => {
       if (typeof r.body.text !== 'string' || !r.body.text) throw new HttpError(400, 'Missing text');
+      refuseTerminalOutsideOwnSandbox(r, r.segments[1]);
       await runTerminalOp({ action: 'paste', ptyId: r.segments[1], text: r.body.text });
       return { ptyId: r.segments[1], pasted: true };
     },
@@ -1881,6 +1920,7 @@ const routes: Route[] = [
         action: 'read',
         value: r.segments[2],
         lines: readLines(r.query),
+        ...(r.auth.sandboxed && { readerSandbox: callerSandbox(r.auth) }),
       });
       if (!result.ok) throw new HttpError(404, result.error ?? 'Panel read failed');
       return { ptyId: r.segments[1], id: r.segments[2], ...result.read };
@@ -1895,6 +1935,7 @@ const routes: Route[] = [
     async (r) => {
       const ptyId = r.segments[1];
       const kind = parsePanelKind(r.segments[2]);
+      if (kind === 'runner' && r.body.shell === true) return addShell(r, ptyId);
       const value = panelValue(kind, r.body.path, r.body.url, r.body.script);
       if (r.auth.sandboxed) return addSandboxedPanel(r, ptyId, kind, value);
       return runPanelOp(ptyId, 'add', kind, value, kind === 'runner' ? await hostRunnerSandbox(r, ptyId) : undefined);

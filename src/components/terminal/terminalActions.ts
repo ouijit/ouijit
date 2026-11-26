@@ -24,7 +24,7 @@ import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore } from '../../stores/appStore';
 import { OuijitTerminal, resolveTerminalLabel } from './terminalReact';
 import { terminalInstances, restoreTerminalOnce } from './terminalRegistry';
-import type { TerminalPanel } from './panelTypes';
+import { SHELL_LABEL, type TerminalPanel } from './panelTypes';
 import { generateId } from '../../utils/ids';
 import { parseOsc133ExitCodes } from './osc133';
 import { buildEditorCommand } from './editorCommand';
@@ -98,6 +98,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
             ...(placementProvider(sp.sandboxProvider) && { sandbox: sp.sandboxProvider }),
             ...(sp.env && { env: sp.env }),
             ...(sp.private && { private: true }),
+            ...(sp.shell && { shell: true }),
             status: 'idle',
           });
           break;
@@ -467,7 +468,7 @@ export function updateRunnerStatusFromOsc133(data: string, parent: OuijitTermina
   const exitCode = codes[codes.length - 1];
   const next = exitCode === 0 ? 'success' : 'error';
   const panel = parent.panels.find((p) => p.id === panelId);
-  if (panel?.kind === 'runner' && (panel.status !== next || panel.exitCode !== exitCode)) {
+  if (panel?.kind === 'runner' && !panel.shell && (panel.status !== next || panel.exitCode !== exitCode)) {
     parent.updatePanel(panelId, { status: next, exitCode });
     if (next === 'error') noteHookFailure(parent, panelId, exitCode);
   }
@@ -536,6 +537,24 @@ export async function startRunner(
   return panelId;
 }
 
+/** A shell beside the card, in its worktree: where the card runs its runners unless `sandbox` says. */
+export async function startShell(
+  ptyId: string,
+  sandbox?: SandboxPlacement,
+  replacing?: string,
+): Promise<string | null> {
+  const instance = terminalInstances.get(ptyId);
+  if (!instance) return null;
+  const placement = sandbox === 'none' ? sandbox : ((await homeChatSandbox(ptyId)) ?? sandbox);
+  const panelId = instance.addRunnerPanel(
+    { name: SHELL_LABEL, command: '', sandbox: placement, shell: true },
+    true,
+    replacing,
+  );
+  await spawnRunner(ptyId, panelId);
+  return panelId;
+}
+
 /** Kill a runner panel's child and re-run its command in the same panel. The
  *  command + source already live on the panel, so a restart is just a re-spawn. */
 export async function restartRunner(ptyId: string, panelId: string): Promise<void> {
@@ -579,13 +598,13 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
   const path = instance.projectPath;
 
   const panel = instance.panels.find((p) => p.id === panelId);
-  if (!panel || panel.kind !== 'runner' || !panel.scriptCommand) {
+  if (!panel || panel.kind !== 'runner' || (!panel.scriptCommand && !panel.shell)) {
     instance.updatePanel(panelId, { status: 'error' });
     return;
   }
-  const commandStr = panel.scriptCommand;
+  const commandStr = panel.scriptCommand ?? '';
   const commandName = panel.scriptName ?? commandStr;
-  const hookType = panel.hookType ?? (panel.source === 'hook' ? 'run' : 'script');
+  const hookType = panel.shell ? 'shell' : (panel.hookType ?? (panel.source === 'hook' ? 'run' : 'script'));
 
   // Opt-in: this runnable wants a solo instance, so clear an existing one first.
   // Pass panelId to spare this panel — its command is already set and would else

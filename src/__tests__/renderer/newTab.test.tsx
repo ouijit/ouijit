@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { PanelBar } from '../../components/terminal/PanelTabs';
 import { NewTabPage } from '../../components/terminal/NewTabPanel';
 import { terminalInstances } from '../../components/terminal/terminalRegistry';
-import { startRunner } from '../../components/terminal/terminalActions';
+import { startRunner, startShell } from '../../components/terminal/terminalActions';
 import { getProjectConfig, runnerPlace, useProjectDataStore } from '../../stores/projectDataStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useHomeChatStore } from '../../stores/homeChatStore';
@@ -17,6 +17,7 @@ vi.mock('../../components/terminal/terminalReact', () => ({
 
 vi.mock('../../components/terminal/terminalActions', () => ({
   startRunner: vi.fn().mockResolvedValue(null),
+  startShell: vi.fn().mockResolvedValue(null),
 }));
 
 const PROJECT = '/tmp/project';
@@ -117,6 +118,8 @@ describe('a new tab', () => {
     expect(screen.getByText('e.md')).toBeTruthy();
 
     press('ArrowDown');
+    expect(marked().map((o) => o.textContent)).toEqual(['Shell']);
+    press('ArrowDown');
     expect(marked().map((o) => o.textContent)).toEqual(['Configure run command…']);
     press('ArrowDown');
     press('ArrowDown');
@@ -162,6 +165,9 @@ describe('a new tab', () => {
 
     fireEvent.click(screen.getByText('Lint'));
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, 'custom', TAB));
+    // A shell opens in the same place as the scripts.
+    fireEvent.click(screen.getByText('Shell'));
+    expect(startShell).toHaveBeenLastCalledWith(PTY, 'custom', TAB);
 
     fireEvent.click(screen.getByLabelText('Run in'));
     fireEvent.click(await screen.findByRole('button', { name: 'Host' }));
@@ -170,6 +176,9 @@ describe('a new tab', () => {
     type('lin');
     press('Enter');
     await waitFor(() => expect(startRunner).toHaveBeenLastCalledWith(PTY, lint, undefined, TAB));
+    type('shell');
+    press('Enter');
+    expect(startShell).toHaveBeenLastCalledWith(PTY, 'none', TAB);
 
     type('');
     const runs = vi.mocked(startRunner).mock.calls.length;
@@ -217,7 +226,7 @@ describe('a new tab', () => {
     expect(screen.queryByText('Configure run command…')).toBeNull();
   });
 
-  test("in one of Chat's conversations, offers its folder's files and pages, and no scripts", async () => {
+  test("in one of Chat's conversations, offers a shell where Chat runs, its folder's files and pages, and no scripts", async () => {
     useHomeChatStore.setState({ currentId: PTY });
     vi.mocked(window.api.plan.listFiles).mockResolvedValue([{ path: `${PROJECT}/calendar.md`, modifiedAt: 1 }]);
     openNewTab();
@@ -226,8 +235,12 @@ describe('a new tab', () => {
     expect(await within(list).findByText('calendar.md')).toBeTruthy();
     expect(within(list).queryByText('Scripts')).toBeNull();
     expect(within(list).queryByText('New script…')).toBeNull();
-    type('cal', 'Open a file, or enter a URL');
-    press('Enter', 'Open a file, or enter a URL');
+    const chatField = 'Open a shell or a file, or enter a URL';
+    type('cal', chatField);
+    press('Enter', chatField);
     expect(card.addPlanPanel).toHaveBeenCalledWith(`${PROJECT}/calendar.md`, true, TAB);
+    type('', chatField);
+    fireEvent.click(within(list).getByText('Shell'));
+    expect(startShell).toHaveBeenCalledWith(PTY, undefined, TAB);
   });
 });

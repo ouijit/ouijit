@@ -42,6 +42,7 @@ export function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
           sandboxProvider: p.sandbox,
           ...(p.env && { env: p.env }),
           ...(p.private && { private: true }),
+          ...(p.shell && { shell: true }),
         });
         break;
       case 'webPreview':

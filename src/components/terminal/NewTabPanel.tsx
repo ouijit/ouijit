@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { create } from 'zustand';
 import { Icon } from './Icon';
 import { terminalInstances } from './terminalRegistry';
-import { startRunner } from './terminalActions';
+import { startRunner, startShell } from './terminalActions';
+import { SHELL_LABEL } from './panelTypes';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { ScriptConfigDialog } from '../dialogs/ScriptConfigDialog';
@@ -34,7 +35,7 @@ function forget(panelId: string): void {
 }
 
 function fieldLabel(ptyId: string): string {
-  return isHomeChat(ptyId) ? 'Open a file, or enter a URL' : 'Run a script, open a file, or enter a URL';
+  return isHomeChat(ptyId) ? 'Open a shell or a file, or enter a URL' : 'Run a script, open a file, or enter a URL';
 }
 
 /** The open new tab, typed into where its title goes. */
@@ -172,11 +173,19 @@ function useOpeners(ptyId: string, panelId: string) {
   };
 }
 
+function shellRow(query: string, open: () => void): Row | null {
+  if (!matches(query, SHELL_LABEL)) return null;
+  return { key: 'shell', icon: 'terminal', title: SHELL_LABEL, act: open };
+}
+
+/** Chat's conversations open a shell where Chat runs, so no place is offered. */
 function FilesAndPages({ ptyId, panelId }: { ptyId: string; panelId: string }) {
   const query = useNewTabStore((s) => s.query[panelId] ?? '');
   const open = useOpeners(ptyId, panelId);
   const files = useFileGroup(open.dir, query, open.openFile);
-  return <List panelId={panelId} query={query} groups={withUrl(query, [files], open.openUrl)} onCancel={open.cancel} />;
+  const shell = shellRow(query, () => void startShell(ptyId, undefined, panelId));
+  const groups = shell ? [{ rows: [shell] }, files] : [files];
+  return <List panelId={panelId} query={query} groups={withUrl(query, groups, open.openUrl)} onCancel={open.cancel} />;
 }
 
 /** A URL typed is offered first, unless it also names a file, which it then follows. */
@@ -207,6 +216,8 @@ function ScriptsFilesAndPages({ ptyId, panelId }: { ptyId: string; panelId: stri
   const groups: Group[] = [];
   if (config && scripts) {
     const rows: Row[] = [];
+    const shell = shellRow(query, () => void startShell(ptyId, place, panelId));
+    if (shell) rows.push(shell);
     const runHook = config.hooks.run;
     if (runHook && matches(query, 'Run', runHook.command))
       rows.push({

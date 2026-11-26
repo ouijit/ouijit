@@ -183,6 +183,7 @@ export interface SnapshotPanel {
   sandboxProvider?: SandboxPlacement;
   env?: Record<string, string>;
   private?: boolean;
+  shell?: boolean;
   /** webPreview (only user-set URLs are persisted) */
   url?: string | null;
   /** plan */
@@ -1044,6 +1045,10 @@ export interface CliPanelOp {
   lines?: number;
   /** add runner: where its script runs, `none` for the host. Absent is the project's default. */
   sandbox?: SandboxSpec | 'none';
+  /** add runner: a shell to type in, in place of a script. */
+  shell?: boolean;
+  /** read: the sandbox of a sandboxed caller, which reads a shell only inside it; null for one with no spec. */
+  readerSandbox?: SandboxSpec | null;
 }
 
 /**
@@ -1053,6 +1058,9 @@ export interface CliPanelOp {
  * rather than the bridge's generic timeout.
  */
 export const TERMINAL_READY_WAIT_MS = 3000;
+
+/** What a shell's runner tab is called, and the name the CLI removes it by. */
+export const SHELL_LABEL = 'Shell';
 
 /** Renderer's reply for a {@link CliPanelOp}. */
 export interface CliPanelResponse {

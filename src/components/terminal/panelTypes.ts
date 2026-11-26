@@ -12,6 +12,7 @@
  */
 
 import type { SandboxPlacement } from '../../types';
+export { SHELL_LABEL } from '../../types';
 
 export type PanelKind = 'runner' | 'webPreview' | 'plan' | 'newTab';
 
@@ -41,6 +42,8 @@ export interface RunnerPanel {
   env?: Record<string, string>;
   /** Run privately: an agent reading it learns how it ended, never what it printed. */
   private?: boolean;
+  /** A shell to type in rather than a command: `scriptCommand` is empty, and each command's exit is not the panel's. */
+  shell?: boolean;
   status: RunnerStatus;
   /** The last command's exit code, once one has finished. */
   exitCode?: number | null;

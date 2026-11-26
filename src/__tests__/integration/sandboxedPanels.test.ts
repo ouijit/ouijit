@@ -10,7 +10,8 @@ import { issueToken } from '../../apiAuth';
 import { initCliPanels } from '../../cliPanels';
 import { killPty, spawnPty } from '../../ptyManager';
 import { decide, decisions } from '../../decisions';
-import { _resetCacheForTesting, saveScript } from '../../db';
+import { _resetCacheForTesting, saveScript, setGlobalSetting } from '../../db';
+import { sandboxCliAccessSettingKey } from '../../sandbox/types';
 import { setCustomSandboxConfig } from '../../sandbox/custom/config';
 import type { CliAskOp, CliPanelOp } from '../../types';
 
@@ -45,6 +46,9 @@ function answerAsTheWindow(): void {
     const op = args[0] as { requestId: number };
     if (channel === 'cli:panel-op')
       void handler('cli-panels:respond')({} as never, op.requestId, { ok: true, panels: [] });
+    if (channel === 'cli:terminal-op') {
+      void handler('cli-terminals:respond')({} as never, op.requestId, { ok: true, text: '' });
+    }
     if (channel === 'cli:ask-op') {
       void handler('cli-asks:respond')({} as never, op.requestId, { ok: true, answer: { status: 'pending' } });
     }
@@ -53,16 +57,19 @@ function answerAsTheWindow(): void {
 
 const panelOps = () => sent.filter(([c]) => c === 'cli:panel-op').map(([, op]) => op as CliPanelOp);
 
-async function add(token: string, onto: string, kind: string, body: Record<string, unknown>) {
+async function call(token: string, method: string, route: string, body?: Record<string, unknown>) {
   sent.length = 0;
-  const res = await fetch(`http://127.0.0.1:${getApiPort()}/api/panels/${onto}/${kind}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+  const res = await fetch(`http://127.0.0.1:${getApiPort()}/api/${route}`, {
+    method,
+    headers: { Authorization: `Bearer ${token}`, ...(body && { 'Content-Type': 'application/json' }) },
+    ...(body && { body: JSON.stringify(body) }),
   });
   const json = (await res.json()) as { data?: Record<string, unknown>; error?: string };
   return { status: res.status, data: json.data, error: json.error };
 }
+
+const add = (token: string, onto: string, kind: string, body: Record<string, unknown>) =>
+  call(token, 'POST', `panels/${onto}/${kind}`, body);
 
 beforeAll(async () => {
   _resetCacheForTesting();
@@ -152,5 +159,41 @@ describe('a panel a sandboxed terminal adds', () => {
     expect((await add(token, sandboxed, 'preview', { url: 'https://example.com' })).status).toBe(200);
     expect(panelOps()).toMatchObject([{ ptyId: sandboxed, kind: 'preview', value: 'https://example.com' }]);
     expect(decisions()).toEqual([]);
+  });
+});
+
+describe('a shell beside a terminal', () => {
+  test('from a sandbox opens only in that sandbox, and a sandbox reaches only the terminals and shells in its own', async () => {
+    const ownSandbox = { provider: 'custom', settings: repo };
+    const token = issueToken(sandboxed, 'sandbox');
+    expect((await add(token, sandboxed, 'runner', { shell: true })).status).toBe(200);
+    expect(panelOps()).toMatchObject([{ action: 'add', kind: 'runner', shell: true, sandbox: ownSandbox }]);
+    for (const sandbox of ['none', 'nono']) {
+      expect((await add(token, sandboxed, 'runner', { shell: true, sandbox })).status).toBe(403);
+      expect(panelOps()).toEqual([]);
+    }
+
+    // A panel read carries the reader's sandbox, which the window holds a shell's screen to.
+    expect((await call(token, 'GET', `panels/${sandboxed}/panel-1/screen`)).status).toBe(200);
+    expect(panelOps()).toMatchObject([{ action: 'read', readerSandbox: ownSandbox }]);
+
+    // Even at Whole board, a terminal on the host is out of reach: it may be the user's own shell.
+    await setGlobalSetting(sandboxCliAccessSettingKey(repo), 'all');
+    const whole = issueToken(sandboxed, 'sandbox');
+    expect((await call(whole, 'GET', `terminals/${host}/screen`)).status).toBe(403);
+    expect((await call(whole, 'POST', `terminals/${host}/paste`, { text: 'rm -rf ~' })).status).toBe(403);
+    expect((await call(whole, 'GET', `terminals/${sandboxed}/screen`)).status).toBe(200);
+    await setGlobalSetting(sandboxCliAccessSettingKey(repo), 'read');
+
+    // From the host it opens where asked, or the window's default, and reads anything.
+    const fromHost = issueToken(host, 'host');
+    expect((await add(fromHost, host, 'runner', { shell: true })).status).toBe(200);
+    expect(panelOps()).toMatchObject([{ kind: 'runner', shell: true }]);
+    expect(panelOps()[0].sandbox).toBeUndefined();
+    expect((await add(fromHost, host, 'runner', { shell: true, sandbox: 'none' })).status).toBe(200);
+    expect(panelOps()[0].sandbox).toBe('none');
+    expect((await call(fromHost, 'GET', `panels/${host}/panel-1/screen`)).status).toBe(200);
+    expect(panelOps()[0].readerSandbox).toBeUndefined();
+    expect((await call(fromHost, 'GET', `terminals/${sandboxed}/screen`)).status).toBe(200);
   });
 });

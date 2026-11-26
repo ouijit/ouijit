@@ -508,13 +508,16 @@ ouijit preview remove <url>                   # close that preview panel
 ## Runner Commands (run a project script in a tab on this terminal)
 ouijit runner add <script>                    # by id or name from script list, in the project's default sandbox
 ouijit runner add <script> --sandbox host|nono|custom [-m "<why>"]   # somewhere else
+ouijit runner shell [--sandbox host|nono|custom]   # a shell to type in, in this terminal's worktree
 ouijit runner list                            # → {ptyId, kind, panels: [{id, label, script, active}, ...]}
-ouijit runner remove <script>                 # close it, stopping the script
+ouijit runner remove <script>                 # close it, stopping the script; a shell is "Shell"
 
 From a sandbox, a runner runs in that sandbox, and a preview of localhost,
 127.0.0.1 or [::1] opens at once. A runner with --sandbox host, or a preview of
 any other page, waits for the user to press Run or Open, as an ask does, and
-the reply is pending until then.
+the reply is pending until then. A shell opens only in that sandbox. Reading or
+pasting into a terminal, or reading a shell panel, works only for those
+running in the same sandbox.
 
 ## Panel Commands (every kind of tab on a terminal)
 ouijit panel list [pty-id]                    # → {ptyId, panels: [{id, kind, label, active, ...}], diffOpen}

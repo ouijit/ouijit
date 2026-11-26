@@ -324,10 +324,11 @@ ouijit preview remove http://localhost:3000</code></pre>
     Run a project <a href="#scripts">script</a> in a <a href="/docs/panels/">runner panel</a> beside a terminal,
     as the <strong>+</strong> menu does, in the project's default sandbox. From a sandbox it runs in that
     sandbox. <code>--sandbox host</code> from a sandbox waits for you to press <strong>Run</strong>, as an
-    <a href="#ask">ask</a> does.
+    <a href="#ask">ask</a> does. A shell opens only in the caller's own sandbox.
   </p>
   <pre class="glass-bevel"><code>ouijit runner add "Dev server"                # by id or name
 ouijit runner add "Deploy" --sandbox host -m "needs the keychain"
+ouijit runner shell                           # a shell in this terminal's worktree
 ouijit runner list
 ouijit runner remove "Dev server"             # stops the script</code></pre>
 
