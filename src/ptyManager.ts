@@ -1,6 +1,6 @@
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
-import type { PtyId, PtySpawnOptions, PtySpawnResult, SandboxProviderId } from './types';
+import type { ActiveSession, PtyId, PtySpawnOptions, PtySpawnResult, SandboxProviderId } from './types';
 import { isActiveSandbox } from './sandbox/types';
 import { sandboxCliAccessFor } from './sandbox/cliAccess';
 import type { SandboxProvider } from './sandbox/provider';
@@ -71,18 +71,6 @@ interface ManagedPty {
   watchLaunch: boolean;
   shellStarted: boolean;
   outputTail: string;
-}
-
-export interface ActiveSession {
-  ptyId: PtyId;
-  projectPath: string;
-  command: string;
-  label: string;
-  taskId?: number;
-  worktreePath?: string;
-  isRunner?: boolean;
-  parentPtyId?: PtyId;
-  sandboxProvider?: SandboxProviderId;
 }
 
 const activePtys = new Map<PtyId, ManagedPty>();

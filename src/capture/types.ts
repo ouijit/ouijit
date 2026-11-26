@@ -1,6 +1,6 @@
 import type { TerminalDisplayState } from '../stores/terminalStore';
 import type { LensGroup } from '../lens/lens';
-import type { SandboxProviderId } from '../types';
+import type { SandboxProviderId } from '../sandbox/types';
 import type { GithubAvailability, GithubIssueList, InboxResult } from '../github/types';
 import type { LinearAvailability, LinearIssueGroups } from '../linear/types';
 

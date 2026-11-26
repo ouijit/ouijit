@@ -20,7 +20,7 @@ import { createTask, getTaskByNumber, setGlobalSetting, _resetCacheForTesting } 
 import { sandboxCliAccessSettingKey } from '../../sandbox/types';
 import { saveNote } from '../../diffNotesService';
 import { setTrashItem } from '../../platform';
-import type { ActiveSession } from '../../ptyManager';
+import type { ActiveSession } from '../../types';
 
 const { sessions } = vi.hoisted(() => ({ sessions: [] as ActiveSession[] }));
 

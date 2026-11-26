@@ -1,4 +1,4 @@
-import type { FileDiff } from '../types';
+import type { FileDiff } from '../git';
 import type { LensFile, LensSubject } from './lensPrompt';
 
 /**

@@ -10,7 +10,7 @@
  */
 
 import type { BlobContent } from '../git';
-import type { TaskWithWorkspace } from '../types';
+import type { TaskWithWorkspace } from '../taskTypes';
 import type { TimelineItem } from '../issues/types';
 
 /** A repo resolved from a git remote URL. `host` is 'github.com' or a GHES host. */

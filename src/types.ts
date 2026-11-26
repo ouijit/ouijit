@@ -49,10 +49,10 @@ import type {
 import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './lens/worktreeSubject';
 import type { LensChangedPayload } from './lens/subjectKeys';
-import type { LensInput, LensSummary } from './lens/config';
+import type { LensInput, LensSummary } from './lens/lensTypes';
 import type { StoredLens } from './lens/readLens';
-import type { TaskStatus } from './db';
-import type { ActiveSession } from './ptyManager';
+import type { TaskStatus } from './db/repos/taskRepo';
+import type { TaskWithWorkspace } from './taskTypes';
 import type {
   SandboxProviderId,
   SandboxProviderStatus,
@@ -61,6 +61,7 @@ import type {
   SandboxLaunchFailedPayload,
   TerminalSandboxPayload,
 } from './sandbox/types';
+import type { HookType, ProjectSettings, ScriptHook } from './projectSettings';
 import type { HookStatus, HookStatusEntry } from './hookStatus';
 
 export type {
@@ -82,8 +83,8 @@ export type {
   DiffBases,
 } from './git';
 export type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
-export type { TaskStatus, TaskMetadata } from './db';
-export type { ActiveSession } from './ptyManager';
+export type { TaskStatus } from './db/repos/taskRepo';
+export type { TaskMetadata, TaskWithWorkspace } from './taskTypes';
 export type {
   SandboxProviderId,
   SandboxBackendId,
@@ -106,6 +107,7 @@ export {
   sandboxCliAccessSettingKey,
   isSandboxCliAccess,
 } from './sandbox/types';
+export type { CustomCommand, HookType, ProjectSettings, ScriptHook } from './projectSettings';
 export type { HookStatus, HookStatusEntry } from './hookStatus';
 export type {
   RepoIdentity,
@@ -239,19 +241,6 @@ export interface RunConfig {
 }
 
 /**
- * Custom command defined by the user
- * @deprecated Use ScriptHook instead
- */
-export interface CustomCommand {
-  id: string;
-  name: string;
-  command: string;
-  description?: string;
-}
-
-export type HookType = 'start' | 'continue' | 'run' | 'review' | 'done' | 'editor';
-
-/**
  * Hook-control mode from the `ouijit task start` CLI flags. Threads from the
  * CLI through the task-start API into the renderer to bypass the start-hook
  * dialog so an agent can start a task headlessly.
@@ -275,18 +264,6 @@ export interface CliHookControl {
   hookCommand?: string;
   /** Overrides the hook's own sandbox setting. */
   hookSandbox?: SandboxProviderId;
-}
-
-export interface ScriptHook {
-  id: string;
-  type: HookType;
-  name: string;
-  command: string;
-  description?: string;
-  /** Restart the command if an instance is already running in the same task (run hook only). */
-  restartIfRunning?: boolean;
-  /** Where the hook always runs; absent follows the project default. */
-  sandbox?: SandboxProviderId;
 }
 
 /** How to run a lifecycle hook: as chosen in its dialog, or decided without one. */
@@ -314,22 +291,6 @@ export interface RunnerScript {
   env?: Record<string, string>;
   /** Run privately: an agent reading it learns how it ended, never what it printed. */
   private?: boolean;
-}
-
-export interface ProjectSettings {
-  /** @deprecated Use hooks instead */
-  customCommands?: CustomCommand[];
-  /** @deprecated Use hooks.run instead */
-  defaultCommandId?: string;
-  /** Script hooks for project lifecycle */
-  hooks?: {
-    start?: ScriptHook;
-    continue?: ScriptHook;
-    run?: ScriptHook;
-    review?: ScriptHook;
-    done?: ScriptHook;
-    editor?: ScriptHook;
-  };
 }
 
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
@@ -398,28 +359,16 @@ export interface PtyAPI {
   setWindow(): void;
 }
 
-export interface TaskWithWorkspace {
-  taskNumber: number;
-  name: string;
-  status: TaskStatus;
-  branch?: string;
+export interface ActiveSession {
+  ptyId: PtyId;
+  projectPath: string;
+  command: string;
+  label: string;
+  taskId?: number;
   worktreePath?: string;
-  createdAt: string;
-  closedAt?: string;
-  mergeTarget?: string;
-  prompt?: string;
-  order?: number;
-  parentTaskNumber?: number;
-  /** Linked GitHub pull request, if any. Drives the kanban card badge. */
-  githubPrNumber?: number;
-  /** Linked GitHub issue, if the task was created from one. */
-  githubIssueNumber?: number;
-  /** Linked Linear issue, if the task was created from one. */
-  linearIssueId?: string;
-  /** `ENG-123`, stored so a badge renders without asking Linear. */
-  linearIssueIdentifier?: string;
-  /** The branch the task should start on, captured when it was created. */
-  suggestedBranch?: string;
+  isRunner?: boolean;
+  parentPtyId?: PtyId;
+  sandboxProvider?: SandboxProviderId;
 }
 
 export interface HooksAPI {

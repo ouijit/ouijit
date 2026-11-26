@@ -1,4 +1,4 @@
-import type { FileDiff } from '../types';
+import type { FileDiff } from '../git';
 import { saveDiffLens, startDiffLensRun, endDiffLensRun } from '../db';
 import { getDiffSignals } from '../analysis/service';
 import { getLogger } from '../logger';
