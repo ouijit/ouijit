@@ -575,6 +575,19 @@ describe('taskStartService.beginTransition', () => {
     expect(useProjectStore.getState().runHookQueue).toHaveLength(0);
     expect(vi.mocked(addChatCard).mock.calls[0][1]).toMatchObject({ setup: undefined, firstPrompt: 'with oauth' });
 
+    // An agent asked for from the CLI gets the chat and its first message, over the one tasks open with.
+    vi.mocked(addChatCard).mockClear();
+    beginTransition(PROJECT, {
+      origStatus: 'todo',
+      newStatus: 'in_progress',
+      task,
+      hookControl: { mode: 'run' },
+      surface: 'chat',
+      agent: 'codex',
+    });
+    await waitFor(() => vi.mocked(addChatCard).mock.calls.length > 0);
+    expect(vi.mocked(addChatCard).mock.calls[0][1]).toMatchObject({ agent: 'codex', firstPrompt: 'with oauth' });
+
     // Back from review it picks up its last chat, with no hook and nothing sent again.
     vi.mocked(addChatCard).mockClear();
     vi.mocked(window.api.hooks.get).mockResolvedValue({

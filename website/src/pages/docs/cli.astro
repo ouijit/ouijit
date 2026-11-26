@@ -70,7 +70,8 @@ ouijit task trash 5                           # worktree goes to the system tras
     for that run, with or without the flags above. When the hook waits for you, the dialog preselects it.
     <code>--surface terminal|chat</code>, on <code>task start</code> and <code>create-and-start</code>, picks
     what the task opens in instead of the chat setting. A task that Chat starts opens as a chat unless it says
-    otherwise.
+    otherwise. <code>--agent claude|codex|pi|opencode|acp</code> on the same two opens it as a chat with that
+    agent, which gets the task's first message.
   </p>
   <p>
     <code>ouijit task current</code> resolves the task that owns the current terminal, through the

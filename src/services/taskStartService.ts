@@ -13,6 +13,7 @@ import { addProjectTerminal } from '../components/terminal/terminalActions';
 import { addChatCard } from '../components/chat/chatActions';
 import { hookForMove, opensAsChat } from './chatSettings';
 import type { TaskSurface } from '../chat/preferences';
+import type { ChatAgentId } from '../chat/model';
 import { fillHookVars, taskHookVars } from '../utils/hookEnvVars';
 import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import { completeTask } from './taskCompletion';
@@ -65,6 +66,8 @@ export interface BeginTransitionOptions {
   background?: boolean;
   /** What the task opens in, instead of the chat setting. */
   surface?: TaskSurface;
+  /** Its chat's agent, instead of the one the project's tasks open with. */
+  agent?: ChatAgentId;
 }
 
 /**
@@ -194,6 +197,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
     sandbox: sandboxOverride,
     background,
     surface,
+    agent,
   } = opts;
   const taskNumber = task.taskNumber;
   const transitioningToInProgress = newStatus === 'in_progress';
@@ -333,6 +337,7 @@ async function runTransition(projectPath: string, opts: BeginTransitionOptions, 
           slotId,
           background,
           surface,
+          agent,
         );
       }
     } else if (hookResult) {
@@ -376,6 +381,7 @@ async function spawnTerminalForInProgress(
   loadingSlot: string | null,
   background: boolean | undefined,
   surface: TaskSurface | undefined,
+  agent: ChatAgentId | undefined,
 ): Promise<void> {
   if (!task.worktreePath) {
     // Worktree creation must have failed earlier; nothing to do.
@@ -385,8 +391,8 @@ async function spawnTerminalForInProgress(
   if (await opensAsChat(projectPath, surface)) {
     const worktree = { path: task.worktreePath, branch: task.branch || '' };
     const live = (await window.api.task.getByNumber(projectPath, task.taskNumber)) ?? task;
-    // Back in progress, a task picks up its last chat rather than starting over.
-    if (hookType === 'continue') {
+    // Back in progress, a task picks up its last chat rather than starting over, unless another agent is asked for.
+    if (hookType === 'continue' && !agent) {
       await addChatCard(projectPath, {
         worktree,
         taskId: task.taskNumber,
@@ -398,6 +404,7 @@ async function spawnTerminalForInProgress(
     }
     const { firstMessage } = await projectTaskOpening(projectPath);
     await addChatCard(projectPath, {
+      agent,
       worktree,
       taskId: task.taskNumber,
       sandbox,

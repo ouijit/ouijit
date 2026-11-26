@@ -6,11 +6,15 @@ import type { Command } from 'commander';
 import { get, post, patch, del, projectQuery } from '../api';
 import { printJson, printError } from '../output';
 import { SANDBOX_FLAG, parseSandboxFlag, sandboxFlagHelp } from '../sandboxFlag';
+import { CHAT_AGENT_IDS, isChatAgentId } from '../../chat/model';
 
 const HOOK_SANDBOX_HELP = sandboxFlagHelp("run the hook in this sandbox instead of the hook's own setting");
 
 const SURFACE_FLAG = '--surface <surface>';
 const SURFACE_HELP = 'open the task in this surface (terminal or chat) instead of the chat setting';
+
+const AGENT_FLAG = '--agent <agent>';
+const AGENT_HELP = `open the task as a chat with this agent, which gets its first message (${CHAT_AGENT_IDS.join('|')})`;
 
 const VALID_STATUSES = ['todo', 'in_progress', 'in_review', 'done'];
 
@@ -20,9 +24,10 @@ interface HookFlags {
   hookCommand?: string;
   sandbox?: string;
   surface?: string;
+  agent?: string;
 }
 
-type HookBody = { hookMode?: string; hookCommand?: string; hookSandbox?: string; surface?: string };
+type HookBody = { hookMode?: string; hookCommand?: string; hookSandbox?: string; surface?: string; agent?: string };
 
 /**
  * Resolve the --run-hook / --skip-hook / --hook-command flags into the
@@ -42,7 +47,16 @@ function resolveHookFlags(opts: HookFlags): HookBody | { error: string } {
   if (opts.surface !== undefined && opts.surface !== 'terminal' && opts.surface !== 'chat') {
     return { error: `--surface must be terminal or chat, not ${opts.surface}` };
   }
-  return { ...mode, ...(hookSandbox && { hookSandbox }), ...(opts.surface && { surface: opts.surface }) };
+  if (opts.agent !== undefined && !isChatAgentId(opts.agent)) {
+    return { error: `--agent must be one of ${CHAT_AGENT_IDS.join(', ')}, not ${opts.agent}` };
+  }
+  if (opts.agent !== undefined && opts.surface === 'terminal') return { error: '--agent opens the task as a chat' };
+  return {
+    ...mode,
+    ...(hookSandbox && { hookSandbox }),
+    ...(opts.surface && { surface: opts.surface }),
+    ...(opts.agent && { agent: opts.agent }),
+  };
 }
 
 function resolveHookMode(opts: HookFlags): { hookMode?: string; hookCommand?: string } | { error: string } {
@@ -182,6 +196,7 @@ Examples:
     .option('--hook-command <cmd>', 'spawn the terminal running a one-off custom command')
     .option(SANDBOX_FLAG, HOOK_SANDBOX_HELP)
     .option(SURFACE_FLAG, SURFACE_HELP)
+    .option(AGENT_FLAG, AGENT_HELP)
     .action(async (number: string, opts: { branch?: string } & HookFlags) => {
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
@@ -210,6 +225,7 @@ Examples:
     .option('--hook-command <cmd>', 'spawn the terminal running a one-off custom command')
     .option(SANDBOX_FLAG, HOOK_SANDBOX_HELP)
     .option(SURFACE_FLAG, SURFACE_HELP)
+    .option(AGENT_FLAG, AGENT_HELP)
     .action(async (name: string, opts: { prompt?: string; branch?: string } & HookFlags) => {
       const hook = resolveHookFlags(opts);
       if ('error' in hook) return printError(hook.error);

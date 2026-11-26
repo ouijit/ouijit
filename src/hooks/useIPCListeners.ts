@@ -22,11 +22,12 @@ type CliStart = CliMove & {
   branch: string;
 };
 
-function hookOptions({ hookMode, hookCommand, sandbox, surface }: CliMove) {
+function hookOptions({ hookMode, hookCommand, sandbox, surface, agent }: CliMove) {
   return {
     hookControl: hookMode ? { mode: hookMode, command: hookCommand } : undefined,
     sandbox,
     surface,
+    agent,
   };
 }
 

@@ -239,11 +239,21 @@ function isSuccessfulStart(result: unknown): result is TaskStartResult {
  */
 function parseHookControl(body: Record<string, unknown>): CliHookControl {
   const hookSandbox = parseSandbox(body.hookSandbox, 'hookSandbox');
-  const surface = body.surface;
+  const { agent } = body;
+  if (agent !== undefined && !isChatAgentId(agent)) {
+    throw new HttpError(400, `Invalid agent: ${String(agent)}. Must be one of: ${CHAT_AGENT_IDS.join(', ')}`);
+  }
+  const surface = body.surface ?? (agent !== undefined ? 'chat' : undefined);
   if (surface !== undefined && surface !== 'terminal' && surface !== 'chat') {
     throw new HttpError(400, `Invalid surface: ${String(surface)}. Must be terminal or chat`);
   }
-  return { ...parseHookMode(body), ...(hookSandbox && { hookSandbox }), ...(surface && { surface }) } as CliHookControl;
+  if (agent !== undefined && surface !== 'chat') throw new HttpError(400, 'An agent opens the task as a chat');
+  return {
+    ...parseHookMode(body),
+    ...(hookSandbox && { hookSandbox }),
+    ...(surface && { surface }),
+    ...(agent !== undefined && { agent }),
+  } as CliHookControl;
 }
 
 function parseSandbox(value: unknown, field: string): SandboxProviderId | undefined {

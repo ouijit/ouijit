@@ -303,6 +303,8 @@ export interface CliHookControl {
   hookSandbox?: SandboxProviderId;
   /** What the task opens in, instead of the chat setting. */
   surface?: 'terminal' | 'chat';
+  /** The chat's agent, instead of the one the project's tasks open with. */
+  agent?: ChatAgentId;
 }
 
 /** A CLI move as the window runs it: absent `sandbox` runs the hook where it or the project says. */

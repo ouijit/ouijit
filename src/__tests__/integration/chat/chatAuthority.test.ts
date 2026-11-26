@@ -326,4 +326,23 @@ describe('what Chat can do', () => {
     token = own;
     for (const id of [agent, sibling, onHost]) await chatHost.stop(id);
   }, 20_000);
+
+  test('starts a task as a chat with the agent asked for, which gets its first message', async () => {
+    const project = `project=${encodeURIComponent(repo)}`;
+    token = issueToken(chat, 'host');
+    await setGlobalSetting(defaultSandboxSettingKey(repo), 'none');
+    await createTask(repo, 20, 'Codex on it', { status: 'todo' });
+    expect((await api('POST', `tasks/20/start?${project}`, { hookMode: 'run', agent: 'codex' })).status).toBe(200);
+    const push = pushes.findLast(([channel]) => channel === 'cli:task-started')?.[1] as Record<string, unknown>;
+    expect(push).toMatchObject({ taskNumber: 20, surface: 'chat', agent: 'codex' });
+
+    const created = await api('POST', `tasks/start?${project}`, { name: 'Pi on it', hookMode: 'run', agent: 'pi' });
+    expect(created.status).toBe(200);
+    const next = pushes.findLast(([channel]) => channel === 'cli:task-started')?.[1] as Record<string, unknown>;
+    expect(next).toMatchObject({ surface: 'chat', agent: 'pi' });
+
+    await createTask(repo, 21, 'Refused', { status: 'todo' });
+    expect((await api('POST', `tasks/21/start?${project}`, { agent: 'gpt' })).status).toBe(400);
+    expect((await api('POST', `tasks/21/start?${project}`, { agent: 'codex', surface: 'terminal' })).status).toBe(400);
+  });
 });

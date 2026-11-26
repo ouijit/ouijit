@@ -276,6 +276,7 @@ ouijit task set-status <number> done --hook-command "<cmd>" # run a one-off comm
 ouijit task bulk-set-status <status> <n1> <n2>...           # set status on many tasks in parallel (in_progress/in_review/done all take --run-hook/--skip-hook/--hook-command)
 ouijit task start <number> --run-hook --sandbox custom      # start, create-and-start, set-status and bulk-set-status all take --sandbox host|nono|custom, overriding the hook's own sandbox for that run
 ouijit task start <number> --surface chat                   # start and create-and-start take --surface terminal|chat, overriding the chat setting for that task
+ouijit task start <number> --agent codex --run-hook        # start and create-and-start take --agent claude|codex|pi|opencode|acp: a chat with that agent, which gets the first message
 ouijit task set-name <number> <new name>
 ouijit task set-description <number> <text>
 ouijit task set-merge-target <number> <branch>
