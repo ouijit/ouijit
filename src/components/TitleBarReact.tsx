@@ -6,7 +6,7 @@ import { useUIStore } from '../stores/uiStore';
 import { LIST_TITLES, usePanelStore } from '../stores/panelStore';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { Icon } from './terminal/Icon';
-import { openShell } from './navigation';
+import { openProjectChat, openShell } from './navigation';
 import { useProjectFlags } from '../stores/experimentalStore';
 import { openTaskComposer } from '../utils/openTaskComposer';
 import { Tooltip } from './ui/Tooltip';
@@ -103,6 +103,7 @@ export function TitleBar() {
   const chatTitle = useHomeChatStore((s) => currentHomeChatTitle(s)) ?? UNTITLED_HOME_CHAT;
   const currentChat = useHomeChatStore((s) => s.currentId);
   const offersCreation = !cloning && !onSettings && !onChat;
+  const chatEnabled = useHomeChatStore((s) => s.enabled);
   // With the sidebar out of the way the traffic lights sit over the title bar.
   // Settings takes the whole window, sidebar and all.
   const sidebarAway = onSettings || (!sidebarShown && !sidebarRevealed);
@@ -199,6 +200,17 @@ export function TitleBar() {
               onClick={() => showInListOrder(stackFrom([projectUnit(project.path)]))}
             >
               <Icon name="cards-three" />
+            </button>
+          </Tooltip>
+        )}
+        {project && offersCreation && chatEnabled && (
+          <Tooltip text="New project chat" placement="bottom">
+            <button
+              className={raisedButton}
+              aria-label="New project chat"
+              onClick={() => void openProjectChat(project.path)}
+            >
+              <Icon name="chat-circle" />
             </button>
           </Tooltip>
         )}

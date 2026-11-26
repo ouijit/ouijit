@@ -281,6 +281,7 @@ export async function reconnectChatSessions(projectPath?: string): Promise<void>
       taskId: info.taskId ?? undefined,
       worktree: info.worktreePath ? { path: info.worktreePath, branch: '' } : undefined,
       sandbox: info.sandbox ?? undefined,
+      ...(info.label && { label: info.label }),
       background: true,
     });
     if (!ok) chatLog.warn('could not reconnect chat card', { id: info.id });

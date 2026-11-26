@@ -101,6 +101,9 @@ export function homeChatPanelsKey(id: string): string {
 
 export const UNTITLED_HOME_CHAT = 'New chat';
 
+/** What a chat opened on a project, with no task, is called until renamed. */
+export const PROJECT_CHAT_LABEL = 'Chat';
+
 /** A conversation's title, until renamed: the start of what it was asked first. */
 export function titleFromMessage(text: string): string {
   const line = text

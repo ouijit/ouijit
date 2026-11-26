@@ -11,6 +11,7 @@ import { useAppStore } from '../../stores/appStore';
 import { hydrateUIPreferences, useUIStore } from '../../stores/uiStore';
 import { DEFAULT_DISPLAY_STATE, useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useWaitingStore } from '../../stores/waitingStore';
+import { useHomeChatStore } from '../../stores/homeChatStore';
 import { loadChatSettings } from '../../services/chatSettings';
 import { NO_CAPABILITIES } from '../../chat/model';
 import type {
@@ -720,6 +721,65 @@ describe('opening a task as a chat', () => {
     vi.mocked(window.api.chat.latestForTask).mockResolvedValue(null);
     vi.mocked(window.api.sandbox.status).mockResolvedValue([]);
     await loadChatSettings();
+  });
+});
+
+describe('a chat on a project', () => {
+  test("opens from the title bar beside New terminal, in the project's checkout with no task, where its terminals run", async () => {
+    vi.mocked(window.api.sandbox.status).mockResolvedValue([
+      { providerId: 'nono', available: true } satisfies SandboxProviderStatus,
+    ]);
+    vi.mocked(window.api.globalSettings.get).mockImplementation(async (key) =>
+      key === `defaultSandbox:${ALPHA.path}` ? 'nono' : undefined,
+    );
+    vi.mocked(window.api.chat.start).mockImplementation(async (options) => ({
+      info: {
+        id: options.id ?? 'new',
+        label: options.label,
+        agent: 'claude' as const,
+        agentSessionId: null,
+        projectPath: options.projectPath,
+        cwd: options.cwd,
+        worktreePath: null,
+        sandbox: { provider: 'nono', settings: ALPHA.path },
+        taskId: null,
+        status: 'idle' as const,
+        capabilities: NO_CAPABILITIES,
+        models: [],
+        efforts: [],
+        modes: [],
+        commands: [],
+      },
+      nodes: [],
+      seq: 0,
+    }));
+    await spawn(ALPHA.path, 9);
+    render(<App />);
+    fireEvent.click(row(section('Projects'), 'Write docs'));
+    await waitFor(() => expect(cards()).toHaveLength(1));
+
+    // Only while Chat is on.
+    act(() => useHomeChatStore.getState().setEnabled(false));
+    expect(screen.queryByRole('button', { name: 'New project chat' })).toBeNull();
+    act(() => useHomeChatStore.getState().setEnabled(true));
+    fireEvent.click(screen.getByRole('button', { name: 'New project chat' }));
+
+    await waitFor(() => expect(window.api.chat.start).toHaveBeenCalled());
+    expect(vi.mocked(window.api.chat.start).mock.calls[0][0]).toMatchObject({
+      projectPath: ALPHA.path,
+      cwd: ALPHA.path,
+      taskId: null,
+      sandbox: 'nono',
+      label: 'Chat',
+    });
+    const chat = front()!;
+    expect(display(chat)).toMatchObject({ taskId: null, projectPath: ALPHA.path, surface: 'chat' });
+    expect(cards()).toHaveLength(2);
+    expect(row(section('Projects'), 'Chat')).toBeTruthy();
+
+    act(() => useHomeChatStore.getState().setEnabled(false));
+    vi.mocked(window.api.globalSettings.get).mockResolvedValue(undefined);
+    vi.mocked(window.api.sandbox.status).mockResolvedValue([]);
   });
 });
 

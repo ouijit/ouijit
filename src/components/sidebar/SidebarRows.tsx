@@ -650,12 +650,13 @@ function NewTaskRow({ projectPath }: { projectPath: string }) {
 function ShellRow({ ptyId, underTag, shown, onScreen, now, at, pick, rowMenu }: PlacedRowProps & { ptyId: string }) {
   const [menu, openMenu, closeMenu] = useRowMenu();
   const [renaming, setRenaming] = useState(false);
+  const chat = useTerminalStore((s) => s.displayStates[ptyId]?.surface === 'chat');
   return (
     <>
       <TerminalRow
         ptyId={ptyId}
         title={(d) => d.label || 'Shell'}
-        icon={<Icon name="terminal-window" className="w-3.5 h-3.5 text-text-tertiary" />}
+        icon={<Icon name={chat ? 'chat-circle' : 'terminal-window'} className="w-3.5 h-3.5 text-text-tertiary" />}
         detail={underTag ? (d) => projectNameOf(useAppStore.getState().projects, d.projectPath) : undefined}
         shown={shown}
         selected={onScreen.includes(ptyId)}

@@ -25,7 +25,7 @@ import { opensAsChat } from '../services/chatSettings';
 import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalRegistry';
 import { ensureWorktree } from '../services/worktreeRecovery';
-import type { TaskSurface } from '../chat/preferences';
+import { PROJECT_CHAT_LABEL, type TaskSurface } from '../chat/preferences';
 import type { ChatAgentId, TaskChatSummary } from '../chat/model';
 
 /** Tasks load first, so a board's first paint has its cards. */
@@ -50,6 +50,21 @@ function showTaskTerminals(projectPath: string, taskNumber: number): void {
 export async function openShell(projectPath: string, sandboxProvider?: SandboxBackendId): Promise<void> {
   const { selection } = useAppStore.getState();
   if (!(await addProjectTerminal(projectPath, undefined, { sandbox: sandboxProvider }))) return;
+  const [front] = useTerminalStore.getState().order;
+  if (!front) return;
+  useAppStore
+    .getState()
+    .showTerminal(front, joinStack(selection, projectPath, stackOf({ ptyId: front, projectPath, taskId: null })));
+}
+
+/**
+ * A chat in the project's own checkout, as `openShell` opens a shell there: no
+ * task, in the project's default sandbox, with the agent tasks open with.
+ */
+export async function openProjectChat(projectPath: string): Promise<void> {
+  const { selection } = useAppStore.getState();
+  const sandbox = await projectDefaultSandbox(projectPath);
+  if (!(await addChatCard(projectPath, { sandbox, label: PROJECT_CHAT_LABEL }))) return;
   const [front] = useTerminalStore.getState().order;
   if (!front) return;
   useAppStore
