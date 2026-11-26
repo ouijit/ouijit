@@ -91,6 +91,21 @@ export interface AddChatCardOptions {
   initialUiState?: SnapshotTerminalUi;
 }
 
+/**
+ * The chat a task picks back up where it is reopened in `sandbox`: its latest,
+ * unless that started somewhere else, since a conversation stays where it started.
+ */
+export async function resumableChat(
+  projectPath: string,
+  taskId: number,
+  sandbox: SandboxPlacement | undefined,
+): Promise<{ id: string; agent: ChatAgentId } | null> {
+  const latest = await window.api.chat.latestForTask(projectPath, taskId);
+  const provider = placementProvider(sandbox);
+  const asked = typeof sandbox === 'object' ? sandbox : provider && { provider, settings: projectPath };
+  return latest && sameSandbox(latest.info.sandbox, asked) ? { id: latest.info.id, agent: latest.info.agent } : null;
+}
+
 /** Open a chat card. Resolves false when the agent could not be started at all. */
 export async function addChatCard(projectPath: string, options: AddChatCardOptions = {}): Promise<boolean> {
   const opening = await projectTaskOpening(projectPath);
@@ -102,12 +117,10 @@ export async function addChatCard(projectPath: string, options: AddChatCardOptio
   const provider = placementProvider(options.sandbox);
   const sandbox = provider ? options.sandbox : undefined;
   if (!id && options.resumeLatest && options.taskId != null) {
-    const latest = await window.api.chat.latestForTask(projectPath, options.taskId);
-    // A conversation stays where it started, so another sandbox means a new one.
-    const asked = typeof sandbox === 'object' ? sandbox : provider && { provider, settings: projectPath };
-    if (latest && sameSandbox(latest.info.sandbox, asked)) {
-      id = latest.info.id;
-      agent = latest.info.agent;
+    const latest = await resumableChat(projectPath, options.taskId, sandbox);
+    if (latest) {
+      id = latest.id;
+      agent = latest.agent;
     }
   }
   id ??= generateId('pty');

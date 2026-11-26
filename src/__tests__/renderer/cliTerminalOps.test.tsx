@@ -242,6 +242,46 @@ describe('terminals an agent opens and closes', () => {
     });
   });
 
+  test('resumes a task that opens as a chat by its last conversation, named by that id though another session lands meanwhile', async () => {
+    vi.mocked(window.api.globalSettings.get).mockImplementation(async (key) =>
+      key === 'chat:enabled'
+        ? '1'
+        : key === `chat:taskStart:${PROJECT}`
+          ? JSON.stringify({ surface: 'chat' })
+          : undefined,
+    );
+    useTerminalStore
+      .getState()
+      .addTerminal(PROJECT, 'loading-terminal', { taskId: 4, isLoading: true }, { background: true });
+    vi.mocked(window.api.chat.start).mockImplementation(async (options) => {
+      useTerminalStore.getState().rekeyTerminal('loading-terminal', 'pty-other');
+      return {
+        info: { id: options.id!, agent: options.agent, status: 'idle', background: [] } as never,
+        nodes: [],
+        seq: 0,
+      };
+    });
+    vi.mocked(window.api.chat.latestForTask).mockResolvedValue({
+      info: { id: 'chat-earlier', agent: 'codex', sandbox: null },
+    } as never);
+
+    expect(await terminalOp({ action: 'open', projectPath: PROJECT, taskNumber: 4, resume: true })).toEqual({
+      ok: true,
+      ptyId: 'chat-earlier',
+    });
+    expect(window.api.chat.start).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'chat-earlier', agent: 'codex' }),
+    );
+    expect(useTerminalStore.getState().displayStates['chat-earlier']).toMatchObject({ surface: 'chat', taskId: 4 });
+
+    // With no conversation to pick up, a new one opens, named before it does.
+    vi.mocked(window.api.chat.latestForTask).mockResolvedValue(null);
+    const fresh = await terminalOp({ action: 'open', projectPath: PROJECT, taskNumber: 4, resume: true });
+    expect(fresh.ok).toBe(true);
+    expect(window.api.chat.start).toHaveBeenLastCalledWith(expect.objectContaining({ id: fresh.ptyId }));
+    vi.mocked(window.api.globalSettings.get).mockResolvedValue(undefined);
+  });
+
   test('a runner the user ran privately cannot be read by its own id either', async () => {
     const front = terminalInstances.get('pty-front')!;
     const child = { isRunner: true, xterm: { buffer: { active: { type: 'normal' } } } } as unknown as OuijitTerminal;

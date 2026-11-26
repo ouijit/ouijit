@@ -4,7 +4,9 @@ import type { OuijitTerminal } from '../components/terminal/terminalReact';
 import { addProjectTerminal, closeProjectTerminal } from '../components/terminal/terminalActions';
 import { openTaskShell } from '../components/navigation';
 import { bufferText, pasteable } from '../components/terminal/terminalText';
-import { useTerminalStore } from '../stores/terminalStore';
+import { resumableChat } from '../components/chat/chatActions';
+import { opensAsChat } from './chatSettings';
+import { projectDefaultSandbox } from '../stores/projectDataStore';
 import { generateId } from '../utils/ids';
 import { useChatStore } from '../stores/chatStore';
 import { transcriptText } from '../chat/model';
@@ -17,23 +19,31 @@ const DEFAULT_READ_LINES = 100;
 async function open(op: CliTerminalOp): Promise<CliTerminalResponse> {
   const projectPath = op.projectPath;
   if (!projectPath) return { ok: false, error: 'Missing project' };
-  const before = new Set(useTerminalStore.getState().terminalsByProject[projectPath] ?? []);
 
   // Named here rather than found as the session that wasn't there before:
   // another terminal on the task can still be re-keying from its placeholder.
-  const ptyId = generateId('pty');
+  let ptyId = generateId('pty');
   let opened: boolean;
   if (op.taskNumber != null) {
     const task = await window.api.task.getByNumber(projectPath, op.taskNumber);
     if (!task) return { ok: false, error: `Task ${op.taskNumber} not found` };
     if (!task.branch)
       return { ok: false, error: `Task ${op.taskNumber} is not started; start it with ouijit task start` };
+    let chat = op.chat && { ...op.chat, id: ptyId };
+    // Resumed as a chat, it picks its last conversation back up, whose id is already known.
+    if (op.resume && !op.chat && (await opensAsChat(projectPath, undefined))) {
+      const sandbox = op.sandbox ?? (await projectDefaultSandbox(projectPath));
+      const latest = await resumableChat(projectPath, task.taskNumber, sandbox);
+      if (latest) ptyId = latest.id;
+      chat = { id: ptyId, ...(latest && { agent: latest.agent }) };
+    }
     opened = await openTaskShell(projectPath, task, {
       mode: op.resume || op.chat ? 'resume' : 'shell',
       sandbox: op.sandbox,
       background: true,
       ptyId,
-      ...(op.chat && { fresh: 'chat' as const, chat: { ...op.chat, id: ptyId } }),
+      ...(chat && { chat }),
+      ...(op.chat && { fresh: 'chat' as const }),
     });
   } else {
     opened = await addProjectTerminal(projectPath, undefined, {
@@ -42,11 +52,7 @@ async function open(op: CliTerminalOp): Promise<CliTerminalResponse> {
       background: true,
     });
   }
-  if (!opened) return { ok: false, error: 'The terminal did not open' };
-  if (terminalInstances.has(ptyId)) return { ok: true, ptyId };
-  // Resuming a task that opens as a chat picks its last conversation back up, under that one's own id.
-  const resumed = (useTerminalStore.getState().terminalsByProject[projectPath] ?? []).find((id) => !before.has(id));
-  return resumed ? { ok: true, ptyId: resumed } : { ok: false, error: 'The terminal did not open' };
+  return opened ? { ok: true, ptyId } : { ok: false, error: 'The terminal did not open' };
 }
 
 /** A runner is registered under its own PTY too, so its panel's privacy has to hold here as well. */
