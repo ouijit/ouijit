@@ -4,13 +4,25 @@ import { toasted, useWaitingStore, type Waiting } from '../../stores/waitingStor
 import { focusTerminal } from '../navigation';
 import { isHomeChat } from '../../stores/homeChatStore';
 import { openHomeChat } from '../chat/homeChatActions';
+import { useOwnerOf } from '../chat/HomeChatDecisions';
 import { Icon } from '../terminal/Icon';
 import { HOOK_VERB, runWaiting, useAsker, useMovesOwnTask, useTaskName } from './WaitingDialog';
 
-/** What agents left on terminals the user has no card open for, until it is answered or its toast is closed. */
+/**
+ * What agents left on terminals the user has no card open for, until it is
+ * answered or its toast is closed. A worker's ask also shows in the Chat
+ * conversation that owns its task, so it is not toasted while that is on screen.
+ */
 export function WaitingToasts() {
   const items = useWaitingStore(useShallow((s) => toasted(s.items, s.shownOn)));
-  return items.map((item) => <WaitingToast key={item.id} item={item} />);
+  const shownOn = useWaitingStore((s) => s.shownOn);
+  const ownerOf = useOwnerOf();
+  return items
+    .filter((item) => {
+      const owner = ownerOf(item);
+      return !(owner && owner in shownOn);
+    })
+    .map((item) => <WaitingToast key={item.id} item={item} />);
 }
 
 const pill =

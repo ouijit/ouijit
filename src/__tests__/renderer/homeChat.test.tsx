@@ -14,6 +14,8 @@ import { useHomeChatStore } from '../../stores/homeChatStore';
 import { useWaitingStore } from '../../stores/waitingStore';
 import type { Decision } from '../../types';
 import { listenForDecisions } from '../../services/decisions';
+import { ToastContainer } from '../../components/ui/ToastContainer';
+import { DEFAULT_DISPLAY_STATE } from '../../stores/terminalDisplay';
 import { NO_CAPABILITIES, type ChatNode, type ChatSessionInfo, type ChatSnapshot } from '../../chat/model';
 
 // xterm cannot construct under jsdom. Chat's panel host is one of these, so the
@@ -602,5 +604,42 @@ describe('Chat', () => {
     // Nothing waits while Chat is still working out what to do with a request.
     adopt(transcript(), { status: 'running' });
     expect(cards().some((card) => card.textContent?.includes('Delete old.test.tsx'))).toBe(false);
+  });
+
+  test("a worker's ask shows in the conversation that owns its task, and is toasted only while that is off screen", async () => {
+    adopt(transcript(), { status: 'idle' });
+    useHomeChatStore.setState({ owners: { [taskKey('/code/alpha', 12)]: CURRENT } });
+    useTerminalStore.getState().addTerminal('/code/alpha', 'pty-12', {
+      ...DEFAULT_DISPLAY_STATE,
+      ptyId: 'pty-12',
+      projectPath: '/code/alpha',
+      taskId: 12,
+      label: 'Settings storage',
+    });
+    vi.mocked(window.api.decisions.onChange).mockImplementation(() => () => {});
+    vi.mocked(window.api.decisions.list).mockResolvedValueOnce([
+      { id: 'd-worker', from: 'pty-12', at: 1, kind: 'ask', ask: { command: 'npm publish', cwd: '/code/alpha' } },
+    ]);
+    const stopListening = listenForDecisions();
+    render(
+      <>
+        <App />
+        <ToastContainer />
+      </>,
+    );
+    act(() => useAppStore.getState().select({ kind: 'chat' }));
+
+    const card = await waitFor(() => {
+      const found = [...document.querySelectorAll<HTMLElement>('[data-chat-decision]')];
+      if (found.length !== 1) throw new Error('no card yet');
+      return found[0];
+    });
+    expect(card.textContent).toContain('npm publish');
+    expect(screen.getAllByText('npm publish')).toHaveLength(1);
+
+    act(() => useAppStore.getState().select({ kind: 'none' }));
+    await waitFor(() => expect(screen.getAllByText('npm publish')).toHaveLength(1));
+    expect(document.querySelector('[data-chat-decision]')).toBeNull();
+    stopListening();
   });
 });
