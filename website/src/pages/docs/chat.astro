@@ -1,0 +1,69 @@
+---
+import Docs from '../../layouts/Docs.astro';
+import ChatSandboxAccess from '../../components/home/ChatSandboxAccess.astro';
+---
+<Docs slug="chat">
+  <h1>Chat</h1>
+  <p class="lead">
+    Talk to an agent in a chat instead of a terminal. The main chat runs your board across projects, a task can
+    open as a chat, and any project can have one of its own. Turn it on under <strong>Settings &rarr; Chat</strong>.
+    It is experimental.
+  </p>
+
+  <img
+    class="docs-screenshot"
+    src="/assets/screenshots/chat.png"
+    alt="A task open as a chat, its work folded into one line above the agent's reply"
+    loading="lazy"
+  />
+
+  <h2>The main chat</h2>
+  <p>
+    It lives under <strong>Chats</strong> in the sidebar and reaches every project. It can create, start and move
+    tasks, and read what their agents are doing. It follows the tasks it starts, and a message arrives when one
+    changes column, finishes a turn, waits on an approval, or a hook fails. Choose which under
+    <strong>Wake on</strong>. When something has to run on your computer, it asks, and you press Run or Decline.
+    Start a new conversation from the sidebar. Each keeps its own folder for notes and files.
+  </p>
+
+  <h2>Tasks as chats</h2>
+  <p>
+    Under <strong>Project Settings &rarr; Tasks &rarr; Open in</strong>, choose <strong>Chat</strong>, and a task
+    that starts opens as a chat with the agent you pick. <strong>Setup</strong> runs first, in a tab beside the
+    chat, and <strong>First message</strong> goes out once it succeeds, with <code>$OUIJIT_</code> variables filled
+    in. A task can hold several chats and terminals: <strong>New chat</strong> and <strong>New terminal</strong>
+    are in its menu, and <strong>Earlier chats</strong> reopens one.
+  </p>
+
+  <h2>A chat on a project</h2>
+  <p>
+    The chat button beside the terminal button, or <strong>New chat</strong> in a project's menu, opens a chat in
+    the project's own checkout, with no task. Ask it how something works without naming the project first.
+  </p>
+
+  <h2>Carrying a conversation on</h2>
+  <p>
+    <code>ouijit chat open --task &lt;n&gt; --from &lt;chat-id&gt;</code> starts a new chat with an earlier one's
+    conversation so far, its most recent part if it is long.
+  </p>
+
+  <h2>Following</h2>
+  <p>
+    <code>ouijit chat follow &lt;task&gt;</code>, <code>ouijit chat unfollow</code> and
+    <code>ouijit chat following</code> change which tasks the main chat hears about.
+  </p>
+
+  <h2>Where Chat runs</h2>
+  <p>
+    <strong>Run in</strong> puts the main chat on your computer (Host), in Ouijit's sandbox under its own
+    profile, or under a Custom launcher of its own (<code>ouijit settings chat set --launcher &lt;cmd&gt;</code>).
+    Sandboxed, everything it starts runs in its sandbox too, each task writing only its own worktree. Chat can
+    steer only the agents running there. <strong>Ouijit CLI access</strong> is <strong>Whole board</strong> by
+    default, which starts, moves and messages tasks. <strong>View</strong> only reads and follows.
+  </p>
+
+  <ChatSandboxAccess />
+
+  <h2>Agents</h2>
+  <p>Claude Code, Codex, Pi, OpenCode, or any ACP agent.</p>
+</Docs>

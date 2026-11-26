@@ -2,6 +2,7 @@
 import {
   PaletteMock,
   SandboxMock,
+  ChatMock,
   ScriptsMock,
   HooksMock,
   ThemeMock,
@@ -23,12 +24,12 @@ import {
  * stay in register, so the rows are built to the same run width — the check
  * below fails the build if an edit breaks it — and the last three cards of
  * each row are matched in width to give the shifts a column to move in. The
- * bottom row opens with one card as wide as the top row's first two, which is
- * what buys those columns out of four cards against five.
+ * bottom row opens with one card as wide as the top row's first three, which is
+ * what buys those columns out of four cards against six.
  */
 /**
- * The lead column — the palette, the card beside it, and the wide CLI card
- * under both — drops by this much, and the whole band is pulled up by the
+ * The lead column — the palette, the two cards beside it, and the wide CLI
+ * card under them — drops by this much, and the whole band is pulled up by the
  * same amount. The palette is the tallest card in its row and so sits at the
  * row's top edge on its own, leaving the rest of the band further from the
  * heading than it is; moving one down and everything up closes that without
@@ -66,6 +67,14 @@ const TOP: Tool[] = [
     Mock: SandboxMock,
   },
   {
+    id: 'chat',
+    shift: LEAD_DROP,
+    w: 470,
+    title: 'Run the board from a chat',
+    body: 'Ask it to start tasks, follow them, and tell you when they need you.',
+    Mock: ChatMock,
+  },
+  {
     id: 'shortcuts',
     shift: 26,
     w: 390,
@@ -94,7 +103,7 @@ const BOTTOM: Tool[] = [
   {
     id: 'cli',
     shift: LEAD_DROP,
-    w: 1028,
+    w: 1516,
     title: 'Drive the app with the CLI',
     body: 'The <code>ouijit</code> CLI is on the PATH in every terminal the app opens, sandboxed ones included. Tasks, tags, hooks, scripts, drafts, themes: everything on this page, as commands with JSON out.',
     Mock: CliMock,

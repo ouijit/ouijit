@@ -34,12 +34,7 @@ export function PaletteMock() {
     <FloatingPanel>
       <PaletteHeader query="onboarding" />
       <div className="px-3 pt-2 pb-1 text-[11px] text-ink/40">Terminals</div>
-      <PaletteRow
-        selected
-        leading={<StatusDot status="thinking" />}
-        title="Rework onboarding flow"
-        context="ouijit"
-      />
+      <PaletteRow selected leading={<StatusDot status="thinking" />} title="Rework onboarding flow" context="ouijit" />
       <div className="px-3 pt-2 pb-1 text-[11px] text-ink/40">Tasks</div>
       <PaletteRow
         leading={<span className="font-mono text-[11px] text-text-tertiary tabular-nums">T-101</span>}
@@ -59,9 +54,32 @@ export function SandboxMock() {
     <FloatingPanel>
       <div className="flex items-center gap-2 px-3 py-2.5">
         <StatusDot status="thinking" sandboxed />
-        <span className="font-mono text-xs font-medium text-ink/85 min-w-0 truncate">Refine CTA button hover states</span>
+        <span className="font-mono text-xs font-medium text-ink/85 min-w-0 truncate">
+          Refine CTA button hover states
+        </span>
         <span className="font-mono text-xs text-ink/40 min-w-0 truncate">Running npm test…</span>
         <span className={`${METADATA_CHIP} ml-auto`}>nono</span>
+      </div>
+    </FloatingPanel>
+  );
+}
+
+export function ChatMock() {
+  return (
+    <FloatingPanel>
+      <div className="flex flex-col gap-2.5 px-4 py-3 text-[13px]">
+        <div className="self-end max-w-[85%] rounded-[12px] bg-ink/[0.07] px-3 py-1.5 text-text-primary">
+          Start the auth fix and tell me when it's done.
+        </div>
+        <div className="flex items-center gap-1.5 text-text-tertiary">
+          <Icon name="caret-right" className="w-3 h-3 shrink-0" />
+          <span className="truncate">Started Fix flaky auth test · 1m</span>
+        </div>
+        <div className="flex items-center gap-2 text-text-tertiary">
+          <StatusDot status="ready" sandboxed />
+          <span className="truncate">Fix flaky auth test finished its turn</span>
+        </div>
+        <div className="text-text-primary">The test passes now. Open a pull request?</div>
       </div>
     </FloatingPanel>
   );
@@ -111,7 +129,9 @@ export function TagsMock() {
     <FloatingPanel>
       <div className="flex items-center gap-2 px-3 py-2.5">
         <StatusDot status="ready" />
-        <span className="font-mono text-xs font-medium text-ink/85 min-w-0 truncate">Refactor billing webhook router</span>
+        <span className="font-mono text-xs font-medium text-ink/85 min-w-0 truncate">
+          Refactor billing webhook router
+        </span>
         <span className="inline-flex items-center gap-1 min-w-0">
           <span className={METADATA_CHIP}>frontend</span>
           <span className={METADATA_CHIP}>api</span>
@@ -159,8 +179,7 @@ export function CliMock() {
     <FloatingPanel>
       <div className="px-4 py-3 font-mono text-[12px] leading-relaxed">
         <div className="text-ink/85">
-          <span className="text-accent">❯</span> ouijit task spawn &quot;Fix flaky auth test&quot; --hook-command
-          claude
+          <span className="text-accent">❯</span> ouijit task spawn &quot;Fix flaky auth test&quot; --hook-command claude
         </div>
         <div className="text-ink/45 truncate">
           {'{"success": true, "task": {"taskNumber": 12, "branch": "fix-flaky-auth-test-12"}}'}

@@ -52,6 +52,11 @@ export function SandboxProfileRow({ projectPath, onChange }: { projectPath: stri
         <div className="mt-0.5 truncate text-xs text-text-tertiary">
           {unavailable ?? (profile && <code className="font-mono">{tildePath(profile.path, home)}</code>)}
         </div>
+        {!unavailable && (
+          <div className="mt-0.5 text-xs text-text-tertiary">
+            Limits files. The network, your SSH agent and keychain stay open unless the profile closes them.
+          </div>
+        )}
       </div>
       {profile && (
         <>

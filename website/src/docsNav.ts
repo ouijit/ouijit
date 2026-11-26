@@ -64,6 +64,13 @@ export const DOC_PAGES: DocPage[] = [
     group: 'Using the app',
   },
   {
+    slug: 'chat',
+    label: 'Chat',
+    href: '/docs/chat/',
+    description: 'A conversation that runs your board, tasks that open as chats, and chats on a project.',
+    group: 'Using the app',
+  },
+  {
     slug: 'panels',
     label: 'Panels',
     href: '/docs/panels/',

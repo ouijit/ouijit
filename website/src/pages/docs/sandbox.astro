@@ -1,5 +1,56 @@
 ---
 import Docs from '../../layouts/Docs.astro';
+
+const LOCKED_PROFILE = `{
+  "meta": { "name": "ouijit-myapp-1a2b3c" },
+  "extends": ["ouijit"],
+  "network": {
+    "allow_domain": ["*"],
+    "deny_domain": ["pastebin.com", "*.ngrok.io"],
+    "open_port": [5173, 5432],
+    "credentials": ["github"],
+    "custom_credentials": {
+      "github": {
+        "upstream": "https://api.github.com",
+        "credential_key": "cmd://github",
+        "env_var": "GITHUB_TOKEN",
+        "credential_format": "token {}"
+      }
+    }
+  },
+  "credential_capture": {
+    "github": { "command": ["gh", "auth", "token"], "timeout_secs": 10, "cache_ttl_secs": 900 }
+  },
+  "filesystem": {
+    "allow": ["$HOME/.local/state/nono-ssh"],
+    "unix_socket": ["$HOME/.local/state/nono-ssh/agent.sock"]
+  },
+  "environment": {
+    "set_vars": {
+      "SSH_AUTH_SOCK": "$HOME/.local/state/nono-ssh/agent.sock",
+      "GIT_SSH_COMMAND": "ssh -o ProxyCommand='python3 -I $HOME/.local/state/nono-ssh/connect.py %h %p' -o UserKnownHostsFile=$HOME/.local/state/nono-ssh/known_hosts -o StrictHostKeyChecking=accept-new"
+    }
+  }
+}`;
+
+const SSH_HELPER = String.raw`import base64, os, socket, sys, threading, urllib.parse
+host, port = sys.argv[1], sys.argv[2]
+p = urllib.parse.urlparse(os.environ["HTTPS_PROXY"])
+s = socket.create_connection((p.hostname, p.port))
+auth = base64.b64encode(f"{p.username}:{p.password}".encode()).decode()
+s.sendall(f"CONNECT {host}:{port} HTTP/1.1\r\nHost: {host}:{port}\r\nProxy-Authorization: Basic {auth}\r\n\r\n".encode())
+reply = b""
+while b"\r\n\r\n" not in reply:
+    chunk = s.recv(1)
+    if not chunk: sys.exit(1)
+    reply += chunk
+if b" 200 " not in reply.split(b"\r\n")[0]:
+    sys.stderr.write(reply.split(b"\r\n")[0].decode() + "\n"); sys.exit(1)
+def up():
+    while (d := sys.stdin.buffer.read1(65536)): s.sendall(d)
+    s.shutdown(socket.SHUT_WR)
+threading.Thread(target=up, daemon=True).start()
+while (d := s.recv(65536)): sys.stdout.buffer.write(d); sys.stdout.buffer.flush()`;
 ---
 <Docs slug="sandbox">
   <h1>Sandbox</h1>
@@ -61,6 +112,10 @@ import Docs from '../../layouts/Docs.astro';
     starts writing only its own worktree. At <strong>View</strong> it can read every project and follow tasks and
     chats, but not move a task or message an agent.
   </p>
+  <p>
+    Chat, like any sandboxed agent, can steer only the agents running in its own sandbox: steering an agent means
+    using its access.
+  </p>
 
   <h2>Ouijit's sandbox</h2>
   <p>
@@ -94,6 +149,28 @@ import Docs from '../../layouts/Docs.astro';
     rel="noopener">profile format</a>. <strong>Change&hellip;</strong> points the project at another profile
     file, such as one your team shares, and <strong>Reset</strong> goes back to the project's own. Profiles live
     outside the repository, where a sandboxed agent cannot edit its own permissions.
+  </p>
+
+  <h3 id="locking-down">Locking it down</h3>
+  <p>
+    Out of the box the sandbox limits files. The network stays open, and the agent can reach your SSH agent and
+    keychain. This profile closes off the hosts you name, keeps your GitHub token out of the agent's hands, and
+    keeps local servers and git over SSH working. Open it from <strong>Sandbox profile</strong> in settings and add
+    what you need. We tested it with the nono Ouijit bundles, on macOS.
+  </p>
+  <pre><code>{LOCKED_PROFILE}</code></pre>
+  <ul>
+    <li><strong>Hosts.</strong> <code>allow_domain: ["*"]</code> with <code>deny_domain</code> lets everything through except the hosts denied. List hosts in place of <code>"*"</code> to allow only those.</li>
+    <li><strong>GitHub token.</strong> nono runs <code>gh auth token</code> outside the sandbox and adds the token to requests to api.github.com on their way out. The agent's <code>GITHUB_TOKEN</code> is a stand-in that is useless anywhere else. Every request from inside to api.github.com goes out with your token, so add <code>endpoint_rules</code> to limit what it can call. curl, Node, Python and git pick this up. Go tools such as <code>gh</code> don't trust nono's proxy certificate by default.</li>
+    <li><strong>Local ports.</strong> <code>open_port</code> lets the agent reach a dev server or database on your machine.</li>
+    <li><strong>Git over SSH.</strong> ssh can't use an HTTP proxy, so <code>GIT_SSH_COMMAND</code> tunnels through nono's with a small helper. Save it as <code>~/.local/state/nono-ssh/connect.py</code>. macOS gives your SSH agent a new path at each login, so keep a link to it current from your shell profile.</li>
+  </ul>
+  <pre><code>ln -sf "$SSH_AUTH_SOCK" ~/.local/state/nono-ssh/agent.sock</code></pre>
+  <pre><code>{SSH_HELPER}</code></pre>
+  <p>
+    Any domain rule or credential route sends the sandbox's traffic through nono's proxy. From then on only the
+    ports you open reach your machine, plain ssh stops (hence the helper), and your SSH agent needs the socket
+    grant above.
   </p>
 
   <h3>Requirements</h3>
