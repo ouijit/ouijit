@@ -79,7 +79,7 @@ import {
   callerTerminal,
   type ActiveSession,
 } from '../ptyManager';
-import { getHookStatus } from '../hookServer';
+import { getHookStatus } from '../hookStatus';
 import { liveNotes } from '../diffNotesService';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';

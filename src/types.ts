@@ -61,7 +61,7 @@ import type {
   SandboxLaunchFailedPayload,
   TerminalSandboxPayload,
 } from './sandbox/types';
-import type { HookStatus, HookStatusEntry } from './hookServer';
+import type { HookStatus, HookStatusEntry } from './hookStatus';
 
 export type {
   GitStatus,
@@ -106,7 +106,7 @@ export {
   sandboxCliAccessSettingKey,
   isSandboxCliAccess,
 } from './sandbox/types';
-export type { HookStatus, HookStatusEntry } from './hookServer';
+export type { HookStatus, HookStatusEntry } from './hookStatus';
 export type {
   RepoIdentity,
   GithubAvailability,

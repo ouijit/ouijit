@@ -1,5 +1,6 @@
 import tseslint from 'typescript-eslint';
 import importX from 'eslint-plugin-import-x';
+import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
 import reactHooks from 'eslint-plugin-react-hooks';
 import prettier from 'eslint-config-prettier';
 
@@ -18,14 +19,14 @@ export default tseslint.config(
     ],
   },
   ...tseslint.configs.recommended,
+  importX.flatConfigs.typescript,
   {
     plugins: {
       'import-x': importX,
       'react-hooks': reactHooks,
     },
     rules: {
-      // Circular dependency detection
-      'import-x/no-cycle': ['error', { maxDepth: Infinity }],
+      'import-x/no-cycle': 'error',
 
       // Useful import rules
       'import-x/first': 'error',
@@ -44,9 +45,7 @@ export default tseslint.config(
       }],
     },
     settings: {
-      'import-x/resolver': {
-        typescript: true,
-      },
+      'import-x/resolver-next': [createTypeScriptImportResolver()],
     },
   },
   prettier,

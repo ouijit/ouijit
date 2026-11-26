@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import type { TaskWithWorkspace } from '../../types';
 import { Icon } from '../terminal/Icon';
-import { STATUS_LABELS } from '../kanban/taskMenu';
+import { STATUS_LABELS } from '../kanban/statusLabels';
 
 export function Dot() {
   return <span className="text-text-tertiary opacity-60">·</span>;

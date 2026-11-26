@@ -10,7 +10,7 @@ import { Terminal as XTerminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { LINK_PATTERN } from '../../links/ouijitLink';
-import { openTerminalLink } from '../../links/terminalLink';
+import { openLinkFromTerminal } from '../../links/terminalLinkOpener';
 import { dropUnmeasuredMouseReports } from './mouseReports';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
@@ -20,7 +20,6 @@ import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore, type TerminalStatus } from '../../stores/terminalStore';
 import { diffBaseSettingKey } from '../../diffSource';
-import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
 import type { TerminalPanel, RunnerPanel, WebPreviewPanel } from './panelTypes';
 import { terminalInstances } from './terminalRegistry';
@@ -44,27 +43,30 @@ export interface TerminalOptions {
   isRunner?: boolean;
   initialStatus?: TerminalStatus;
   /**
-   * When true, this terminal closes itself after a short grace period when its
+   * When set, called to close this terminal after a short grace period when its
    * underlying command exits with code 0. The exit signal comes from OSC 133;D
    * (emitted by the shell-integration precmd hook) or from PTY exit. On
    * non-zero exit it stays open with an error status, so the failure is
    * debuggable in the interactive shell that survives the command.
    */
-  autoCloseOnSuccess?: boolean;
+  closeOnSuccess?: (ptyId: PtyId) => void;
 }
 
 /** How long to leave an auto-close terminal visible on success before closing. */
 export const AUTO_CLOSE_GRACE_MS = 3000;
 
 /**
- * Schedule a self-tidy close for a terminal that opted into autoCloseOnSuccess.
+ * Schedule a self-tidy close for a terminal that opted into closeOnSuccess.
  * Extracted so the timing behavior is unit-testable without standing up an
  * OuijitTerminal instance (which couples to xterm + DOM).
  */
-export function scheduleAutoCloseOnSuccess(ptyId: PtyId, isDisposed: () => boolean): ReturnType<typeof setTimeout> {
+export function scheduleAutoCloseOnSuccess(
+  close: () => void,
+  isDisposed: () => boolean,
+): ReturnType<typeof setTimeout> {
   return setTimeout(() => {
     if (isDisposed()) return;
-    closeProjectTerminal(ptyId);
+    close();
   }, AUTO_CLOSE_GRACE_MS);
 }
 
@@ -409,8 +411,7 @@ export class OuijitTerminal {
   worktreePath?: string;
   worktreeBranch?: string;
   mergeTarget?: string;
-  /** See TerminalOptions.autoCloseOnSuccess. */
-  readonly autoCloseOnSuccess: boolean;
+  private readonly closeOnSuccess: ((ptyId: PtyId) => void) | undefined;
   /** Guards against scheduling the auto-close timer twice when both the OSC
    *  133;D path and the PTY-exit path fire for the same successful command. */
   private autoCloseScheduled = false;
@@ -468,14 +469,14 @@ export class OuijitTerminal {
     this.worktreePath = opts.worktreePath;
     this.worktreeBranch = opts.worktreeBranch;
     this.mergeTarget = opts.mergeTarget;
-    this.autoCloseOnSuccess = opts.autoCloseOnSuccess ?? false;
+    this.closeOnSuccess = opts.closeOnSuccess;
     void restoreDiffBase(this);
 
     this.label = opts.label;
     this.status = opts.initialStatus ?? 'ready';
 
     const openClickedLink = (_event: MouseEvent, uri: string) =>
-      void openTerminalLink(uri, this.projectPath, this.worktreePath || this.projectPath);
+      void openLinkFromTerminal(uri, this.projectPath, this.worktreePath || this.projectPath);
 
     this.xterm = new XTerminal({
       theme: buildXtermTheme(),
@@ -1086,9 +1087,13 @@ export class OuijitTerminal {
   }
 
   private maybeScheduleAutoClose(exitCode: number): void {
-    if (!this.autoCloseOnSuccess || exitCode !== 0 || this.autoCloseScheduled) return;
+    const close = this.closeOnSuccess;
+    if (!close || exitCode !== 0 || this.autoCloseScheduled) return;
     this.autoCloseScheduled = true;
-    scheduleAutoCloseOnSuccess(this.ptyId, () => this.disposed);
+    scheduleAutoCloseOnSuccess(
+      () => close(this.ptyId),
+      () => this.disposed,
+    );
   }
 
   clearDataThrottle(): void {

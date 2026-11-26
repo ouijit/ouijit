@@ -2,7 +2,8 @@ import { describe, test, expect, vi, beforeAll, afterAll } from 'vitest';
 import * as http from 'node:http';
 import type { BrowserWindow } from 'electron';
 
-import { startHookServer, stopHookServer, getApiPort } from '../hookServer';
+import { startHookServer, stopHookServer } from '../hookServer';
+import { getApiPort } from '../apiPort';
 import { issueToken } from '../apiAuth';
 import { typedPush } from '../ipc/helpers';
 import { registerSandboxProviders } from '../sandbox';

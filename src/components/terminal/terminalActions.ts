@@ -290,7 +290,7 @@ export async function addProjectTerminal(
     worktreePath: worktreeInfo?.path,
     worktreeBranch: worktreeInfo?.branch,
     mergeTarget,
-    autoCloseOnSuccess: options?.autoCloseOnSuccess,
+    closeOnSuccess: options?.autoCloseOnSuccess ? closeProjectTerminal : undefined,
   });
 
   // The viewport element is not in the DOM yet; XTermContainer attaches it.

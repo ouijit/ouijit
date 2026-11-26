@@ -11,7 +11,6 @@ import type { BrowserWindow } from 'electron';
 import {
   startHookServer,
   stopHookServer,
-  getApiPort,
   installWrapper,
   migrateFromSettingsHooks,
   CLAUDE_WRAPPER,
@@ -22,8 +21,9 @@ import {
   OPENCODE_PLUGIN,
   NONO_SHIM,
   CLI_REFERENCE,
-  getCliReferencePath,
 } from '../hookServer';
+import { getApiPort } from '../apiPort';
+import { getCliReferencePath } from '../cliReferencePath';
 import { issueToken, revokeAllTokens } from '../apiAuth';
 
 const hasZsh = (() => {

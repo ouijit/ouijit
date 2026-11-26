@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron';
 import { issueCommandToken, revokeCommandToken } from '../apiAuth';
-import { getApiPort } from '../hookServer';
+import { getApiPort } from '../apiPort';
 import { typedPush } from '../ipc/helpers';
 import { getPtySpawnContext } from '../ptyManager';
 import { getSandboxProvider } from './registry';

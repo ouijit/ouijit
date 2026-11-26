@@ -10,7 +10,7 @@ import { setTrashItem } from './platform';
 import { registerIpcHandlers, cleanupIpc } from './ipc/register';
 import { cancelAllClones } from './services/cloneRegistry';
 import { abortLensRuns } from './lens/runRegistry';
-import { getApiPort } from './hookServer';
+import { getApiPort } from './apiPort';
 import { getActiveSessionCount } from './ptyManager';
 import { typedPush } from './ipc/helpers';
 import * as fs from 'node:fs';

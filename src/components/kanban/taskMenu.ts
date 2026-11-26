@@ -1,6 +1,7 @@
 import type { ContextMenuEntry } from '../ui/ContextMenu';
 import type { SandboxBackendId, SandboxProviderId, TaskStatus, TaskWithWorkspace } from '../../types';
 import { SANDBOX_LABELS } from '../../types';
+import { STATUS_LABELS } from './statusLabels';
 import type { TerminalDisplayState } from '../../stores/terminalDisplay';
 import { useProjectStore } from '../../stores/projectStore';
 import { getProjectConfig, loadTasks } from '../../stores/projectDataStore';
@@ -15,14 +16,6 @@ import {
   unlinkGithubIssue,
 } from '../../services/githubTaskActions';
 import { openLinearIssueInPanel, unlinkLinearIssue } from '../../services/linearTaskActions';
-
-/** Column display names, as the "Move to" menu and its toasts write them. */
-export const STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  in_review: 'In Review',
-  done: 'Done',
-};
 
 /** Callers supply the handlers and add their own entries around these. */
 export interface TaskMenuActions {

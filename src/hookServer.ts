@@ -18,40 +18,15 @@ import { getLogger } from './logger';
 import { handleApiRequest } from './api/router';
 import { authenticateRequest, type AuthContext } from './apiAuth';
 import { getWrapperBinDir } from './paths';
-import { SANDBOX_BACKEND_IDS, SANDBOX_CLI_ACCESS, type SandboxBackendId, type SandboxCliAccess } from './sandbox/types';
+import { SANDBOX_BACKEND_IDS, SANDBOX_CLI_ACCESS, type SandboxCliAccess } from './sandbox/types';
+import { setApiPort } from './apiPort';
+import { recordHookStatus, type HookStatus } from './hookStatus';
+import { getCliReferencePath, type SandboxReference } from './cliReferencePath';
 
 const hookServerLog = getLogger().scope('hookServer');
 
 let server: http.Server | null = null;
-let apiPort = 0;
 let mainWindow: BrowserWindow | null = null;
-
-export function getApiPort(): number {
-  return apiPort;
-}
-
-// ── Hook status state (main-process, survives renderer reloads) ──────
-
-export type HookStatus = 'thinking' | 'ready';
-
-export interface HookStatusEntry {
-  status: HookStatus;
-  thinkingCount: number;
-}
-
-const hookStatusMap = new Map<string, HookStatusEntry>();
-
-export function getHookStatus(ptyId: string): HookStatusEntry | null {
-  return hookStatusMap.get(ptyId) ?? null;
-}
-
-export function clearHookStatus(ptyId: string): void {
-  hookStatusMap.delete(ptyId);
-}
-
-export function clearAllHookStatuses(): void {
-  hookStatusMap.clear();
-}
 
 // ── Action handlers ──────────────────────────────────────────────────
 
@@ -67,19 +42,7 @@ const actionHandlers: Record<string, ActionHandler> = {
     if (!isPtyActive(ptyId)) return;
     hookServerLog.info('status update', { ptyId, status });
 
-    // Update main-process state map
-    const entry = hookStatusMap.get(ptyId);
-    if (status === 'thinking') {
-      hookStatusMap.set(ptyId, {
-        status: 'thinking',
-        thinkingCount: (entry?.thinkingCount ?? 0) + 1,
-      });
-    } else {
-      hookStatusMap.set(ptyId, {
-        status: 'ready',
-        thinkingCount: entry?.thinkingCount ?? 0,
-      });
-    }
+    recordHookStatus(ptyId, status as HookStatus);
 
     // Forward to renderer for real-time UI updates
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -176,7 +139,7 @@ export function startHookServer(window: BrowserWindow): Promise<void> {
     s.listen(0, '127.0.0.1', () => {
       const addr = s.address();
       if (addr && typeof addr === 'object') {
-        apiPort = addr.port;
+        setApiPort(addr.port);
       }
       server = s;
       resolve();
@@ -197,21 +160,6 @@ export function stopHookServer(): Promise<void> {
 }
 
 // ── Hook definitions ─────────────────────────────────────────────────
-
-/**
- * The CLI reference an agent's wrapper loads, with a section on top for a
- * sandboxed terminal. The wrappers read it from under `~/.config/Ouijit`,
- * which the nono sandbox grants.
- */
-export function getCliReferencePath(sandbox?: SandboxReference): string {
-  const name = sandbox ? `ouijit-cli-reference-${sandbox.provider}-${sandbox.access}.md` : 'ouijit-cli-reference.md';
-  return path.join(os.homedir(), '.config', 'Ouijit', name);
-}
-
-interface SandboxReference {
-  provider: SandboxBackendId;
-  access: SandboxCliAccess;
-}
 
 const ACCESS_NOTES: Record<SandboxCliAccess, string> = {
   read: 'reading your own task and diff notes, and asking',

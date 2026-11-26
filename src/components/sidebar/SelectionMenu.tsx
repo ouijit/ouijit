@@ -6,7 +6,8 @@ import { useProjectStore } from '../../stores/projectStore';
 import { loadTasks } from '../../stores/projectDataStore';
 import { terminalInstances } from '../terminal/terminalRegistry';
 import { closeProjectTerminal } from '../terminal/terminalActions';
-import { moveToEntry, STATUS_LABELS } from '../kanban/taskMenu';
+import { moveToEntry } from '../kanban/taskMenu';
+import { STATUS_LABELS } from '../kanban/statusLabels';
 import type { TaskStatus } from '../../types';
 
 function updateTags(ptyIds: string[], update: (tags: string[]) => string[]): void {
