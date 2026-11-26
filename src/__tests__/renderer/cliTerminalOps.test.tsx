@@ -186,12 +186,19 @@ describe('terminals an agent opens and closes', () => {
     expect(useTerminalStore.getState().terminalsByProject[PROJECT]).toEqual(['pty-front', 'pty-shell']);
   });
 
-  test("opens a new chat on a started task the way its menu's New chat does, and sends it the first message", async () => {
-    vi.mocked(window.api.chat.start).mockImplementation(async (options) => ({
-      info: { id: options.id!, agent: options.agent, status: 'idle', background: [] } as never,
-      nodes: [],
-      seq: 0,
-    }));
+  test("opens a new chat on a started task the way its menu's New chat does, sends it the first message, and names it though another session on the task lands meanwhile", async () => {
+    // The task's terminal is still coming up under a placeholder, and gets its real id while the chat opens.
+    useTerminalStore
+      .getState()
+      .addTerminal(PROJECT, 'loading-terminal', { taskId: 4, isLoading: true }, { background: true });
+    vi.mocked(window.api.chat.start).mockImplementation(async (options) => {
+      useTerminalStore.getState().rekeyTerminal('loading-terminal', 'pty-terminal');
+      return {
+        info: { id: options.id!, agent: options.agent, status: 'idle', background: [] } as never,
+        nodes: [],
+        seq: 0,
+      };
+    });
     const reply = await terminalOp({
       action: 'open',
       projectPath: PROJECT,
@@ -201,6 +208,7 @@ describe('terminals an agent opens and closes', () => {
     });
     expect(reply.ok).toBe(true);
     const id = reply.ptyId!;
+    expect(id).not.toBe('pty-terminal');
     // A new conversation in the task's worktree, not the task's latest picked back up.
     expect(window.api.chat.latestForTask).not.toHaveBeenCalled();
     expect(window.api.chat.start).toHaveBeenCalledWith(

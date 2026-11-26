@@ -127,8 +127,8 @@ export interface OpenTaskShellOptions {
   sandbox?: SandboxPlacement;
   /** A new one of these, in place of picking the task back up the way the chat setting says. */
   fresh?: TaskSurface;
-  /** A fresh chat: its agent, where not the chat setting's, and its first message. */
-  chat?: { agent?: ChatAgentId; prompt?: string };
+  /** A fresh chat: its id, its agent where not the chat setting's, and its first message. */
+  chat?: { id?: string; agent?: ChatAgentId; prompt?: string };
   replaceLoadingId?: string;
   background?: boolean;
 }
@@ -172,6 +172,7 @@ export async function openTaskShell(
   const chat = options.fresh ? options.fresh === 'chat' : await opensAsChat(projectPath, undefined);
   if (options.mode === 'resume' && chat) {
     return addChatCard(projectPath, {
+      id: options.chat?.id,
       agent: options.chat?.agent,
       firstPrompt: options.chat?.prompt,
       worktree,

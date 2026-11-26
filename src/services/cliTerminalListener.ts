@@ -5,6 +5,7 @@ import { addProjectTerminal, closeProjectTerminal } from '../components/terminal
 import { openTaskShell } from '../components/navigation';
 import { bufferText, pasteable } from '../components/terminal/terminalText';
 import { useTerminalStore } from '../stores/terminalStore';
+import { generateId } from '../utils/ids';
 import { useChatStore } from '../stores/chatStore';
 import { transcriptText } from '../chat/model';
 import { TERMINAL_READY_WAIT_MS, type CliTerminalOp, type CliTerminalResponse } from '../types';
@@ -18,6 +19,9 @@ async function open(op: CliTerminalOp): Promise<CliTerminalResponse> {
   if (!projectPath) return { ok: false, error: 'Missing project' };
   const before = new Set(useTerminalStore.getState().terminalsByProject[projectPath] ?? []);
 
+  // Named here rather than found as the session that wasn't there before: a
+  // sandboxed terminal on the task can still be re-keying from its placeholder.
+  const chatId = op.chat ? generateId('pty') : undefined;
   let opened: boolean;
   if (op.taskNumber != null) {
     const task = await window.api.task.getByNumber(projectPath, op.taskNumber);
@@ -28,7 +32,7 @@ async function open(op: CliTerminalOp): Promise<CliTerminalResponse> {
       mode: op.resume || op.chat ? 'resume' : 'shell',
       sandbox: op.sandbox,
       background: true,
-      ...(op.chat && { fresh: 'chat' as const, chat: op.chat }),
+      ...(op.chat && { fresh: 'chat' as const, chat: { ...op.chat, id: chatId } }),
     });
   } else {
     opened = await addProjectTerminal(projectPath, undefined, {
@@ -37,7 +41,8 @@ async function open(op: CliTerminalOp): Promise<CliTerminalResponse> {
     });
   }
 
-  const ptyId = (useTerminalStore.getState().terminalsByProject[projectPath] ?? []).find((id) => !before.has(id));
+  const ptyId =
+    chatId ?? (useTerminalStore.getState().terminalsByProject[projectPath] ?? []).find((id) => !before.has(id));
   if (!opened || !ptyId) return { ok: false, error: 'The terminal did not open' };
   return { ok: true, ptyId };
 }
