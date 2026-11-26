@@ -38,6 +38,12 @@ const iconButton =
 const raisedButton =
   'w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5';
 
+/** Two raised buttons as one, for actions that are the same thing in two forms. */
+const raisedGroup =
+  'h-9 flex items-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] overflow-hidden ml-3 [-webkit-app-region:no-drag]';
+const joinedButton =
+  'w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5';
+
 /** What the stack on screen holds: one task by name, a whole project or tag, or a count. */
 function useShownStackName(): string | null {
   const stack = useAppStore((s) => (s.selection.kind === 'terminal' ? s.selection.stack : null));
@@ -203,28 +209,36 @@ export function TitleBar() {
             </button>
           </Tooltip>
         )}
-        {project && offersCreation && chatEnabled && (
-          <Tooltip text="New project chat" placement="bottom">
-            <button
-              className={raisedButton}
-              aria-label="New project chat"
-              onClick={() => void openProjectChat(project.path)}
-            >
-              <Icon name="chat-circle" />
-            </button>
-          </Tooltip>
-        )}
-        {offersCreation && (
-          <Tooltip text="New terminal" placement="bottom">
-            <button
-              className={raisedButton}
-              aria-label="New terminal"
-              onClick={async () => openShell(project?.path ?? (await window.api.homePath()))}
-            >
-              <Icon name="terminal" />
-            </button>
-          </Tooltip>
-        )}
+        {offersCreation &&
+          (project && chatEnabled ? (
+            <div className={raisedGroup}>
+              <Tooltip text="New project chat" placement="bottom" referenceClassName="h-full flex">
+                <button
+                  className={joinedButton}
+                  aria-label="New project chat"
+                  onClick={() => void openProjectChat(project.path)}
+                >
+                  <Icon name="chat-circle" />
+                </button>
+              </Tooltip>
+              <div aria-hidden className="w-px h-4 bg-ink/10" />
+              <Tooltip text="New terminal" placement="bottom" referenceClassName="h-full flex">
+                <button className={joinedButton} aria-label="New terminal" onClick={() => void openShell(project.path)}>
+                  <Icon name="terminal" />
+                </button>
+              </Tooltip>
+            </div>
+          ) : (
+            <Tooltip text="New terminal" placement="bottom">
+              <button
+                className={raisedButton}
+                aria-label="New terminal"
+                onClick={async () => openShell(project?.path ?? (await window.api.homePath()))}
+              >
+                <Icon name="terminal" />
+              </button>
+            </Tooltip>
+          ))}
         {project && offersCreation && (
           <Tooltip text="New task" placement="bottom">
             <button className={raisedButton} aria-label="New task" onClick={() => openTaskComposer()}>
