@@ -229,12 +229,13 @@ describe('where work runs', () => {
     expect((await request('GET', settings, host())).data).toMatchObject({ default: 'nono', cliAccess: 'read' });
   });
 
-  test("Chat's settings are app-wide: on and off, the main chat's agent, instructions and wakes, and where it runs only from the host", async () => {
+  test("Chat's settings are app-wide: on and off, the main chat's agent, instructions and wakes, and where and under what launcher it runs only from the host", async () => {
     const chat = '/api/chat-settings';
     expect((await request('GET', chat, host())).data).toMatchObject({
       enabled: false,
       agent: 'claude',
       sandbox: 'none',
+      launcher: null,
       wake: { turnEnded: true, asked: true, taskMoved: true, hookFailed: true },
     });
 
@@ -250,9 +251,20 @@ describe('where work runs', () => {
       agent: 'pi',
       sandbox: 'nono',
       instructions: 'Keep replies short.',
+      launcher: null,
       wake: { turnEnded: true, asked: true, taskMoved: false, hookFailed: true },
     });
     expect(sent.some(([channel]) => channel === 'cli:chat-settings-changed')).toBe(true);
+
+    // Its own launcher, checked as a project's is: an absolute path or a name on PATH, never one beside it.
+    expect((await request('PUT', chat, host(), { launcher: ' /usr/local/bin/my-sandbox ' })).data).toMatchObject({
+      launcher: '/usr/local/bin/my-sandbox',
+    });
+    const relative = await request('PUT', chat, host(), { launcher: './launch.sh' });
+    expect(relative.status).toBe(400);
+    expect(relative.error).toMatch(/relative path/);
+    expect((await request('GET', chat, host())).data.launcher).toBe('/usr/local/bin/my-sandbox');
+    expect((await request('PUT', chat, host(), { launcher: '' })).data.launcher).toBeNull();
 
     for (const bad of [{ enabled: 'yes' }, { agent: 'gpt' }, { sandbox: 'vm' }, { wake: { sleeping: true } }]) {
       expect((await request('PUT', chat, host(), bad)).status).toBe(400);
@@ -264,6 +276,7 @@ describe('where work runs', () => {
     await accessLevel('all');
     expect((await request('PUT', chat, sandboxed(), { agent: 'claude' })).status).toBe(200);
     expect((await request('PUT', chat, sandboxed(), { sandbox: 'none' })).status).toBe(403);
+    expect((await request('PUT', chat, sandboxed(), { launcher: '/bin/sh' })).status).toBe(403);
     expect((await request('GET', chat, host())).data).toMatchObject({ agent: 'claude', sandbox: 'nono' });
   });
 });

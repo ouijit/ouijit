@@ -54,6 +54,7 @@ export const PANEL =
 export function MainChatSettings() {
   const [settings, setSettings] = useState<HomeChatSettings>(DEFAULT_HOME_CHAT_SETTINGS);
   const [instructions, setInstructions] = useState('');
+  const [cliChanges, setCliChanges] = useState(0);
 
   useEffect(() => {
     const load = () =>
@@ -62,7 +63,10 @@ export function MainChatSettings() {
         setInstructions(loaded.instructions);
       });
     load();
-    return window.api.onCliChatSettingsChanged(load);
+    return window.api.onCliChatSettingsChanged(() => {
+      load();
+      setCliChanges((n) => n + 1);
+    });
   }, []);
 
   const [chatDir, setChatDir] = useState<string | null>(null);
@@ -152,7 +156,7 @@ export function MainChatSettings() {
           <SandboxProfileRow projectPath={chatDir} onChange={() => void restart()} />
         )}
         {settings.sandbox === 'custom' && chatDir && (
-          <CustomLauncherRow projectPath={chatDir} onChange={() => void restart()} />
+          <CustomLauncherRow key={cliChanges} projectPath={chatDir} onChange={() => void restart()} />
         )}
         {settings.sandbox !== 'none' && chatDir && (
           <CliAccessRow

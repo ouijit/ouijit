@@ -127,11 +127,12 @@ ouijit settings sandbox get
 ouijit settings sandbox set --default nono --profile ~/.config/nono/profiles/strict.json --cli-access task
 ouijit settings chat get
 ouijit settings chat set --enable --agent claude --wake taskMoved=off
-echo "Keep replies short." | ouijit settings chat set --instructions -</code></pre>
+echo "Keep replies short." | ouijit settings chat set --instructions -
+ouijit settings chat set --run-in custom --launcher /usr/local/bin/my-sandbox</code></pre>
   <p>
     A project's lenses are the groupings any of its diffs can be read by; <code>pr lens</code> writes the one lens
     shown for a pull request. Changing the main chat's agent, where it runs or its instructions restarts it on the
-    same conversation. <code>settings sandbox</code> and <code>settings chat set --run-in</code> are host terminals
+    same conversation. <code>settings sandbox</code> and <code>settings chat set --run-in</code> and <code>--launcher</code> are host terminals
     only: a sandboxed session gets 403 whatever its Ouijit CLI access.
   </p>
 

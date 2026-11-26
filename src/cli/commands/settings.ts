@@ -218,6 +218,7 @@ Examples:
     .option('--disable', 'turn Chat off')
     .option('--agent <agent>', `the main chat's agent (${AGENT_VALUES})`)
     .option('--run-in <place>', `where the main chat runs, from a host terminal (${PLACE_VALUES})`)
+    .option('--launcher <cmd>', 'the launcher it runs under with --run-in custom, from a host terminal; "" clears it')
     .option('--instructions <text>', 'read at the start of every conversation; - reads stdin, "" for none')
     .option(
       '--wake <event=on|off>',
@@ -231,6 +232,7 @@ Examples:
         disable?: boolean;
         agent?: string;
         runIn?: string;
+        launcher?: string;
         instructions?: string;
         wake: string[];
       }) => {
@@ -239,6 +241,7 @@ Examples:
           enabled: opts.enable ? true : opts.disable ? false : undefined,
           agent: agentFlag(opts.agent),
           sandbox: placeFlag('--run-in', opts.runIn),
+          launcher: opts.launcher,
           instructions: opts.instructions,
           wake: parseWake(opts.wake),
         });

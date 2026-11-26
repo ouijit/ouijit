@@ -112,7 +112,7 @@ import {
 import { chatHost, ChatSessionNotFound } from '../chat/host';
 import { continuationPrompt } from '../chat/continuation';
 import { CHAT_AGENT_IDS, isChatAgentId, transcriptText, pendingRequests, type ChatAnswer } from '../chat/model';
-import { callerIsHomeChat, loadHomeChatSettings, ownTask, reconfigureHomeChats } from '../chat/homeChat';
+import { callerIsHomeChat, homeChatDir, loadHomeChatSettings, ownTask, reconfigureHomeChats } from '../chat/homeChat';
 import { follow, following, quietMove, sessionSubject, taskSubject, unfollow, wakeForAsk } from '../chat/wake';
 import { addExistingProject, createAndRegisterProject } from '../services/projectRegistration';
 import { holdAsk } from '../chat/decisions';
@@ -311,7 +311,8 @@ async function requireProfileFile(profile: string): Promise<void> {
 
 async function describeChatSettings() {
   const enabled = (await getGlobalSetting(CHAT_SETTING_KEYS.enabled)) === '1';
-  return { enabled, ...(await loadHomeChatSettings()) };
+  const launcher = (await getCustomSandboxConfig(homeChatDir())).command ?? null;
+  return { enabled, ...(await loadHomeChatSettings()), launcher };
 }
 
 function parseWakes(value: unknown): Partial<Record<WakeEvent, boolean>> | undefined {
@@ -1463,9 +1464,10 @@ const routes: Route[] = [
     'PUT',
     'chat-settings',
     async (r) => {
-      const { enabled, agent, instructions, wake } = r.body;
+      const { enabled, agent, instructions, wake, launcher } = r.body;
       const sandbox = parseSandbox(r.body.sandbox, 'sandbox');
-      if (sandbox !== undefined) hostOnly(r);
+      if (sandbox !== undefined || launcher !== undefined) hostOnly(r);
+      if (launcher !== undefined && typeof launcher !== 'string') throw new HttpError(400, 'launcher must be a string');
       if (enabled !== undefined && typeof enabled !== 'boolean') throw new HttpError(400, 'enabled must be a boolean');
       if (agent !== undefined && !isChatAgentId(agent)) {
         throw new HttpError(400, `Invalid agent: ${String(agent)}. Must be one of: ${CHAT_AGENT_IDS.join(', ')}`);
@@ -1476,6 +1478,12 @@ const routes: Route[] = [
       const wakes = parseWakes(wake);
 
       const before = await loadHomeChatSettings();
+      const launcherBefore = (await getCustomSandboxConfig(homeChatDir())).command ?? '';
+      if (launcher !== undefined) {
+        const saved = await setCustomSandboxConfig(homeChatDir(), { command: launcher });
+        if (!saved.success) throw new HttpError(400, saved.error ?? 'Could not save the launcher');
+      }
+      const launcherChanged = launcher !== undefined && launcher.trim() !== launcherBefore;
       const next = {
         agent: agent ?? before.agent,
         sandbox: sandbox ?? before.sandbox,
@@ -1489,7 +1497,10 @@ const routes: Route[] = [
       if (wakes) await setGlobalSetting(HOME_CHAT_SETTING_KEYS.wake, JSON.stringify(next.wake));
       if (
         enabled !== false &&
-        (next.agent !== before.agent || next.sandbox !== before.sandbox || next.instructions !== before.instructions)
+        (next.agent !== before.agent ||
+          next.sandbox !== before.sandbox ||
+          next.instructions !== before.instructions ||
+          (launcherChanged && next.sandbox === 'custom'))
       ) {
         await reconfigureHomeChats();
       }

@@ -419,12 +419,13 @@ ouijit settings sandbox get                   # host terminals only → {default
 ouijit settings sandbox set [--default host|nono|custom] [--profile <file>] [--cli-access read|task|all]
                                               # host terminals only; --profile "" goes back to the project's own
                                               # cli-access: read is View, task is Own task, all is Whole board
-ouijit settings chat get                      # → {enabled, agent, sandbox, instructions, wake}, app-wide
+ouijit settings chat get                      # → {enabled, agent, sandbox, launcher, instructions, wake}, app-wide
 ouijit settings chat set [--enable|--disable] [--agent <agent>] [--run-in host|nono|custom]
-                         [--instructions "<text>"] [--wake <event>=on|off]...
-                                              # a new agent, place or instructions restarts the main chat; --run-in is
-                                              # host terminals only; --instructions - reads stdin; events: turnEnded,
-                                              # asked, taskMoved, hookFailed
+                         [--launcher "<cmd>"] [--instructions "<text>"] [--wake <event>=on|off]...
+                                              # a new agent, place, launcher or instructions restarts the main chat;
+                                              # --run-in and --launcher are host terminals only, --launcher "" clears
+                                              # it; --instructions - reads stdin; events: turnEnded, asked, taskMoved,
+                                              # hookFailed
 
 A project's lens is a grouping any of its diffs can be read by; ouijit pr lens
 writes the lens shown for one pull request.
