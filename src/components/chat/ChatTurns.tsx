@@ -579,6 +579,8 @@ export function ChatTurns({
         ),
       );
     }
+    // Right after the last of what the agent said: a background task's ending can follow it in the turn.
+    let afterReply = -1;
     for (const piece of pieces) {
       if (piece.kind === 'work') {
         items.push(<WorkFold key={piece.nodes[0].id} work={piece.nodes} context={context} />);
@@ -599,6 +601,7 @@ export function ChatTurns({
       }
       const paced = !stopping && pacedFor(piece.node.id);
       items.push(<Said key={piece.node.id} node={piece.node} paced={paced} onDone={onDone} />);
+      afterReply = items.length;
       if (pending(piece.node)) {
         held = true;
         break;
@@ -624,7 +627,9 @@ export function ChatTurns({
             piece.kind === 'said' && piece.node.status !== 'running' ? [piece.node.text] : [],
           );
       if (reply.length > 0 && !(open && index === turns.length - 1)) {
-        items.push(
+        items.splice(
+          afterReply,
+          0,
           <div
             key="reply-actions"
             className="-mt-2 -mb-2 -ml-1 flex items-center h-[22px] opacity-0 group-hover/turn:opacity-100 focus-within:opacity-100 transition-opacity duration-100"

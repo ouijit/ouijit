@@ -749,6 +749,44 @@ describe('a message sent mid-turn', () => {
   });
 });
 
+describe("a reply's copy button", () => {
+  test('sits under the reply it copies, above a background task that ended after it', () => {
+    const reply = 'The slideshow is up at localhost:4173.';
+    act(() =>
+      useChatStore.getState().adopt({
+        info: INFO,
+        nodes: [
+          {
+            id: 'c1',
+            kind: 'user_message',
+            parentId: null,
+            createdAt: 0,
+            text: 'Show me',
+            attachments: [],
+            delivery: 'prompt',
+          },
+          { id: 'c2', kind: 'assistant_message', parentId: null, createdAt: 1, text: reply, status: 'completed' },
+          {
+            id: 'c3',
+            kind: 'notice',
+            parentId: null,
+            createdAt: 2,
+            level: 'info',
+            text: "Restart the slideshow's local server",
+            ended: { taskId: 's1', status: 'stopped', ms: 900_000 },
+          },
+        ] as ChatNode[],
+        seq: 0,
+      }),
+    );
+    render(<ChatView cardId={ID} />);
+    const copy = screen.getAllByRole('button', { name: 'Copy' }).at(-1)!;
+    const before = (a: Node, b: Node) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(before(screen.getByText(reply), copy)).toBe(true);
+    expect(before(copy, screen.getByText("Restart the slideshow's local server"))).toBe(true);
+  });
+});
+
 describe('what a sent message carried', () => {
   test('images show as themselves, open full size a set at a time, and other files as a card with their size', async () => {
     const DIR = '/Users/test/Pictures';
