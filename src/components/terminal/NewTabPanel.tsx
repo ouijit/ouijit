@@ -3,13 +3,12 @@ import { create } from 'zustand';
 import { Icon } from './Icon';
 import { terminalInstances } from './terminalRegistry';
 import { startRunner, startShell } from './terminalActions';
-import { SHELL_LABEL } from './panelTypes';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { ScriptConfigDialog } from '../dialogs/ScriptConfigDialog';
 import { isHomeChat } from '../../stores/homeChatStore';
 import { runnerPlace, setRunnerSandbox, useProjectConfig, useProjectScripts } from '../../stores/projectDataStore';
-import { SANDBOX_LABELS, isActiveSandbox } from '../../types';
+import { SANDBOX_LABELS, SHELL_LABEL, isActiveSandbox } from '../../types';
 import type { RunnerScript, Script, ScriptHook, SandboxProviderId } from '../../types';
 import type { MarkdownFile } from '../../markdownFiles';
 

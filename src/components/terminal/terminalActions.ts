@@ -15,7 +15,7 @@ import type {
   SandboxPlacement,
   SandboxSpec,
 } from '../../types';
-import { placementProvider } from '../../types';
+import { SHELL_LABEL, placementProvider } from '../../types';
 import { useTerminalStore, type TerminalDisplayState, type TerminalStatus } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { loadTaskChats, useChatStore } from '../../stores/chatStore';
@@ -24,7 +24,8 @@ import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore } from '../../stores/appStore';
 import { OuijitTerminal, resolveTerminalLabel } from './terminalReact';
 import { terminalInstances, restoreTerminalOnce } from './terminalRegistry';
-import { SHELL_LABEL, type TerminalPanel } from './panelTypes';
+import type { RegisteredTerminal } from './terminalTypes';
+import type { TerminalPanel } from './panelTypes';
 import { generateId } from '../../utils/ids';
 import { parseOsc133ExitCodes } from './osc133';
 import { buildEditorCommand } from './editorCommand';
@@ -273,7 +274,7 @@ export async function addProjectTerminal(
     worktreePath: worktreeInfo?.path,
     worktreeBranch: worktreeInfo?.branch,
     mergeTarget,
-    autoCloseOnSuccess: options?.autoCloseOnSuccess,
+    closeOnSuccess: options?.autoCloseOnSuccess ? closeProjectTerminal : undefined,
   });
 
   // The viewport element is not in the DOM yet; XTermContainer attaches it.
@@ -463,7 +464,7 @@ export async function reconnectTerminal(
  * never for a long-running runner — OSC 133 is the per-command signal that
  * actually reflects whether the script succeeded or failed.
  */
-export function updateRunnerStatusFromOsc133(data: string, parent: OuijitTerminal, panelId: string): void {
+export function updateRunnerStatusFromOsc133(data: string, parent: RegisteredTerminal, panelId: string): void {
   // Only the most recent exit code in this batch matters — earlier codes are
   // already visually obsolete by the time the renderer sees them.
   const codes = parseOsc133ExitCodes(data);
@@ -602,7 +603,7 @@ export async function spawnRunner(ptyId: string, panelId: string): Promise<void>
 }
 
 /** A hook that fails is Chat's to hear about, since it stops the task it was starting. */
-function noteHookFailure(instance: OuijitTerminal, panelId: string, exitCode: number | undefined): void {
+function noteHookFailure(instance: RegisteredTerminal, panelId: string, exitCode: number | undefined): void {
   const panel = instance.panels.find((p) => p.id === panelId);
   if (!panel || panel.kind !== 'runner' || panel.source !== 'hook') return;
   const who = instance.taskId != null ? `${instance.label} (T-${instance.taskId})` : instance.label;
@@ -615,7 +616,7 @@ function noteHookFailure(instance: OuijitTerminal, panelId: string, exitCode: nu
   );
 }
 
-async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Promise<void> {
+async function _spawnRunnerInner(instance: RegisteredTerminal, panelId: string): Promise<void> {
   const path = instance.projectPath;
 
   const panel = instance.panels.find((p) => p.id === panelId);

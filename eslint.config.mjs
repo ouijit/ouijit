@@ -18,15 +18,13 @@ export default tseslint.config(
     ],
   },
   ...tseslint.configs.recommended,
+  importX.flatConfigs.typescript,
   {
     plugins: {
       'import-x': importX,
       'react-hooks': reactHooks,
     },
     rules: {
-      // Circular dependency detection
-      'import-x/no-cycle': ['error', { maxDepth: Infinity }],
-
       // Useful import rules
       'import-x/first': 'error',
       'import-x/no-duplicates': 'error',
@@ -56,11 +54,6 @@ export default tseslint.config(
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
       }],
-    },
-    settings: {
-      'import-x/resolver': {
-        typescript: true,
-      },
     },
   },
   prettier,

@@ -1,5 +1,5 @@
 import type { TaskStatus } from '../../types';
-import { STATUS_LABELS } from '../kanban/taskMenu';
+import { STATUS_LABELS } from '../kanban/statusLabels';
 import { Tooltip } from '../ui/Tooltip';
 
 /** Which board column a task is in, quieter than the titles and status dots beside it. */

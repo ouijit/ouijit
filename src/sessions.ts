@@ -1,10 +1,5 @@
-import {
-  getActiveSessions,
-  getPtySpawnContext,
-  getPtyTaskContext,
-  isPtyActive,
-  type ActiveSession,
-} from './ptyManager';
+import { getActiveSessions, getPtySpawnContext, getPtyTaskContext, isPtyActive } from './ptyManager';
+import type { ActiveSession } from './types';
 import { getHookStatus } from './hookStatus';
 import { chatHost } from './chat/host';
 import { stillWorking } from './chat/model';

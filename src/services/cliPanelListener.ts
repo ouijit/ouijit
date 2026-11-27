@@ -1,5 +1,5 @@
 import log from 'electron-log/renderer';
-import type { OuijitTerminal } from '../components/terminal/terminalReact';
+import type { RegisteredTerminal } from '../components/terminal/terminalTypes';
 import { whenTerminalReady } from '../components/terminal/terminalRegistry';
 import { homePanelHost } from '../components/chat/homeChatPanels';
 import { isHomeChat } from '../stores/homeChatStore';
@@ -32,15 +32,15 @@ function panelValue(panel: TerminalPanel): string | undefined {
   return panel.scriptName ?? undefined;
 }
 
-function panelsOfKind(instance: OuijitTerminal, kind: CliPanelKind): TerminalPanel[] {
+function panelsOfKind(instance: RegisteredTerminal, kind: CliPanelKind): TerminalPanel[] {
   return instance.panels.filter((p) => p.kind === INTERNAL_KIND[kind]);
 }
 
-function findPanel(instance: OuijitTerminal, kind: CliPanelKind, value: string): TerminalPanel | undefined {
+function findPanel(instance: RegisteredTerminal, kind: CliPanelKind, value: string): TerminalPanel | undefined {
   return panelsOfKind(instance, kind).find((p) => panelValue(p) === value);
 }
 
-function describe(instance: OuijitTerminal, panel: Exclude<TerminalPanel, { kind: 'newTab' }>): CliPanelInfo {
+function describe(instance: RegisteredTerminal, panel: Exclude<TerminalPanel, { kind: 'newTab' }>): CliPanelInfo {
   const kind = CLI_KIND[panel.kind];
   const field = { markdown: 'path', preview: 'url', runner: 'script' }[kind];
   return {
@@ -59,7 +59,7 @@ async function scriptNamed(projectPath: string, value: string) {
 }
 
 async function add(
-  instance: OuijitTerminal,
+  instance: RegisteredTerminal,
   kind: CliPanelKind,
   value: string,
   sandbox?: SandboxSpec | 'none',
@@ -94,7 +94,11 @@ async function add(
   return null;
 }
 
-async function remove(instance: OuijitTerminal, kind: CliPanelKind, value: string | undefined): Promise<string | null> {
+async function remove(
+  instance: RegisteredTerminal,
+  kind: CliPanelKind,
+  value: string | undefined,
+): Promise<string | null> {
   const name = kind === 'runner' && value ? ((await scriptNamed(instance.projectPath, value))?.name ?? value) : value;
   const match = name ? findPanel(instance, kind, name) : undefined;
   if (!match) return `No ${kind} panel matching ${value ?? '(none)'}`;
@@ -102,7 +106,7 @@ async function remove(instance: OuijitTerminal, kind: CliPanelKind, value: strin
   return null;
 }
 
-function focus(instance: OuijitTerminal, id: string | undefined): string | null {
+function focus(instance: RegisteredTerminal, id: string | undefined): string | null {
   if (id === 'terminal') {
     instance.deactivatePanel();
     return null;
@@ -118,7 +122,7 @@ function runsIn(placement: SandboxPlacement | undefined, projectPath: string): S
   return isActiveSandbox(placement) ? { provider: placement, settings: projectPath } : null;
 }
 
-function read(instance: OuijitTerminal, op: CliPanelOp): CliPanelRead | string {
+function read(instance: RegisteredTerminal, op: CliPanelOp): CliPanelRead | string {
   const { value: id, lines } = op;
   const panel = instance.panels.find((p) => p.id === id);
   if (!panel || panel.kind === 'newTab') return `No panel ${id ?? '(none)'}`;
@@ -140,12 +144,12 @@ function read(instance: OuijitTerminal, op: CliPanelOp): CliPanelRead | string {
   return { kind: 'runner', text: child ? bufferText(child.xterm, lines ?? DEFAULT_READ_LINES) : '', ...ended };
 }
 
-function respondWith(instance: OuijitTerminal, panels: TerminalPanel[]): CliPanelResponse {
+function respondWith(instance: RegisteredTerminal, panels: TerminalPanel[]): CliPanelResponse {
   const described = panels.flatMap((p) => (p.kind === 'newTab' ? [] : [describe(instance, p)]));
   return { ok: true, panels: described, diffOpen: instance.diffPanelOpen };
 }
 
-async function run(instance: OuijitTerminal, op: CliPanelOp): Promise<CliPanelResponse> {
+async function run(instance: RegisteredTerminal, op: CliPanelOp): Promise<CliPanelResponse> {
   const { action, kind, value } = op;
   if (action === 'read') {
     const result = read(instance, op);

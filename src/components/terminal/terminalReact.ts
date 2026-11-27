@@ -10,6 +10,7 @@ import { Terminal as XTerminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { LINK_PATTERN } from '../../links/ouijitLink';
+import { openLinkFromTerminal } from '../../links/terminalLinkOpener';
 import { dropUnmeasuredMouseReports } from './mouseReports';
 import { subscribeTheme } from '../../theme/themeManager';
 import { buildXtermTheme } from '../../theme/xtermTheme';
@@ -28,10 +29,10 @@ import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore, type TerminalStatus } from '../../stores/terminalStore';
 import { diffBaseSettingKey } from '../../diffSource';
-import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
 import type { TerminalPanel, RunnerPanel, WebPreviewPanel } from './panelTypes';
 import { terminalInstances } from './terminalRegistry';
+import type { RegisteredTerminal, RunnerPanelScript } from './terminalTypes';
 
 // ── Idle fallback timer constants ────────────────────────────────────
 const IDLE_FALLBACK_MS = 3000;
@@ -52,42 +53,33 @@ export interface TerminalOptions {
   isRunner?: boolean;
   initialStatus?: TerminalStatus;
   /**
-   * When true, this terminal closes itself after a short grace period when its
+   * When set, called to close this terminal after a short grace period when its
    * underlying command exits with code 0. The exit signal comes from OSC 133;D
    * (emitted by the shell-integration precmd hook) or from PTY exit. On
    * non-zero exit it stays open with an error status, so the failure is
    * debuggable in the interactive shell that survives the command.
    */
-  autoCloseOnSuccess?: boolean;
+  closeOnSuccess?: (ptyId: PtyId) => void;
   surface?: TaskSurface;
   /** The agent a chat card's conversation belongs to. */
   chatAgent?: ChatAgentId;
-}
-
-type OpenTerminalLink = (uri: string, projectPath: string, workspaceRoot: string) => void;
-let openTerminalLink: OpenTerminalLink = () => {};
-
-/**
- * How a card opens a link clicked in it, set once at startup. Opening an
- * ouijit:// link navigates, and navigating opens cards, so this module cannot
- * import it.
- */
-export function handleTerminalLinks(open: OpenTerminalLink): void {
-  openTerminalLink = open;
 }
 
 /** How long to leave an auto-close terminal visible on success before closing. */
 export const AUTO_CLOSE_GRACE_MS = 3000;
 
 /**
- * Schedule a self-tidy close for a terminal that opted into autoCloseOnSuccess.
+ * Schedule a self-tidy close for a terminal that opted into closeOnSuccess.
  * Extracted so the timing behavior is unit-testable without standing up an
  * OuijitTerminal instance (which couples to xterm + DOM).
  */
-export function scheduleAutoCloseOnSuccess(ptyId: PtyId, isDisposed: () => boolean): ReturnType<typeof setTimeout> {
+export function scheduleAutoCloseOnSuccess(
+  close: () => void,
+  isDisposed: () => boolean,
+): ReturnType<typeof setTimeout> {
   return setTimeout(() => {
     if (isDisposed()) return;
-    closeProjectTerminal(ptyId);
+    close();
   }, AUTO_CLOSE_GRACE_MS);
 }
 
@@ -334,7 +326,7 @@ function scheduleTerminalGitStatusRefresh(term: OuijitTerminal): void {
  * for the same one, or the file list and the hunks under it are two different
  * comparisons.
  */
-function statusArgs(term: OuijitTerminal): [string, string | undefined, DiffDefaults] {
+function statusArgs(term: RegisteredTerminal): [string, string | undefined, DiffDefaults] {
   return [
     term.worktreePath || term.projectPath,
     term.diffBase,
@@ -342,7 +334,7 @@ function statusArgs(term: OuijitTerminal): [string, string | undefined, DiffDefa
   ];
 }
 
-function diffBaseKey(term: OuijitTerminal): string {
+function diffBaseKey(term: RegisteredTerminal): string {
   return diffBaseSettingKey(term.worktreePath || term.projectPath);
 }
 
@@ -360,12 +352,12 @@ async function restoreDiffBase(term: OuijitTerminal): Promise<void> {
   await refreshTerminalGitStatus(term);
 }
 
-function applyGitStatus(term: OuijitTerminal, fileStatus: GitFileStatus | null): void {
+function applyGitStatus(term: RegisteredTerminal, fileStatus: GitFileStatus | null): void {
   term.gitFileStatus = fileStatus;
   term.pushDisplayState({ gitFileStatus: fileStatus });
 }
 
-export async function refreshTerminalGitStatus(term: OuijitTerminal): Promise<void> {
+export async function refreshTerminalGitStatus(term: RegisteredTerminal): Promise<void> {
   applyGitStatus(term, await window.api.getGitFileStatus(...statusArgs(term)));
 }
 
@@ -375,7 +367,7 @@ export async function refreshTerminalsGitStatus(ptyIds: string[]): Promise<void>
   // Grouped by everything the comparison depends on, so a child task diffing
   // against its parent branch and a terminal the reader pointed at a remote
   // each get their own answer.
-  const groupToTerminals = new Map<string, OuijitTerminal[]>();
+  const groupToTerminals = new Map<string, RegisteredTerminal[]>();
   for (const ptyId of ptyIds) {
     const term = terminalInstances.get(ptyId);
     if (!term) continue;
@@ -398,7 +390,7 @@ export async function refreshTerminalsGitStatus(ptyIds: string[]): Promise<void>
 
 // ── OuijitTerminal class ─────────────────────────────────────────────
 
-export class OuijitTerminal {
+export class OuijitTerminal implements RegisteredTerminal {
   // ── Identity ────────────────────────────────────────────────────────
   // Sandboxed terminals register in the store before their real PTY id is
   // known. Use a unique placeholder per instance so concurrent pending
@@ -440,8 +432,7 @@ export class OuijitTerminal {
   worktreePath?: string;
   worktreeBranch?: string;
   mergeTarget?: string;
-  /** See TerminalOptions.autoCloseOnSuccess. */
-  readonly autoCloseOnSuccess: boolean;
+  private readonly closeOnSuccess: ((ptyId: PtyId) => void) | undefined;
   /** Guards against scheduling the auto-close timer twice when both the OSC
    *  133;D path and the PTY-exit path fire for the same successful command. */
   private autoCloseScheduled = false;
@@ -499,7 +490,7 @@ export class OuijitTerminal {
     this.worktreePath = opts.worktreePath;
     this.worktreeBranch = opts.worktreeBranch;
     this.mergeTarget = opts.mergeTarget;
-    this.autoCloseOnSuccess = opts.autoCloseOnSuccess ?? false;
+    this.closeOnSuccess = opts.closeOnSuccess;
     this.surface = opts.surface ?? 'terminal';
     this.chatAgent = opts.chatAgent ?? null;
     void restoreDiffBase(this);
@@ -508,7 +499,7 @@ export class OuijitTerminal {
     this.status = opts.initialStatus ?? 'ready';
 
     const openClickedLink = (_event: MouseEvent, uri: string) =>
-      void openTerminalLink(uri, this.projectPath, this.worktreePath || this.projectPath);
+      void openLinkFromTerminal(uri, this.projectPath, this.worktreePath || this.projectPath);
 
     this.xterm = new XTerminal({
       theme: buildXtermTheme(),
@@ -852,21 +843,7 @@ export class OuijitTerminal {
     this.syncPanels();
   }
 
-  addRunnerPanel(
-    script?: {
-      name: string;
-      command: string;
-      source?: 'hook' | 'script';
-      restartIfRunning?: boolean;
-      sandbox?: SandboxPlacement;
-      env?: Record<string, string>;
-      private?: boolean;
-      shell?: boolean;
-      askedBy?: string;
-    } | null,
-    activate = true,
-    replacing?: string,
-  ): string {
+  addRunnerPanel(script?: RunnerPanelScript | null, activate = true, replacing?: string): string {
     const id = generateId('panel');
     const panel: RunnerPanel = {
       id,
@@ -1163,9 +1140,13 @@ export class OuijitTerminal {
   }
 
   private maybeScheduleAutoClose(exitCode: number): void {
-    if (!this.autoCloseOnSuccess || exitCode !== 0 || this.autoCloseScheduled) return;
+    const close = this.closeOnSuccess;
+    if (!close || exitCode !== 0 || this.autoCloseScheduled) return;
     this.autoCloseScheduled = true;
-    scheduleAutoCloseOnSuccess(this.ptyId, () => this.disposed);
+    scheduleAutoCloseOnSuccess(
+      () => close(this.ptyId),
+      () => this.disposed,
+    );
   }
 
   clearDataThrottle(): void {

@@ -1,5 +1,6 @@
 import log from 'electron-log/renderer';
 import { OuijitTerminal } from '../terminal/terminalReact';
+import type { RegisteredTerminal } from '../terminal/terminalTypes';
 import { restoreTerminalOnce, terminalInstances, whenTerminalReady } from '../terminal/terminalRegistry';
 import { applyInitialUiState } from '../terminal/terminalActions';
 import { uiFor } from '../terminal/sessionSnapshot';
@@ -16,7 +17,7 @@ const panelsLog = log.scope('homeChatPanels');
  * as they reach any card. It is never put in a project's order, so no stack,
  * sidebar row or saved session shows it; the main chat's page does.
  */
-export async function homePanelHost(id: string): Promise<OuijitTerminal | null> {
+export async function homePanelHost(id: string): Promise<RegisteredTerminal | null> {
   await restoreTerminalOnce(id, () => create(id));
   return whenTerminalReady(id, TERMINAL_READY_WAIT_MS);
 }

@@ -1,4 +1,4 @@
-import type { DiffHunk, FileDiff } from '../types';
+import type { DiffHunk, FileDiff } from '../git';
 
 /** New-file lines. Both ends inclusive. */
 export type LineRange = [start: number, end: number];

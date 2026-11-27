@@ -15,7 +15,7 @@ import { hookForMove, opensAsChat } from './chatSettings';
 import type { TaskSurface } from '../chat/preferences';
 import type { ChatAgentId } from '../chat/model';
 import { fillHookVars, taskHookVars } from '../utils/hookEnvVars';
-import { STATUS_LABELS } from '../components/kanban/taskMenu';
+import { STATUS_LABELS } from '../components/kanban/statusLabels';
 import { completeTask } from './taskCompletion';
 import { headlessHookRun, hookSandbox, hookTypeForTransition, type HookControl } from './hookRun';
 import { useProjectStore } from '../stores/projectStore';

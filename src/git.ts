@@ -4,6 +4,8 @@ import { formatAge } from './utils/formatDate';
 import { execGit, execGitBuffer, execGitSync } from './gitCommand';
 import { getTaskProtectedRefs } from './db';
 import { refsMovedOutsideGit } from './protectedRefs';
+import type { ChangedFile, GitFileStatus } from './gitTypes';
+export type { ChangedFile, GitFileStatus } from './gitTypes';
 
 export interface GitStatus {
   branch: string;
@@ -35,14 +37,6 @@ export interface GitDropdownInfo {
   mainBranch: string;
 }
 
-export interface ChangedFile {
-  path: string;
-  status: 'M' | 'A' | 'D' | 'R' | '?'; // Modified, Added, Deleted, Renamed, Untracked
-  oldPath?: string; // For renamed files
-  additions: number;
-  deletions: number;
-}
-
 export interface DiffLine {
   type: 'context' | 'addition' | 'deletion';
   content: string;
@@ -70,21 +64,6 @@ export interface BlobContent {
   byteSize: number;
   /** Base64 of the blob. Absent when the blob is past the caller's cap. */
   base64?: string;
-}
-
-/** What one comparison found, per file, for the GitStats button and the DiffPanel. */
-export interface GitFileStatus {
-  branch: string;
-  mainBranch: string;
-  /** The ref this was compared against — `HEAD` for the uncommitted changes. */
-  base: string;
-  /** What it is compared against until the reader picks another. */
-  defaultBase: string;
-  commitsAheadOfMain: number;
-  /** Tracked files differing from the base, committed and uncommitted alike. */
-  changedFiles: ChangedFile[];
-  /** Untracked files not in .gitignore, counted like any other change. */
-  untrackedFiles: ChangedFile[];
 }
 
 /** Where a terminal's work merges, for working out what its diff compares against until the reader picks. */

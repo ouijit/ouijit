@@ -1,17 +1,10 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import { scheduleAutoCloseOnSuccess, AUTO_CLOSE_GRACE_MS } from '../components/terminal/terminalReact';
-import { closeProjectTerminal } from '../components/terminal/terminalActions';
-import type { PtyId } from '../types';
-
-vi.mock('../components/terminal/terminalActions', () => ({
-  closeProjectTerminal: vi.fn(),
-}));
 
 describe('scheduleAutoCloseOnSuccess', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -19,23 +12,25 @@ describe('scheduleAutoCloseOnSuccess', () => {
   });
 
   test('closes the terminal after the grace period', () => {
-    scheduleAutoCloseOnSuccess('pty-1' as PtyId, () => false);
+    const close = vi.fn();
+    scheduleAutoCloseOnSuccess(close, () => false);
 
     vi.advanceTimersByTime(AUTO_CLOSE_GRACE_MS - 1);
-    expect(closeProjectTerminal).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(1);
-    expect(closeProjectTerminal).toHaveBeenCalledWith('pty-1');
+    expect(close).toHaveBeenCalledOnce();
   });
 
   test('skips the close when the terminal has already been disposed', () => {
+    const close = vi.fn();
     let disposed = false;
-    scheduleAutoCloseOnSuccess('pty-2' as PtyId, () => disposed);
+    scheduleAutoCloseOnSuccess(close, () => disposed);
 
     disposed = true;
     vi.advanceTimersByTime(AUTO_CLOSE_GRACE_MS);
 
-    expect(closeProjectTerminal).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
   });
 
   test('grace period is 3 seconds', () => {

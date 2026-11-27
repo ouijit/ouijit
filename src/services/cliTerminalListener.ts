@@ -1,6 +1,6 @@
 import log from 'electron-log/renderer';
 import { terminalInstances, whenTerminalReady } from '../components/terminal/terminalRegistry';
-import type { OuijitTerminal } from '../components/terminal/terminalReact';
+import type { RegisteredTerminal } from '../components/terminal/terminalTypes';
 import { addProjectTerminal, closeProjectTerminal } from '../components/terminal/terminalActions';
 import { openTaskShell } from '../components/navigation';
 import { bufferText, pasteable } from '../components/terminal/terminalText';
@@ -56,7 +56,7 @@ async function open(op: CliTerminalOp): Promise<CliTerminalResponse> {
 }
 
 /** A runner is registered under its own PTY too, so its panel's privacy has to hold here as well. */
-function ranPrivately(instance: OuijitTerminal): boolean {
+function ranPrivately(instance: RegisteredTerminal): boolean {
   if (!instance.isRunner) return false;
   for (const parent of terminalInstances.values()) {
     for (const [panelId, child] of parent.runnerChildren) {

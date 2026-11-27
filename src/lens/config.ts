@@ -2,23 +2,9 @@ import { randomUUID, type UUID } from 'node:crypto';
 import { getGlobalSetting, setGlobalSetting } from '../db';
 import { currentHealth } from '../healthCheck';
 import { resolveLensAgent, type LensAgent } from './lensAgents';
+import type { LensInput, LensSummary } from './lensTypes';
 
-export interface LensSummary {
-  /**
-   * Stable across a rename: a stored grouping records the lens that wrote it, and
-   * the name has to be free to move without it.
-   */
-  id: UUID;
-  name: string;
-  instruction: string;
-}
-
-export interface LensInput {
-  /** A claim to be editing an existing lens, not an id. Checked, never trusted. */
-  id?: string;
-  name: string;
-  instruction: string;
-}
+export type { LensInput, LensSummary } from './lensTypes';
 
 interface StoredEntry {
   id?: UUID;

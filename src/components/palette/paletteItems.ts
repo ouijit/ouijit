@@ -21,7 +21,7 @@ import type { LinearIssueSummary } from '../../linear/types';
 import type { TerminalDisplayState, TerminalStatus } from '../../stores/terminalStore';
 import type { SearchField } from '../../utils/paletteScore';
 import { formatAge } from '../../utils/formatDate';
-import { STATUS_LABELS } from '../kanban/taskMenu';
+import { STATUS_LABELS } from '../kanban/statusLabels';
 import { activateTask, focusTerminal, openProject, TASK_OPEN_LABEL } from '../navigation';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
 import { openLinearIssueInPanel } from '../../services/linearTaskActions';

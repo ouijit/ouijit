@@ -9,8 +9,7 @@ import { startHookServer, stopHookServer } from '../../../hookServer';
 import { getApiPort } from '../../../apiPort';
 import { issueToken, revokeAllTokens } from '../../../apiAuth';
 import { initCliPanels } from '../../../cliPanels';
-import type { ActiveSession } from '../../../ptyManager';
-import type { CliPanelOp, CliPanelResponse, CliTerminalOp, CliTerminalResponse } from '../../../types';
+import type { ActiveSession, CliPanelOp, CliPanelResponse, CliTerminalOp, CliTerminalResponse } from '../../../types';
 
 const { ipcHandlers, sessions, renderer } = vi.hoisted(() => ({
   ipcHandlers: new Map<string, (event: unknown, ...args: unknown[]) => unknown>(),

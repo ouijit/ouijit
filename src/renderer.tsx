@@ -4,13 +4,13 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { initIcons } from './utils/icons';
 import { initChat } from './components/chat/chatActions';
-import { handleTerminalLinks } from './components/terminal/terminalReact';
 import { openTerminalLink } from './links/terminalLink';
 import { initThemeSync, initTheme } from './theme/themeManager';
 import { useAppStore } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
 import { trackWindowFocus, useTerminalStore } from './stores/terminalStore';
 import { useWaitingStore } from './stores/waitingStore';
+import { setTerminalLinkOpener } from './links/terminalLinkOpener';
 
 // Apply the cached theme before first render (no dark flash for light-mode
 // users), then reconcile with the persisted settings asynchronously.
@@ -20,7 +20,7 @@ void initTheme();
 initIcons();
 trackWindowFocus();
 initChat();
-handleTerminalLinks((uri, projectPath, workspaceRoot) => void openTerminalLink(uri, projectPath, workspaceRoot));
+setTerminalLinkOpener(openTerminalLink);
 
 // Expose stores for e2e tests
 (window as any).__appStore = useAppStore;

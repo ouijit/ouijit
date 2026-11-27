@@ -4,7 +4,7 @@
  * so both sides can import it.
  */
 
-import type { ChangedFile, GitFileStatus } from './git';
+import type { ChangedFile, GitFileStatus } from './gitTypes';
 
 /** How many files of one change are rendered. Shared with the pull request view. */
 export const MAX_DIFF_FILES = 300;

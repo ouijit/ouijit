@@ -1,6 +1,7 @@
 import type { ContextMenuEntry, ContextMenuItem } from '../ui/ContextMenu';
 import type { SandboxBackendId, SandboxProviderId, TaskStatus, TaskWithWorkspace } from '../../types';
 import { SANDBOX_LABELS } from '../../types';
+import { STATUS_LABELS } from './statusLabels';
 import type { TerminalDisplayState } from '../../stores/terminalDisplay';
 import { useProjectStore } from '../../stores/projectStore';
 import { getProjectConfig, loadTasks } from '../../stores/projectDataStore';
@@ -20,14 +21,6 @@ import {
 } from '../../services/githubTaskActions';
 import { openLinearIssueInPanel, unlinkLinearIssue } from '../../services/linearTaskActions';
 
-/** Column display names, as the "Move to" menu and its toasts write them. */
-export const STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  in_review: 'In Review',
-  done: 'Done',
-};
-
 const CHAT_LABEL_LENGTH = 48;
 
 /** A chat named by the first thing asked in it: its first line, cut at a word to fit a menu. */
@@ -43,7 +36,6 @@ export function chatLabel(text: string): string {
 export function closedTaskChats(chats: TaskChatSummary[] | undefined, taskNumber: number): TaskChatSummary[] {
   return (chats ?? []).filter((chat) => chat.taskId === taskNumber && !terminalInstances.has(chat.id));
 }
-
 /** Callers supply the handlers and add their own entries around these. */
 export interface TaskMenuActions {
   /** Open the task in that place, as a terminal or a chat by preference, overriding the continue hook's sandbox. */

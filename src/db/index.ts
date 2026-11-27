@@ -19,7 +19,8 @@ import { DiffLensRepo, type DiffLensRow } from './repos/diffLensRepo';
 import { worktreeKeyPrefix } from '../lens/subjectKeys';
 import { DiffNoteRepo, type DiffNoteRow } from './repos/diffNoteRepo';
 import { ChatRepo } from './repos/chatRepo';
-import type { ProjectSettings, ScriptHook } from '../types';
+import type { ProjectSettings, ScriptHook } from '../projectSettings';
+import type { TaskMetadata } from '../taskTypes';
 import { SANDBOXABLE_HOOK_TYPES, isSandboxProviderId } from '../sandbox/types';
 import { getLogger } from '../logger';
 import { taskEvents } from '../taskEvents';
@@ -29,31 +30,7 @@ const dbLog = getLogger().scope('db');
 // ── Re-exports ───────────────────────────────────────────────────────
 export type { TaskStatus } from './repos/taskRepo';
 export type { HookType } from './repos/hookRepo';
-
-export interface TaskMetadata {
-  taskNumber: number;
-  branch?: string;
-  name: string;
-  status: TaskStatus;
-  createdAt: string;
-  closedAt?: string;
-  worktreePath?: string;
-  mergeTarget?: string;
-  prompt?: string;
-  order?: number;
-  parentTaskNumber?: number;
-  githubPrNumber?: number;
-  githubIssueNumber?: number;
-  linearIssueId?: string;
-  /** `ENG-123`. Stored so a badge can render it without asking Linear. */
-  linearIssueIdentifier?: string;
-  /**
-   * The branch name the task should start on — Linear's suggestion for the
-   * issue it came from. Read at start time, so starting costs no round trip and
-   * works offline. Provider-neutral: nothing about it is Linear's.
-   */
-  suggestedBranch?: string;
-}
+export type { TaskMetadata } from '../taskTypes';
 
 // ── Lazy singleton repos ─────────────────────────────────────────────
 

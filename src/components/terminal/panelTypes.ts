@@ -11,8 +11,7 @@
  * tracked separately in `OuijitTerminal.runnerChildren`, keyed by panel id.
  */
 
-import type { SandboxPlacement } from '../../types';
-export { SHELL_LABEL } from '../../types';
+import type { SandboxPlacement } from '../../sandbox/types';
 
 export type PanelKind = 'runner' | 'webPreview' | 'plan' | 'newTab';
 
