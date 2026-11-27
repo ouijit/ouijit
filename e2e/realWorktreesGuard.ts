@@ -14,25 +14,29 @@ function worktreeDirs(): Set<string> {
   return dirs;
 }
 
-// The real app may be starting tasks while the suite runs, so only a worktree
-// of a repo under the temp dir, where every test repo lives, counts as a leak.
-function belongsToTestRepo(worktree: string): boolean {
+function gitdirOf(worktree: string): string | null {
   try {
-    const gitdir = fs
+    return fs
       .readFileSync(path.join(worktree, '.git'), 'utf8')
       .replace(/^gitdir:\s*/, '')
       .trim();
-    const tmp = fs.realpathSync(os.tmpdir());
-    return gitdir.startsWith(tmp + path.sep) || gitdir.startsWith(os.tmpdir() + path.sep);
   } catch {
-    return false;
+    return null;
   }
 }
 
+// The real app, or another checkout's e2e run, may be starting tasks at the
+// same time, so only a worktree of one of this run's repos counts as a leak.
+// Workers inherit OUIJIT_E2E_RUN_DIR, and createTestRepo makes repos under it.
 export default function globalSetup(): () => void {
+  const runDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-e2e-run-')));
+  process.env.OUIJIT_E2E_RUN_DIR = runDir;
   const before = worktreeDirs();
   return () => {
-    const leaked = [...worktreeDirs()].filter((dir) => !before.has(dir) && belongsToTestRepo(dir));
+    const leaked = [...worktreeDirs()].filter(
+      (dir) => !before.has(dir) && gitdirOf(dir)?.startsWith(runDir + path.sep),
+    );
+    fs.rmSync(runDir, { recursive: true, force: true });
     if (leaked.length > 0) {
       throw new Error(`The e2e run left worktrees in ${realRoot}:\n${leaked.join('\n')}`);
     }

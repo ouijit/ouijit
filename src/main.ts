@@ -70,7 +70,10 @@ fixPath();
 if (process.env.OUIJIT_TEST_USER_DATA) {
   app.setPath('userData', process.env.OUIJIT_TEST_USER_DATA);
   setUserDataPath(process.env.OUIJIT_TEST_USER_DATA);
-  setWorktreesRoot(path.join(process.env.OUIJIT_TEST_USER_DATA, 'worktrees'));
+  // git reports worktree paths with symlinks resolved (macOS tmpdirs sit
+  // under /var -> /private/var), and listWorktrees matches them by prefix.
+  fs.mkdirSync(process.env.OUIJIT_TEST_USER_DATA, { recursive: true });
+  setWorktreesRoot(path.join(fs.realpathSync(process.env.OUIJIT_TEST_USER_DATA), 'worktrees'));
 } else if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
   // Isolate dev state per worktree so multiple dev instances can run in parallel
   // without stomping on each other (and without touching production).
