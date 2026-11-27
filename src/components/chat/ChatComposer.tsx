@@ -314,7 +314,7 @@ function Attached({ attachment, onRemove }: { attachment: ChatAttachment; onRemo
         ) : (
           <span aria-hidden className="block w-14 h-14 rounded-[10px] bg-ink/[0.06]" />
         )}
-        <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center bg-terminal-surface text-text-secondary shadow-[0_0_0_1px_var(--color-bezel)] opacity-0 group-hover/attached:opacity-100 focus-within:opacity-100 transition-opacity duration-100">
+        <span className="glass-bevel absolute -top-2 -right-2 w-[22px] h-[22px] rounded-full border border-bezel flex items-center justify-center segmented-opaque text-text-secondary hover:text-text-primary opacity-0 group-hover/attached:opacity-100 focus-within:opacity-100 transition-opacity duration-100 [&_button]:w-full [&_button]:h-full [&_button]:flex [&_button]:items-center [&_button]:justify-center">
           {remove}
         </span>
       </span>
