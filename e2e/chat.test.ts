@@ -274,7 +274,12 @@ test('switching: going to another conversation and back shows the first one whol
   const folder = await appPage.evaluate(async (cid) => (await window.api.chat.snapshot(cid))!.info.cwd, first);
   fs.writeFileSync(path.join(folder, 'calendar.md'), '# Content calendar\n\nWeek one: the sandbox post.\n');
   expect(
-    await asChat(electronApp, first, testRepo.repoPath, ['markdown', 'add', path.join(folder, 'calendar.md')]),
+    await asChat(electronApp, first, testRepo.repoPath, [
+      'panel',
+      'open',
+      'markdown',
+      path.join(folder, 'calendar.md'),
+    ]),
   ).toMatchObject({
     panels: [{ kind: 'markdown', label: 'calendar.md', active: true }],
   });
