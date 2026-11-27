@@ -53,7 +53,7 @@ describe('settings commands', () => {
   beforeEach(() => vi.clearAllMocks());
 
   test("a project's settings send only the flags given, in the API's words, with long text from stdin", async () => {
-    await run('tasks', 'set', '--open-in', 'chat', '--agent', 'codex');
+    await run('tasks', 'set', '--surface', 'chat', '--agent', 'codex');
     expect(put).toHaveBeenLastCalledWith(`/api/task-opening${Q}`, { surface: 'chat', agent: 'codex' });
     const piped = stdin('Read PLAN.md\nthen start');
     await run('tasks', 'set', '--first-message', '-');
@@ -73,20 +73,20 @@ describe('settings commands', () => {
     await run('lens', 'remove', 'Risk');
     expect(del).toHaveBeenLastCalledWith(`/api/project-lenses/Risk${Q}`);
     await run('lens', 'agent', 'set', 'auto');
-    expect(put).toHaveBeenLastCalledWith(`/api/lens-agent${Q}`, { agent: null });
+    expect(put).toHaveBeenLastCalledWith(`/api/lens-agent${Q}`, { agent: 'auto' });
 
-    await run('sandbox', 'set', '--default', 'host', '--profile', 'profiles/strict.json', '--cli-access', 'task');
+    await run('sandbox', 'set', '--default', 'host', '--profile', 'profiles/strict.json', '--cli-access', 'own-task');
     expect(put).toHaveBeenLastCalledWith(`/api/sandbox-settings${Q}`, {
       default: 'none',
       profile: path.resolve('profiles/strict.json'),
-      cliAccess: 'task',
+      cliAccess: 'own-task',
     });
     await run('sandbox', 'get');
     expect(get).toHaveBeenLastCalledWith(`/api/sandbox-settings${Q}`);
   });
 
   test("Chat's settings are sent app-wide, wakes and all", async () => {
-    await run('chat', 'set', '--disable', '--run-in', 'nono', '--wake', 'taskMoved=off', '--wake', 'asked=on');
+    await run('chat', 'set', '--disable', '--sandbox', 'nono', '--wake', 'taskMoved=off', '--wake', 'asked=on');
     expect(put).toHaveBeenLastCalledWith('/api/chat-settings', {
       enabled: false,
       sandbox: 'nono',
@@ -98,7 +98,7 @@ describe('settings commands', () => {
 
   test('a bad or empty set is refused before anything is sent', async () => {
     expect(await refused('tasks', 'set')).toContain('Nothing to set');
-    expect(await refused('tasks', 'set', '--open-in', 'window')).toContain('terminal or chat');
+    expect(await refused('tasks', 'set', '--surface', 'window')).toContain('terminal or chat');
     expect(await refused('tasks', 'set', '--agent', 'gpt')).toContain('claude|codex|pi|opencode|acp');
     expect(await refused('sandbox', 'set', '--default', 'vm')).toContain('host|nono|custom');
     expect(await refused('chat', 'set', '--enable', '--disable')).toContain('not both');

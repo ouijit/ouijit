@@ -403,7 +403,7 @@ ouijit sandbox-command clear
 
 ## Settings (what the Settings page sets; each set changes only the flags given)
 ouijit settings tasks get                     # → {surface, agent, setup, firstMessage}
-ouijit settings tasks set [--open-in terminal|chat] [--agent claude|codex|pi|opencode|acp]
+ouijit settings tasks set [--surface terminal|chat] [--agent claude|codex|pi|opencode|acp]
                           [--setup "<cmd>"] [--first-message "<text>"]
                                               # a terminal runs the start hook; a chat runs setup, then sends the first
                                               # message with $OUIJIT_ variables filled in; --first-message - reads stdin
@@ -414,17 +414,17 @@ ouijit settings lens list                     # → [{id, name, instruction}]: t
 ouijit settings lens add "<name>" --instruction "<text>"   # --instruction - reads stdin
 ouijit settings lens edit <id-or-name> [--name "<name>"] [--instruction "<text>"]
 ouijit settings lens remove <id-or-name>
-ouijit settings lens agent get                # → {agent}; null picks the first one installed
+ouijit settings lens agent get                # → {agent}; auto picks the first one installed
 ouijit settings lens agent set claude|codex|pi|auto
 ouijit settings sandbox get                   # host terminals only → {default, profile: {path, own}, cliAccess}
-ouijit settings sandbox set [--default host|nono|custom] [--profile <file>] [--cli-access read|task|all]
+ouijit settings sandbox set [--default host|nono|custom] [--profile <file>] [--cli-access view|own-task|board]
                                               # host terminals only; --profile "" goes back to the project's own
-                                              # cli-access: read is View, task is Own task, all is Whole board
+                                              # cli-access: view, own-task or board, as in Settings
 ouijit settings chat get                      # → {enabled, agent, sandbox, launcher, instructions, wake}, app-wide
-ouijit settings chat set [--enable|--disable] [--agent <agent>] [--run-in host|nono|custom]
+ouijit settings chat set [--enable|--disable] [--agent <agent>] [--sandbox host|nono|custom]
                          [--launcher "<cmd>"] [--instructions "<text>"] [--wake <event>=on|off]...
                                               # a new agent, place, launcher or instructions restarts the main chat;
-                                              # --run-in and --launcher are host terminals only, --launcher "" clears
+                                              # --sandbox and --launcher are host terminals only, --launcher "" clears
                                               # it; --instructions - reads stdin; events: turnEnded, asked, taskMoved,
                                               # hookFailed
 

@@ -138,10 +138,9 @@ import { SHELL_LABEL } from '../types';
 import {
   SANDBOXABLE_HOOK_TYPES,
   SANDBOX_CLI_ACCESS,
-  SANDBOX_PROVIDER_IDS,
+  SANDBOX_BACKEND_IDS,
   defaultSandboxSettingKey,
   isActiveSandbox,
-  isSandboxCliAccess,
   sandboxCliAccessSettingKey,
   isSandboxBackendId,
   isSandboxProviderId,
@@ -257,10 +256,31 @@ function parseHookControl(body: Record<string, unknown>): CliHookControl {
   } as CliHookControl;
 }
 
+/** The API says `host` where a placement is stored as `none`. */
+const HOST_WORDS = ['host', ...SANDBOX_BACKEND_IDS].join(', ');
+
+/** The API names CLI access as Settings does; the stored levels are read, task and all. */
+const CLI_ACCESS_WORDS: Record<SandboxCliAccess, string> = { read: 'view', task: 'own-task', all: 'board' };
+
+function parseCliAccess(value: unknown): SandboxCliAccess | undefined {
+  if (value === undefined) return undefined;
+  const level = SANDBOX_CLI_ACCESS.find((access) => CLI_ACCESS_WORDS[access] === value);
+  if (level) return level;
+  throw new HttpError(
+    400,
+    `Invalid cliAccess: ${String(value)}. Must be one of: ${Object.values(CLI_ACCESS_WORDS).join(', ')}`,
+  );
+}
+
+function outwardSandbox(id: SandboxProviderId): string {
+  return id === 'none' ? 'host' : id;
+}
+
 function parseSandbox(value: unknown, field: string): SandboxProviderId | undefined {
   if (value === undefined) return undefined;
+  if (value === 'host') return 'none';
   if (isSandboxProviderId(value)) return value;
-  throw new HttpError(400, `Invalid ${field}: ${String(value)}. Must be one of: ${SANDBOX_PROVIDER_IDS.join(', ')}`);
+  throw new HttpError(400, `Invalid ${field}: ${String(value)}. Must be one of: ${HOST_WORDS}`);
 }
 
 function parseHookMode(body: Record<string, unknown>): Omit<CliHookControl, 'hookSandbox'> {
@@ -311,7 +331,11 @@ async function describeSandboxSettings(project: string) {
     getNonoProfile(project),
     sandboxCliAccessFor(project),
   ]);
-  return { default: isSandboxProviderId(place) ? place : 'none', profile, cliAccess };
+  return {
+    default: outwardSandbox(isSandboxProviderId(place) ? place : 'none'),
+    profile,
+    cliAccess: CLI_ACCESS_WORDS[cliAccess],
+  };
 }
 
 async function requireProfileFile(profile: string): Promise<void> {
@@ -323,7 +347,8 @@ async function requireProfileFile(profile: string): Promise<void> {
 async function describeChatSettings() {
   const enabled = (await getGlobalSetting(CHAT_SETTING_KEYS.enabled)) === '1';
   const launcher = (await getCustomSandboxConfig(homeChatDir())).command ?? null;
-  return { enabled, ...(await loadHomeChatSettings()), launcher };
+  const settings = await loadHomeChatSettings();
+  return { enabled, ...settings, sandbox: outwardSandbox(settings.sandbox), launcher };
 }
 
 function parseWakes(value: unknown): Partial<Record<WakeEvent, boolean>> | undefined {
@@ -765,7 +790,7 @@ function describeTerminal(session: SessionListing) {
     projectPath: session.projectPath,
     taskNumber: session.taskId ?? null,
     worktreePath: session.worktreePath ?? null,
-    sandbox: session.sandbox?.provider ?? 'none',
+    sandbox: outwardSandbox(session.sandbox?.provider ?? 'none'),
     surface: session.surface,
     agentStatus: session.agentStatus,
     ...(session.background && { background: session.background }),
@@ -955,8 +980,14 @@ const routes: Route[] = [
   ),
 
   // ── Hooks ────────────────────────────────────────────────────────
-  route('GET', 'hooks', (r) => {
-    return getHooks(requireProject(r.query));
+  route('GET', 'hooks', async (r) => {
+    const hooks = await getHooks(requireProject(r.query));
+    return Object.fromEntries(
+      Object.entries(hooks).map(([type, hook]) => [
+        type,
+        hook.sandbox ? { ...hook, sandbox: outwardSandbox(hook.sandbox) } : hook,
+      ]),
+    );
   }),
 
   route(
@@ -1059,7 +1090,7 @@ const routes: Route[] = [
   // ── A project's lenses (the groupings a diff can be read by; a PR's own lens is under pulls) ──
   route('GET', 'project-lenses', (r) => listLenses(requireProject(r.query))),
 
-  route('GET', 'lens-agent', async (r) => ({ agent: await getLensAgentChoice(requireProject(r.query)) })),
+  route('GET', 'lens-agent', async (r) => ({ agent: (await getLensAgentChoice(requireProject(r.query))) ?? 'auto' })),
 
   route(
     'PUT',
@@ -1067,13 +1098,13 @@ const routes: Route[] = [
     async (r) => {
       const project = requireProject(r.query);
       const { agent } = r.body;
-      if (agent !== null && !LENS_AGENTS.some((a) => a.id === agent)) {
+      if (agent !== 'auto' && !LENS_AGENTS.some((a) => a.id === agent)) {
         throw new HttpError(
           400,
-          `Invalid agent: ${String(agent)}. Must be null or one of: ${LENS_AGENTS.map((a) => a.id).join(', ')}`,
+          `Invalid agent: ${String(agent)}. Must be auto or one of: ${LENS_AGENTS.map((a) => a.id).join(', ')}`,
         );
       }
-      await setLensAgentChoice(project, agent as string | null);
+      await setLensAgentChoice(project, agent === 'auto' ? null : (agent as string));
       return { agent };
     },
     true,
@@ -1189,13 +1220,8 @@ const routes: Route[] = [
       hostOnly(r);
       const project = requireProject(r.query);
       const place = parseSandbox(r.body.default, 'default');
-      const { profile, cliAccess } = r.body;
-      if (cliAccess !== undefined && !isSandboxCliAccess(cliAccess)) {
-        throw new HttpError(
-          400,
-          `Invalid cliAccess: ${String(cliAccess)}. Must be one of: ${SANDBOX_CLI_ACCESS.join(', ')}`,
-        );
-      }
+      const { profile } = r.body;
+      const cliAccess = parseCliAccess(r.body.cliAccess);
       if (profile !== undefined && profile !== null && typeof profile !== 'string') {
         throw new HttpError(400, "profile must be a path, or null for the project's own");
       }

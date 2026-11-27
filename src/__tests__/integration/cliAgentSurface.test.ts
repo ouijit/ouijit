@@ -159,7 +159,7 @@ describe('what an agent can see and do from the CLI', () => {
         projectPath: repoDir,
         taskNumber: null,
         worktreePath: null,
-        sandbox: 'none',
+        sandbox: 'host',
         surface: 'terminal',
         agentStatus: null,
       },

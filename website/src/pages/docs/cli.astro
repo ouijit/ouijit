@@ -114,7 +114,7 @@ ouijit sandbox-command clear</code></pre>
     given, and the app shows the change at once.
   </p>
   <pre class="glass-bevel"><code>ouijit settings tasks get
-ouijit settings tasks set --open-in chat --agent codex --setup "npm install" --first-message 'Read PLAN.md, then: $OUIJIT_TASK_DESCRIPTION'
+ouijit settings tasks set --surface chat --agent codex --setup "npm install" --first-message 'Read PLAN.md, then: $OUIJIT_TASK_DESCRIPTION'
 ouijit settings worktree get
 ouijit settings worktree set --mode clean-checkout --branch-from origin/main
 ouijit settings lens list
@@ -124,15 +124,15 @@ ouijit settings lens remove "Risk"
 ouijit settings lens agent get
 ouijit settings lens agent set codex
 ouijit settings sandbox get
-ouijit settings sandbox set --default nono --profile ~/.config/nono/profiles/strict.json --cli-access task
+ouijit settings sandbox set --default nono --profile ~/.config/nono/profiles/strict.json --cli-access own-task
 ouijit settings chat get
 ouijit settings chat set --enable --agent claude --wake taskMoved=off
 echo "Keep replies short." | ouijit settings chat set --instructions -
-ouijit settings chat set --run-in custom --launcher /usr/local/bin/my-sandbox</code></pre>
+ouijit settings chat set --sandbox custom --launcher /usr/local/bin/my-sandbox</code></pre>
   <p>
     A project's lenses are the groupings any of its diffs can be read by; <code>pr lens</code> writes the one lens
     shown for a pull request. Changing the main chat's agent, where it runs or its instructions restarts it on the
-    same conversation. <code>settings sandbox</code> and <code>settings chat set --run-in</code> and <code>--launcher</code> are host terminals
+    same conversation. <code>settings sandbox</code> and <code>settings chat set --sandbox</code> and <code>--launcher</code> are host terminals
     only: a sandboxed session gets 403 whatever its Ouijit CLI access.
   </p>
 

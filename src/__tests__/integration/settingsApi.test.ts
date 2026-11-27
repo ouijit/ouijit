@@ -153,12 +153,12 @@ describe('project settings', () => {
     expect((await request('DELETE', lens('Risk first'), host())).status).toBe(404);
 
     const agent = inProject('/api/lens-agent');
-    expect((await request('GET', agent, host())).data).toEqual({ agent: null });
+    expect((await request('GET', agent, host())).data).toEqual({ agent: 'auto' });
     await request('PUT', agent, host(), { agent: 'codex' });
     expect((await request('GET', agent, host())).data).toEqual({ agent: 'codex' });
     expect((await request('PUT', agent, host(), { agent: 'opencode' })).status).toBe(400);
-    await request('PUT', agent, host(), { agent: null });
-    expect((await request('GET', agent, host())).data).toEqual({ agent: null });
+    await request('PUT', agent, host(), { agent: 'auto' });
+    expect((await request('GET', agent, host())).data).toEqual({ agent: 'auto' });
 
     expect(sent.filter(([channel]) => channel === 'lens:list-changed').map(([, args]) => args)).toContainEqual([
       project.path,
@@ -196,14 +196,14 @@ describe('where work runs', () => {
   test('the sandbox settings round-trip from the host and are refused from any sandbox, whatever its access', async () => {
     const settings = inProject('/api/sandbox-settings');
     const before = (await request('GET', settings, host())).data;
-    expect(before).toMatchObject({ default: 'none', cliAccess: 'read', profile: { own: true } });
+    expect(before).toMatchObject({ default: 'host', cliAccess: 'view', profile: { own: true } });
 
     const profile = path.join(tmpDir, 'strict.json');
     await fs.writeFile(profile, '{}');
-    expect((await request('PUT', settings, host(), { default: 'nono', profile, cliAccess: 'task' })).data).toEqual({
+    expect((await request('PUT', settings, host(), { default: 'nono', profile, cliAccess: 'own-task' })).data).toEqual({
       default: 'nono',
       profile: { path: profile, own: false },
-      cliAccess: 'task',
+      cliAccess: 'own-task',
     });
     expect(told('sandbox-settings')).toBe(true);
     expect((await request('PUT', settings, host(), { profile: null })).data.profile).toEqual(before.profile);
@@ -220,13 +220,13 @@ describe('where work runs', () => {
     for (const level of ['read', 'task', 'all']) {
       await accessLevel(level);
       expect((await request('GET', settings, sandboxed())).status).toBe(403);
-      expect((await request('PUT', settings, sandboxed(), { cliAccess: 'all' })).status).toBe(403);
+      expect((await request('PUT', settings, sandboxed(), { cliAccess: 'board' })).status).toBe(403);
       expect(
         (await request('PUT', inProject('/api/sandbox/command'), sandboxed(), { command: '/bin/sh' })).status,
       ).toBe(403);
     }
     await accessLevel('read');
-    expect((await request('GET', settings, host())).data).toMatchObject({ default: 'nono', cliAccess: 'read' });
+    expect((await request('GET', settings, host())).data).toMatchObject({ default: 'nono', cliAccess: 'view' });
   });
 
   test("Chat's settings are app-wide: on and off, the main chat's agent, instructions and wakes, and where and under what launcher it runs only from the host", async () => {
@@ -234,7 +234,7 @@ describe('where work runs', () => {
     expect((await request('GET', chat, host())).data).toMatchObject({
       enabled: false,
       agent: 'claude',
-      sandbox: 'none',
+      sandbox: 'host',
       launcher: null,
       wake: { turnEnded: true, asked: true, taskMoved: true, hookFailed: true },
     });

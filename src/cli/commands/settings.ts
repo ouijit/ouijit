@@ -52,10 +52,10 @@ export function registerSettingsCommands(parent: Command, requireProject: () => 
       'after',
       `
 Examples:
-  ouijit settings tasks set --open-in chat --agent codex --setup "npm install"
+  ouijit settings tasks set --surface chat --agent codex --setup "npm install"
   ouijit settings worktree set --mode clean-checkout --branch-from origin/main
   ouijit settings lens add "Risk first" --instruction "Lead with what could break in production"
-  ouijit settings sandbox set --default nono --cli-access task
+  ouijit settings sandbox set --default nono --cli-access own-task
   ouijit settings chat set --enable --agent claude --wake taskMoved=off`,
     );
 
@@ -72,19 +72,19 @@ Examples:
   tasks
     .command('set')
     .description('Change what is given; what is left out stays as it was')
-    .option('--open-in <surface>', 'terminal, where the start hook runs, or chat (terminal|chat)')
+    .option('--surface <surface>', 'terminal, where the start hook runs, or chat (terminal|chat)')
     .option('--agent <agent>', `the agent a task chat runs (${AGENT_VALUES})`)
     .option('--setup <cmd>', 'shell command run before a new task chat starts; "" for none')
     .option(
       '--first-message <text>',
       'sent to the task chat once setup succeeds, with $OUIJIT_ variables filled in; - reads stdin, "" sends nothing',
     )
-    .action(async (opts: { openIn?: string; agent?: string; setup?: string; firstMessage?: string }) => {
-      if (opts.openIn !== undefined && opts.openIn !== 'terminal' && opts.openIn !== 'chat') {
-        return printError(`Invalid --open-in: ${opts.openIn}. Must be terminal or chat`);
+    .action(async (opts: { surface?: string; agent?: string; setup?: string; firstMessage?: string }) => {
+      if (opts.surface !== undefined && opts.surface !== 'terminal' && opts.surface !== 'chat') {
+        return printError(`Invalid --surface: ${opts.surface}. Must be terminal or chat`);
       }
       const body = defined({
-        surface: opts.openIn,
+        surface: opts.surface,
         agent: agentFlag(opts.agent),
         setup: opts.setup,
         firstMessage: opts.firstMessage,
@@ -158,7 +158,7 @@ Examples:
 
   lensAgent
     .command('get')
-    .description('Show the chosen agent; null picks the first one installed')
+    .description('Show the chosen agent; auto picks the first one installed')
     .action(async () => printJson(await get(await project('/api/lens-agent'))));
 
   lensAgent
@@ -166,7 +166,7 @@ Examples:
     .description('Choose the agent')
     .argument('<agent>', 'claude, codex or pi; auto for the first one installed')
     .action(async (agent: string) => {
-      printJson(await put(await project('/api/lens-agent'), { agent: agent === 'auto' ? null : agent }));
+      printJson(await put(await project('/api/lens-agent'), { agent }));
     });
 
   // ── Sandbox ──────────────────────────────────────────────────────
@@ -184,10 +184,7 @@ Examples:
     .description('Change what is given; what is left out stays as it was')
     .option('--default <place>', `where tasks and hooks run unless they say (${PLACE_VALUES})`)
     .option('--profile <path>', 'a nono profile file used in place of the project\'s own; "" for its own')
-    .option(
-      '--cli-access <level>',
-      'what a sandboxed terminal may do with ouijit: read (View), task (Own task) or all (Whole board)',
-    )
+    .option('--cli-access <level>', 'what a sandboxed terminal may do with ouijit: view, own-task or board')
     .action(async (opts: { default?: string; profile?: string; cliAccess?: string }) => {
       printJson(
         await put(
@@ -217,8 +214,8 @@ Examples:
     .option('--enable', 'turn Chat on')
     .option('--disable', 'turn Chat off')
     .option('--agent <agent>', `the main chat's agent (${AGENT_VALUES})`)
-    .option('--run-in <place>', `where the main chat runs, from a host terminal (${PLACE_VALUES})`)
-    .option('--launcher <cmd>', 'the launcher it runs under with --run-in custom, from a host terminal; "" clears it')
+    .option('--sandbox <place>', `where the main chat runs, from a host terminal (${PLACE_VALUES})`)
+    .option('--launcher <cmd>', 'the launcher it runs under with --sandbox custom, from a host terminal; "" clears it')
     .option('--instructions <text>', 'read at the start of every conversation; - reads stdin, "" for none')
     .option(
       '--wake <event=on|off>',
@@ -231,7 +228,7 @@ Examples:
         enable?: boolean;
         disable?: boolean;
         agent?: string;
-        runIn?: string;
+        sandbox?: string;
         launcher?: string;
         instructions?: string;
         wake: string[];
@@ -240,7 +237,7 @@ Examples:
         const body = defined({
           enabled: opts.enable ? true : opts.disable ? false : undefined,
           agent: agentFlag(opts.agent),
-          sandbox: placeFlag('--run-in', opts.runIn),
+          sandbox: placeFlag('--sandbox', opts.sandbox),
           launcher: opts.launcher,
           instructions: opts.instructions,
           wake: parseWake(opts.wake),
