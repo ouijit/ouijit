@@ -196,23 +196,27 @@ describe('where work runs', () => {
   test('the sandbox settings round-trip from the host and are refused from any sandbox, whatever its access', async () => {
     const settings = inProject('/api/sandbox-settings');
     const before = (await request('GET', settings, host())).data;
-    expect(before).toMatchObject({ default: 'host', cliAccess: 'view', profile: { own: true } });
+    expect(before).toMatchObject({ default: 'host', cliAccess: 'view', profile: { own: true }, launcher: null });
 
     const profile = path.join(tmpDir, 'strict.json');
     await fs.writeFile(profile, '{}');
-    expect((await request('PUT', settings, host(), { default: 'nono', profile, cliAccess: 'own-task' })).data).toEqual({
+    const changed = { default: 'nono', profile, cliAccess: 'own-task', launcher: '/opt/sb --strict' };
+    expect((await request('PUT', settings, host(), changed)).data).toEqual({
       default: 'nono',
       profile: { path: profile, own: false },
       cliAccess: 'own-task',
+      launcher: '/opt/sb --strict',
     });
     expect(told('sandbox-settings')).toBe(true);
     expect((await request('PUT', settings, host(), { profile: null })).data.profile).toEqual(before.profile);
+    expect((await request('PUT', settings, host(), { launcher: '' })).data.launcher).toBeNull();
 
     for (const bad of [
       { default: 'vm' },
       { cliAccess: 'root' },
       { profile: 'strict.json' },
       { profile: `${profile}.gone` },
+      { launcher: 'scripts/sandbox' },
     ]) {
       expect((await request('PUT', settings, host(), bad)).status).toBe(400);
     }
@@ -221,9 +225,7 @@ describe('where work runs', () => {
       await accessLevel(level);
       expect((await request('GET', settings, sandboxed())).status).toBe(403);
       expect((await request('PUT', settings, sandboxed(), { cliAccess: 'board' })).status).toBe(403);
-      expect(
-        (await request('PUT', inProject('/api/sandbox/command'), sandboxed(), { command: '/bin/sh' })).status,
-      ).toBe(403);
+      expect((await request('PUT', settings, sandboxed(), { launcher: '/bin/sh' })).status).toBe(403);
     }
     await accessLevel('read');
     expect((await request('GET', settings, host())).data).toMatchObject({ default: 'nono', cliAccess: 'view' });

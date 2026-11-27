@@ -75,10 +75,22 @@ describe('settings commands', () => {
     await run('lens', 'agent', 'set', 'auto');
     expect(put).toHaveBeenLastCalledWith(`/api/lens-agent${Q}`, { agent: 'auto' });
 
-    await run('sandbox', 'set', '--default', 'host', '--profile', 'profiles/strict.json', '--cli-access', 'own-task');
+    await run(
+      'sandbox',
+      'set',
+      '--default',
+      'host',
+      '--profile',
+      'profiles/strict.json',
+      '--launcher',
+      '/opt/sb --strict',
+      '--cli-access',
+      'own-task',
+    );
     expect(put).toHaveBeenLastCalledWith(`/api/sandbox-settings${Q}`, {
       default: 'none',
       profile: path.resolve('profiles/strict.json'),
+      launcher: '/opt/sb --strict',
       cliAccess: 'own-task',
     });
     await run('sandbox', 'get');

@@ -56,7 +56,7 @@ registerTagCommands(program);
 registerChatCommands(program, project);
 registerProjectCommands(program);
 registerScriptCommands(program, project);
-registerSandboxCommands(program, project);
+registerSandboxCommands(program);
 registerPrCommands(program, project);
 registerLinearCommands(program, project);
 registerIssueCommands(program, project);

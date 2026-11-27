@@ -394,13 +394,6 @@ Run one command in the project's sandbox; the rest of the line stays on the host
 ouijit sandbox -- <command> [args]            # in Ouijit's sandbox
 ouijit sandbox --custom -- <command> [args]   # in the Custom sandbox
 
-The Custom sandbox's launcher, run as <command> -- <shell>. Not reachable from
-inside a sandbox.
-
-ouijit sandbox-command get                    # → {command?}
-ouijit sandbox-command set "<launcher>"       # absolute path or a name on PATH, outside the repo
-ouijit sandbox-command clear
-
 ## Settings (what the Settings page sets; each set changes only the flags given)
 ouijit settings tasks get                     # → {surface, agent, setup, firstMessage}
 ouijit settings tasks set [--surface terminal|chat] [--agent claude|codex|pi|opencode|acp]
@@ -416,9 +409,12 @@ ouijit settings lens edit <id-or-name> [--name "<name>"] [--instruction "<text>"
 ouijit settings lens remove <id-or-name>
 ouijit settings lens agent get                # → {agent}; auto picks the first one installed
 ouijit settings lens agent set claude|codex|pi|auto
-ouijit settings sandbox get                   # host terminals only → {default, profile: {path, own}, cliAccess}
+ouijit settings sandbox get                   # host terminals only → {default, profile: {path, own}, cliAccess, launcher}
 ouijit settings sandbox set [--default host|nono|custom] [--profile <file>] [--cli-access view|own-task|board]
+                            [--launcher "<cmd>"]
                                               # host terminals only; --profile "" goes back to the project's own
+                                              # launcher: what the Custom sandbox runs as <cmd> -- <shell>, a path
+                                              # or a name on PATH outside the repo; --launcher "" clears it
                                               # cli-access: view, own-task or board, as in Settings
 ouijit settings chat get                      # → {enabled, agent, sandbox, launcher, instructions, wake}, app-wide
 ouijit settings chat set [--enable|--disable] [--agent <agent>] [--sandbox host|nono|custom]

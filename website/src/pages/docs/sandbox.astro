@@ -185,7 +185,7 @@ while (d := s.recv(65536)): sys.stdout.buffer.write(d); sys.stdout.buffer.flush(
     The Custom backend runs a task's terminals under a launcher you provide: a reviewed script in your team's
     control, with its own pinned sandbox binary, committed policy, and preflight checks. Ouijit grants nothing
     itself. The launcher owns the boundary. Set the command under <strong>Project Settings &rarr; Sandbox &rarr;
-    Custom launcher</strong> or with <code>ouijit sandbox-command set</code>.
+    Custom launcher</strong> or with <code>ouijit settings sandbox set --launcher</code>.
   </p>
   <p>
     Don't start the launcher by hand from a task terminal. That terminal's <code>OUIJIT_API_TOKEN</code> has

@@ -326,15 +326,17 @@ function refuseLensNameTaken(lenses: LensSummary[], name: string): void {
 }
 
 async function describeSandboxSettings(project: string) {
-  const [place, profile, cliAccess] = await Promise.all([
+  const [place, profile, cliAccess, custom] = await Promise.all([
     getGlobalSetting(defaultSandboxSettingKey(project)),
     getNonoProfile(project),
     sandboxCliAccessFor(project),
+    getCustomSandboxConfig(project),
   ]);
   return {
     default: outwardSandbox(isSandboxProviderId(place) ? place : 'none'),
     profile,
     cliAccess: CLI_ACCESS_WORDS[cliAccess],
+    launcher: custom.command ?? null,
   };
 }
 
@@ -1151,12 +1153,6 @@ const routes: Route[] = [
     true,
   ),
 
-  // ── Sandbox command (custom backend launcher) ────────────────────
-  route('GET', 'sandbox/command', (r) => {
-    hostOnly(r);
-    return getCustomSandboxConfig(requireProject(r.query));
-  }),
-
   route('POST', 'sandbox/wrap', (r) => {
     const { argv, cwd, backend } = r.body;
     if (!Array.isArray(argv) || argv.length === 0 || !argv.every((a) => typeof a === 'string')) {
@@ -1182,31 +1178,6 @@ const routes: Route[] = [
     return { success: true };
   }),
 
-  route(
-    'PUT',
-    'sandbox/command',
-    async (r) => {
-      hostOnly(r);
-      const project = requireProject(r.query);
-      const command = typeof r.body.command === 'string' ? r.body.command.trim() : '';
-      if (!command) throw new HttpError(400, 'command is required');
-      const result = await setCustomSandboxConfig(project, { command });
-      if (!result.success && result.error) throw new HttpError(400, result.error);
-      return result;
-    },
-    true,
-  ),
-
-  route(
-    'DELETE',
-    'sandbox/command',
-    (r) => {
-      hostOnly(r);
-      return setCustomSandboxConfig(requireProject(r.query), {});
-    },
-    true,
-  ),
-
   // ── Sandbox settings (where a project's work runs) ───────────────
   route('GET', 'sandbox-settings', (r) => {
     hostOnly(r);
@@ -1220,12 +1191,17 @@ const routes: Route[] = [
       hostOnly(r);
       const project = requireProject(r.query);
       const place = parseSandbox(r.body.default, 'default');
-      const { profile } = r.body;
+      const { profile, launcher } = r.body;
       const cliAccess = parseCliAccess(r.body.cliAccess);
       if (profile !== undefined && profile !== null && typeof profile !== 'string') {
         throw new HttpError(400, "profile must be a path, or null for the project's own");
       }
+      if (launcher !== undefined && typeof launcher !== 'string') throw new HttpError(400, 'launcher must be a string');
       if (profile) await requireProfileFile(profile);
+      if (launcher !== undefined) {
+        const saved = await setCustomSandboxConfig(project, launcher.trim() ? { command: launcher } : {});
+        if (!saved.success) throw new HttpError(400, saved.error ?? 'Could not save the launcher');
+      }
       if (place) await setGlobalSetting(defaultSandboxSettingKey(project), place);
       if (cliAccess !== undefined) await setGlobalSetting(sandboxCliAccessSettingKey(project), cliAccess);
       if (profile !== undefined) await setNonoProfile(project, profile || null);

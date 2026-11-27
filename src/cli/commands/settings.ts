@@ -184,14 +184,19 @@ Examples:
     .description('Change what is given; what is left out stays as it was')
     .option('--default <place>', `where tasks and hooks run unless they say (${PLACE_VALUES})`)
     .option('--profile <path>', 'a nono profile file used in place of the project\'s own; "" for its own')
+    .option(
+      '--launcher <cmd>',
+      'what the Custom sandbox runs as <cmd> -- <shell>, a path or a name on PATH; "" clears it',
+    )
     .option('--cli-access <level>', 'what a sandboxed terminal may do with ouijit: view, own-task or board')
-    .action(async (opts: { default?: string; profile?: string; cliAccess?: string }) => {
+    .action(async (opts: { default?: string; profile?: string; launcher?: string; cliAccess?: string }) => {
       printJson(
         await put(
           await project('/api/sandbox-settings'),
           defined({
             default: placeFlag('--default', opts.default),
             profile: opts.profile && path.resolve(opts.profile),
+            launcher: opts.launcher,
             cliAccess: opts.cliAccess,
           }),
         ),

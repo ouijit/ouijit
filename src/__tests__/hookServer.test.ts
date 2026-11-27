@@ -142,7 +142,7 @@ describe('CLI_REFERENCE', () => {
     // The one way to show the user something, since nothing moves their view.
     expect(CLI_REFERENCE).toContain('ouijit link diff');
 
-    expect(CLI_REFERENCE).toContain('ouijit sandbox-command set');
+    expect(CLI_REFERENCE).toContain('ouijit settings sandbox set');
     // Sandboxed agents read the same reference, so it has to say what it cannot run.
     expect(CLI_REFERENCE).toContain('host terminals only');
   });

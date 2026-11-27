@@ -99,15 +99,6 @@ ouijit hook delete done</code></pre>
     set with <code>ouijit settings tasks</code> below.
   </p>
 
-  <h2>Sandbox command</h2>
-  <p>
-    The launcher for the <a href="/docs/sandbox/#custom">Custom sandbox</a> backend. Host terminals only. A
-    sandboxed session gets 403.
-  </p>
-  <pre class="glass-bevel"><code>ouijit sandbox-command get
-ouijit sandbox-command set "$HOME/.local/bin/ouijit-sandbox --strict"
-ouijit sandbox-command clear</code></pre>
-
   <h2>Settings</h2>
   <p>
     What the Settings page sets, for the project and for Chat. Each <code>set</code> changes only the flags it is
@@ -125,6 +116,7 @@ ouijit settings lens agent get
 ouijit settings lens agent set codex
 ouijit settings sandbox get
 ouijit settings sandbox set --default nono --profile ~/.config/nono/profiles/strict.json --cli-access own-task
+ouijit settings sandbox set --launcher "$HOME/.local/bin/ouijit-sandbox --strict"   # the <a href="/docs/sandbox/#custom">Custom sandbox</a>'s launcher
 ouijit settings chat get
 ouijit settings chat set --enable --agent claude --wake taskMoved=off
 echo "Keep replies short." | ouijit settings chat set --instructions -

@@ -4,7 +4,7 @@ import type { SandboxLaunch } from '../types';
 import { isPathInside } from '../../utils/pathSafety';
 
 const NO_COMMAND_MESSAGE =
-  'No sandbox command configured. Set one in Project Settings ▸ Sandbox ▸ Custom, or run `ouijit sandbox-command set <command>`.';
+  'No sandbox command configured. Set one in Project Settings ▸ Sandbox ▸ Custom, or run `ouijit settings sandbox set --launcher <command>`.';
 
 /**
  * Split a launcher command into argv the way a POSIX shell would read the
