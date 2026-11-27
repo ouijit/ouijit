@@ -655,7 +655,8 @@ export function ChatTurns({
     return (
       <div
         key={turn.opener?.id ?? turn.body[0]?.id ?? turn.kept[0]?.id ?? `turn-${index}`}
-        className={`group/turn min-w-0 flex flex-col gap-3 transition-opacity duration-150 ${editedFrom !== -1 && index >= editedFrom ? 'opacity-40' : ''}`}
+        // A message of the user's starts a new exchange, and stands further off than a turn Chat began.
+        className={`group/turn min-w-0 flex flex-col gap-3 transition-opacity duration-150 ${turn.opener && !turn.opener.wake ? 'mt-3.5 first:mt-0' : ''} ${editedFrom !== -1 && index >= editedFrom ? 'opacity-40' : ''}`}
       >
         {items}
       </div>
@@ -663,7 +664,7 @@ export function ChatTurns({
   });
   useEffect(() => onHeld?.(held), [held, onHeld]);
   return (
-    <div className="chat-turns min-w-0 flex flex-col gap-9">
+    <div className="chat-turns min-w-0 flex flex-col gap-[22px]">
       {shown}
       {compacting && !held && (
         <WorkFold
