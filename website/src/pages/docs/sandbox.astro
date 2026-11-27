@@ -198,7 +198,7 @@ while (d := s.recv(65536)): sys.stdout.buffer.write(d); sys.stdout.buffer.flush(
   <p>
     Ouijit runs <code>&lt;launcher&gt; [args] -- &lt;shell&gt; [shell args]</code> with the working directory set
     to the task worktree and the full terminal environment: <code>OUIJIT_API_URL</code> and a
-    <strong>sandbox-scoped</strong> <code>OUIJIT_API_TOKEN</code>, <code>OUIJIT_PTY_ID</code>,
+    <strong>sandbox-scoped</strong> <code>OUIJIT_API_TOKEN</code>, <code>OUIJIT_SESSION_ID</code>,
     <code>OUIJIT_WRAPPER_DIR</code>, <code>OUIJIT_CLI_PATH</code> (when the bundled CLI is present),
     <code>OUIJIT_SHELL_INTEGRATION_DIR</code>,
     and the shell integration's <code>ZDOTDIR</code>. The launcher's argv is exactly the configured command,

@@ -13,10 +13,10 @@ function listing(): CliTagListing[] {
   });
   return collectActiveTags(open, displayStates).map((name) => ({
     name,
-    terminals: open
+    sessions: open
       .filter((id) => terminalMatchesTag(displayStates[id], name))
       .map((ptyId) => ({
-        ptyId,
+        sessionId: ptyId,
         label: displayStates[ptyId].label,
         projectPath: terminalInstances.get(ptyId)!.projectPath,
       })),

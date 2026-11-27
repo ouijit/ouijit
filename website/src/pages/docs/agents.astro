@@ -30,7 +30,7 @@ import Docs from '../../layouts/Docs.astro';
     <tbody>
       <tr><td><code>OUIJIT_API_URL</code></td><td>Base URL of the local REST API the CLI talks to. Unset outside Ouijit terminals, so scripts can detect the environment.</td></tr>
       <tr><td><code>OUIJIT_API_TOKEN</code></td><td>Bearer token scoped to this terminal session.</td></tr>
-      <tr><td><code>OUIJIT_PTY_ID</code></td><td>This terminal's id. Every command that takes a <code>[pty-id]</code> defaults to it.</td></tr>
+      <tr><td><code>OUIJIT_SESSION_ID</code></td><td>This terminal's id. Every command that takes a <code>[session-id]</code> defaults to it.</td></tr>
     </tbody>
   </table>
   <p><a href="/docs/hooks/#hook-environment">Hooks</a> also get <code>OUIJIT_TASK_*</code> context.</p>
@@ -52,7 +52,7 @@ ouijit task set-status "$TASK" in_review --skip-hook</code></pre>
   <h2>Open panels beside the terminal</h2>
   <p>
     An agent can put its plan or its running app next to its own terminal. Both commands default to the current
-    terminal via <code>OUIJIT_PTY_ID</code>:
+    terminal via <code>OUIJIT_SESSION_ID</code>:
   </p>
   <pre class="glass-bevel"><code>ouijit panel open markdown ./plan.md
 ouijit panel open browser http://localhost:3000</code></pre>

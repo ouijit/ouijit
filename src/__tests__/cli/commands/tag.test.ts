@@ -43,9 +43,9 @@ function fakeRendererWindow(): BrowserWindow {
         ok: true,
         listing: names.map((name) => ({
           name,
-          terminals: [...tags]
+          sessions: [...tags]
             .filter(([, t]) => t.includes(name))
-            .map(([ptyId]) => ({ ptyId, label: ptyId, projectPath: '/p' })),
+            .map(([ptyId]) => ({ sessionId: ptyId, label: ptyId, projectPath: '/p' })),
         })),
       };
     }
@@ -95,7 +95,7 @@ beforeEach(async () => {
   await startHookServer(window);
   vi.stubEnv('OUIJIT_API_URL', `http://127.0.0.1:${getApiPort()}`);
   vi.stubEnv('OUIJIT_API_TOKEN', issueToken('pty-a', 'host'));
-  vi.stubEnv('OUIJIT_PTY_ID', 'pty-a');
+  vi.stubEnv('OUIJIT_SESSION_ID', 'pty-a');
 });
 
 afterEach(async () => {
@@ -105,23 +105,23 @@ afterEach(async () => {
 
 describe('ouijit tag', () => {
   test('adds, reads, removes and clears tags on the terminal it runs in, or on one it names', async () => {
-    expect(await ouijit('get')).toEqual({ ptyId: 'pty-a', tags: [] });
-    expect(await ouijit('add', 'review')).toEqual({ ptyId: 'pty-a', tags: ['review'] });
-    expect(await ouijit('add', 'needs/design')).toEqual({ ptyId: 'pty-a', tags: ['review', 'needs/design'] });
-    expect(await ouijit('add', 'review', 'pty-b')).toEqual({ ptyId: 'pty-b', tags: ['review'] });
-    expect(await ouijit('get')).toEqual({ ptyId: 'pty-a', tags: ['review', 'needs/design'] });
+    expect(await ouijit('get')).toEqual({ sessionId: 'pty-a', tags: [] });
+    expect(await ouijit('add', 'review')).toEqual({ sessionId: 'pty-a', tags: ['review'] });
+    expect(await ouijit('add', 'needs/design')).toEqual({ sessionId: 'pty-a', tags: ['review', 'needs/design'] });
+    expect(await ouijit('add', 'review', 'pty-b')).toEqual({ sessionId: 'pty-b', tags: ['review'] });
+    expect(await ouijit('get')).toEqual({ sessionId: 'pty-a', tags: ['review', 'needs/design'] });
 
     expect(await ouijit('list')).toEqual([
       {
         name: 'review',
-        terminals: [expect.objectContaining({ ptyId: 'pty-a' }), expect.objectContaining({ ptyId: 'pty-b' })],
+        sessions: [expect.objectContaining({ sessionId: 'pty-a' }), expect.objectContaining({ sessionId: 'pty-b' })],
       },
-      { name: 'needs/design', terminals: [expect.objectContaining({ ptyId: 'pty-a' })] },
+      { name: 'needs/design', sessions: [expect.objectContaining({ sessionId: 'pty-a' })] },
     ]);
 
-    expect(await ouijit('remove', 'needs/design')).toEqual({ ptyId: 'pty-a', tags: ['review'] });
-    expect(await ouijit('clear', 'pty-b')).toEqual({ ptyId: 'pty-b', tags: [] });
-    expect(await ouijit('clear')).toEqual({ ptyId: 'pty-a', tags: [] });
+    expect(await ouijit('remove', 'needs/design')).toEqual({ sessionId: 'pty-a', tags: ['review'] });
+    expect(await ouijit('clear', 'pty-b')).toEqual({ sessionId: 'pty-b', tags: [] });
+    expect(await ouijit('clear')).toEqual({ sessionId: 'pty-a', tags: [] });
     await expect(ouijit('get', 'pty-gone')).rejects.toThrow(/not found/);
   });
 });

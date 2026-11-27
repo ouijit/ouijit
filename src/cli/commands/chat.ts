@@ -6,7 +6,7 @@
 import type { Command } from 'commander';
 import { del, get, post, put, projectQuery } from '../api';
 import { printError, printJson, readBody } from '../output';
-import { resolvePtyId } from '../ptyId';
+import { resolveSessionId } from '../sessionId';
 import { SANDBOX_FLAG, parseSandboxFlag, sandboxFlagHelp } from '../sandboxFlag';
 
 function chatUrl(id: string): string {
@@ -72,7 +72,7 @@ Examples:
   chat
     .command('read')
     .description('Show a chat: its status, transcript as text, and anything waiting on a person')
-    .argument('[pty-id]', 'chat session id (defaults to OUIJIT_PTY_ID)')
+    .argument('[session-id]', 'chat session id (defaults to OUIJIT_SESSION_ID)')
     .option('--after <seq>', 'only the events after this sequence number')
     .option('--wait <seconds>', 'with --after, wait up to this long (max 30) for the next event')
     .action(async (explicitId: string | undefined, options: { after?: string; wait?: string }) => {
@@ -80,13 +80,13 @@ Examples:
       if (options.after) params.set('after', options.after);
       if (options.after && options.wait) params.set('wait', options.wait);
       const query = params.size ? `?${params}` : '';
-      printJson(await get(`${chatUrl(resolvePtyId(explicitId))}${query}`));
+      printJson(await get(`${chatUrl(resolveSessionId(explicitId))}${query}`));
     });
 
   chat
     .command('send')
     .description('Send a chat a message; while it works, the message steers the turn or queues')
-    .argument('<pty-id>', 'chat session id')
+    .argument('<session-id>', 'chat session id')
     .argument('<text>', 'the message, or - to read it from stdin')
     .option('--queue', 'wait for the running turn to end instead of steering it')
     .action(async (id: string, text: string, options: { queue?: boolean }) => {
@@ -97,7 +97,7 @@ Examples:
   chat
     .command('answer')
     .description('Answer an approval or question a chat is waiting on; a chat cannot answer its own')
-    .argument('<pty-id>', 'chat session id')
+    .argument('<session-id>', 'chat session id')
     .argument('<request-id>', 'from the pending list of `chat read`')
     .option('--option <id>', 'pick one of the request options')
     .option('--message <text>', 'with --option, a note for the agent')
@@ -157,7 +157,7 @@ Examples:
   chat
     .command('interrupt')
     .description("Stop a chat's running turn")
-    .argument('<pty-id>', 'chat session id')
+    .argument('<session-id>', 'chat session id')
     .action(async (id: string) => {
       printJson(await post(`${chatUrl(id)}/interrupt`));
     });

@@ -60,15 +60,15 @@ describe('task commands', () => {
   });
 
   describe('current', () => {
-    const ORIGINAL_PTY_ID = process.env['OUIJIT_PTY_ID'];
+    const ORIGINAL_PTY_ID = process.env['OUIJIT_SESSION_ID'];
 
     afterEach(() => {
-      if (ORIGINAL_PTY_ID === undefined) delete process.env['OUIJIT_PTY_ID'];
-      else process.env['OUIJIT_PTY_ID'] = ORIGINAL_PTY_ID;
+      if (ORIGINAL_PTY_ID === undefined) delete process.env['OUIJIT_SESSION_ID'];
+      else process.env['OUIJIT_SESSION_ID'] = ORIGINAL_PTY_ID;
     });
 
     test('calls GET /api/tasks/current with no project query', async () => {
-      process.env['OUIJIT_PTY_ID'] = 'pty-123';
+      process.env['OUIJIT_SESSION_ID'] = 'pty-123';
       vi.mocked(get).mockResolvedValue({ taskNumber: 7, name: 'Owned task' });
       const output = captureOutput();
       await createProgram().parseAsync(['task', 'current'], { from: 'user' });
@@ -77,8 +77,8 @@ describe('task commands', () => {
       expect(result.taskNumber).toBe(7);
     });
 
-    test('errors and exits non-zero when OUIJIT_PTY_ID is unset', async () => {
-      delete process.env['OUIJIT_PTY_ID'];
+    test('errors and exits non-zero when OUIJIT_SESSION_ID is unset', async () => {
+      delete process.env['OUIJIT_SESSION_ID'];
       const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
       const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
         throw new Error(`exit:${code}`);

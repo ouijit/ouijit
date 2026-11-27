@@ -1055,7 +1055,7 @@ export interface CliTagOp {
 
 export interface CliTagListing {
   name: string;
-  terminals: { ptyId: PtyId; label: string; projectPath: string }[];
+  sessions: { sessionId: PtyId; label: string; projectPath: string }[];
 }
 
 /** Renderer's reply for a {@link CliTagOp}. */

@@ -22,6 +22,7 @@ import { registerPrCommands } from './commands/pr';
 import { registerLinearCommands } from './commands/linear';
 import { registerIssueCommands } from './commands/issue';
 import { registerTerminalCommands } from './commands/terminal';
+import { registerSessionCommands } from './commands/session';
 import { registerDiffCommands } from './commands/diff';
 import { registerPanelCommands } from './commands/panel';
 import { registerLinkCommands } from './commands/link';
@@ -49,6 +50,7 @@ const project = () => requireProject(program.opts<{ project?: string }>().projec
 
 registerTaskCommands(program, project);
 registerHookCommands(program, project);
+registerSessionCommands(program, project);
 registerTerminalCommands(program, project);
 registerTagCommands(program);
 registerChatCommands(program, project);

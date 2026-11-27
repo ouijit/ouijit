@@ -512,7 +512,7 @@ async function addSandboxedPanel(r: ParsedRequest, ptyId: string, kind: CliPanel
     if (LOOPBACK_HOSTS.has(new URL(value).hostname)) return runPanelOp(ptyId, 'add', kind, value);
     const ctx = callerContext(r);
     holdOpen(r.auth.ptyId, ptyId, value, ctx.worktreePath || ctx.projectPath, askMessage(r));
-    return { ptyId, kind, status: 'pending' };
+    return { sessionId: ptyId, kind, status: 'pending' };
   }
   const place = await elsewhere(r);
   if (place) return askUser(r, { ...(await askRun(r)), ...place });
@@ -752,7 +752,7 @@ async function runPanelOp(
   value?: string,
   sandbox?: SandboxSpec | 'none',
   shell?: boolean,
-): Promise<{ ptyId: string; kind: CliPanelKind; panels: unknown }> {
+): Promise<{ sessionId: string; kind: CliPanelKind; panels: unknown }> {
   if (!isSessionLive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
   const result = await cliPanelRequest({
     ptyId,
@@ -763,7 +763,7 @@ async function runPanelOp(
     ...(shell && { shell }),
   });
   if (!result.ok) throw new HttpError(404, result.error ?? 'Panel operation failed');
-  return { ptyId, kind, panels: result.panels ?? [] };
+  return { sessionId: ptyId, kind, panels: result.panels ?? [] };
 }
 
 /** A panel op that spans every kind, or the diff, which is not a panel. */
@@ -771,11 +771,11 @@ async function runTerminalPanelsOp(
   ptyId: string,
   action: 'list-all' | 'focus' | 'close' | 'diff-open' | 'diff-close',
   value?: string,
-): Promise<{ ptyId: string; panels: unknown; diffOpen: boolean }> {
+): Promise<{ sessionId: string; panels: unknown; diffOpen: boolean }> {
   if (!isSessionLive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
   const result = await cliPanelRequest({ ptyId, action, value });
   if (!result.ok) throw new HttpError(404, result.error ?? 'Panel operation failed');
-  return { ptyId, panels: result.panels ?? [], diffOpen: result.diffOpen ?? false };
+  return { sessionId: ptyId, panels: result.panels ?? [], diffOpen: result.diffOpen ?? false };
 }
 
 async function runTerminalOp(op: Omit<CliTerminalOp, 'requestId'>): Promise<CliTerminalResponse> {
@@ -785,18 +785,24 @@ async function runTerminalOp(op: Omit<CliTerminalOp, 'requestId'>): Promise<CliT
   return result;
 }
 
-function describeTerminal(session: SessionListing) {
+function describeSession(session: SessionListing) {
   return {
-    ptyId: session.ptyId,
+    sessionId: session.ptyId,
+    kind: session.surface,
     label: session.label,
     projectPath: session.projectPath,
     taskNumber: session.taskId ?? null,
     worktreePath: session.worktreePath ?? null,
     sandbox: outwardSandbox(session.sandbox?.provider ?? 'none'),
-    surface: session.surface,
     agentStatus: session.agentStatus,
     ...(session.background && { background: session.background }),
   };
+}
+
+function taskSessions(project: string, taskNumber: number) {
+  return listSessions()
+    .filter((session) => !session.isRunner && session.projectPath === project && session.taskId === taskNumber)
+    .map(describeSession);
 }
 
 /** Forward a tag op to the renderer, where a terminal's tags live. */
@@ -807,9 +813,9 @@ async function runTagOp(op: Omit<CliTagOp, 'requestId'>): Promise<CliTagResponse
   return result;
 }
 
-async function terminalTags(op: Omit<CliTagOp, 'requestId'>): Promise<{ ptyId: string; tags: string[] }> {
+async function terminalTags(op: Omit<CliTagOp, 'requestId'>): Promise<{ sessionId: string; tags: string[] }> {
   const { tags } = await runTagOp(op);
-  return { ptyId: op.ptyId!, tags: tags ?? [] };
+  return { sessionId: op.ptyId!, tags: tags ?? [] };
 }
 
 function parseAnswer(body: Record<string, unknown>): ChatAnswer {
@@ -846,10 +852,10 @@ const routes: Route[] = [
     'tasks/current',
     async (r) => {
       const ctx = getSessionTaskContext(r.auth.ptyId);
-      if (!ctx) throw new HttpError(404, 'Current PTY is not associated with a task');
+      if (!ctx) throw new HttpError(404, 'This session is not on a task');
       const task = await getTaskWithWorkspace(ctx.projectPath, ctx.taskId);
       if (!task) throw new HttpError(404, `Task ${ctx.taskId} not found`);
-      return task;
+      return { ...task, sessions: taskSessions(ctx.projectPath, ctx.taskId) };
     },
     false,
     READ,
@@ -858,10 +864,20 @@ const routes: Route[] = [
   route(
     'GET',
     'tasks/:number',
-    (r) => {
+    async (r) => {
       const project = requireProject(r.query);
-      return getTaskWithWorkspace(project, requireInt(r.segments[1], 'Task number'));
+      const taskNumber = requireInt(r.segments[1], 'Task number');
+      const task = await getTaskWithWorkspace(project, taskNumber);
+      return task && { ...task, sessions: taskSessions(project, taskNumber) };
     },
+    false,
+    { level: 'read', owns: 'task' },
+  ),
+
+  route(
+    'GET',
+    'tasks/:number/sessions',
+    (r) => taskSessions(requireProject(r.query), requireInt(r.segments[1], 'Task number')),
     false,
     { level: 'read', owns: 'task' },
   ),
@@ -1214,7 +1230,7 @@ const routes: Route[] = [
   route('GET', 'terminals', () =>
     listSessions()
       .filter((session) => !session.isRunner)
-      .map(describeTerminal),
+      .map(describeSession),
   ),
 
   route(
@@ -1223,7 +1239,7 @@ const routes: Route[] = [
     (r) => {
       const session = listSessions().find((s) => s.ptyId === r.segments[1] && !s.isRunner);
       if (!session) throw new HttpError(404, `PTY ${r.segments[1]} not found or inactive`);
-      return describeTerminal(session);
+      return describeSession(session);
     },
     false,
     IN_OWN_PROJECT,
@@ -1244,7 +1260,7 @@ const routes: Route[] = [
       });
       const session = listSessions().find((s) => s.ptyId === ptyId);
       if (!session) throw new HttpError(404, 'The terminal did not open');
-      return describeTerminal(session);
+      return describeSession(session);
     },
     true,
   ),
@@ -1254,7 +1270,7 @@ const routes: Route[] = [
     'terminals/:ptyId',
     async (r) => {
       await runTerminalOp({ action: 'close', ptyId: r.segments[1] });
-      return { ptyId: r.segments[1], closed: true };
+      return { sessionId: r.segments[1], closed: true };
     },
     true,
   ),
@@ -1269,7 +1285,7 @@ const routes: Route[] = [
         ptyId: r.segments[1],
         lines: readLines(r.query),
       });
-      return { ptyId: r.segments[1], text: text ?? '', alternateScreen: alternateScreen ?? false };
+      return { sessionId: r.segments[1], text: text ?? '', alternateScreen: alternateScreen ?? false };
     },
     false,
     OWN_TERMINAL,
@@ -1282,7 +1298,7 @@ const routes: Route[] = [
       if (typeof r.body.text !== 'string' || !r.body.text) throw new HttpError(400, 'Missing text');
       refuseTerminalOutsideOwnSandbox(r, r.segments[1]);
       await runTerminalOp({ action: 'paste', ptyId: r.segments[1], text: r.body.text });
-      return { ptyId: r.segments[1], pasted: true };
+      return { sessionId: r.segments[1], pasted: true };
     },
     true,
   ),
@@ -1393,7 +1409,7 @@ const routes: Route[] = [
       if (!ptyId) throw new HttpError(404, 'The chat did not open');
       if (callerIsHomeChat(r.auth.ptyId)) follow(r.auth.ptyId, sessionSubject(ptyId));
       const session = listSessions().find((s) => s.ptyId === ptyId);
-      return session ? describeTerminal(session) : { ptyId };
+      return session ? describeSession(session) : { sessionId: ptyId };
     },
     true,
   ),
@@ -1955,7 +1971,7 @@ const routes: Route[] = [
         ...(r.auth.sandboxed && { readerSandbox: callerSandbox(r.auth), readerPtyId: r.auth.ptyId }),
       });
       if (!result.ok) throw new HttpError(404, result.error ?? 'Panel read failed');
-      return { ptyId: r.segments[1], id: r.segments[2], ...result.read };
+      return { sessionId: r.segments[1], id: r.segments[2], ...result.read };
     },
     false,
     OWN_TERMINAL,

@@ -159,7 +159,7 @@ async function asChat(app: ElectronApplication, id: string, repo: string, args: 
     process.execPath,
     [path.resolve(__dirname, '..', 'dist-cli', 'ouijit.js'), '--project', repo, ...args],
     {
-      env: { ...process.env, OUIJIT_API_URL: url, OUIJIT_API_TOKEN: token, OUIJIT_PTY_ID: id },
+      env: { ...process.env, OUIJIT_API_URL: url, OUIJIT_API_TOKEN: token, OUIJIT_SESSION_ID: id },
     },
   );
   return JSON.parse(stdout);

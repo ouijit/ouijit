@@ -4,7 +4,7 @@
 
 import type { Command } from 'commander';
 import { get, post, del, projectQuery } from '../api';
-import { resolvePtyId } from '../ptyId';
+import { resolveSessionId } from '../sessionId';
 import { printJson, printError } from '../output';
 
 export function registerDiffCommands(parent: Command, requireProject: () => Promise<string>) {
@@ -38,16 +38,16 @@ Examples:
   diff
     .command('open')
     .description("Show a terminal's diff panel")
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
-    .action(async (explicitPtyId?: string) => {
-      printJson(await post(`/api/terminals/${encodeURIComponent(resolvePtyId(explicitPtyId))}/diff`, {}));
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
+    .action(async (explicitSessionId?: string) => {
+      printJson(await post(`/api/terminals/${encodeURIComponent(resolveSessionId(explicitSessionId))}/diff`, {}));
     });
 
   diff
     .command('close')
     .description("Hide a terminal's diff panel")
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
-    .action(async (explicitPtyId?: string) => {
-      printJson(await del(`/api/terminals/${encodeURIComponent(resolvePtyId(explicitPtyId))}/diff`));
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
+    .action(async (explicitSessionId?: string) => {
+      printJson(await del(`/api/terminals/${encodeURIComponent(resolveSessionId(explicitSessionId))}/diff`));
     });
 }

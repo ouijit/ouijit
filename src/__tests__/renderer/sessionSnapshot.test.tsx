@@ -202,13 +202,13 @@ describe('session persistence', () => {
     expect((await tagOp({ action: 'list' })).listing).toEqual([
       {
         name: 'Blocked',
-        terminals: [
-          { ptyId: 'shell', label: 'Shell', projectPath: B },
-          { ptyId: 'review', label: 'Shell', projectPath: A },
+        sessions: [
+          { sessionId: 'shell', label: 'Shell', projectPath: B },
+          { sessionId: 'review', label: 'Shell', projectPath: A },
         ],
       },
-      { name: 'building', terminals: [{ ptyId: 'agent', label: 'Shell', projectPath: A }] },
-      { name: 'flaky', terminals: [{ ptyId: 'agent', label: 'Shell', projectPath: A }] },
+      { name: 'building', sessions: [{ sessionId: 'agent', label: 'Shell', projectPath: A }] },
+      { name: 'flaky', sessions: [{ sessionId: 'agent', label: 'Shell', projectPath: A }] },
     ]);
 
     await reload(gatherSnapshot(), [session('agent', A), session('review', A), session('shell', B)]);

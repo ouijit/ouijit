@@ -164,10 +164,10 @@ Examples:
 
   task
     .command('current')
-    .description('Get the task owning this terminal (uses OUIJIT_PTY_ID)')
+    .description('Get the task owning this terminal (uses OUIJIT_SESSION_ID)')
     .action(async () => {
-      if (!process.env['OUIJIT_PTY_ID']) {
-        return printError('OUIJIT_PTY_ID not set — run from an Ouijit terminal');
+      if (!process.env['OUIJIT_SESSION_ID']) {
+        return printError('OUIJIT_SESSION_ID not set — run from an Ouijit terminal');
       }
       const t = await get('/api/tasks/current');
       if (!t) return printError('Current terminal is not associated with a task');

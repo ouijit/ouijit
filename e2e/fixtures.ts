@@ -123,7 +123,7 @@ export const test = base.extend<OuijitFixtures>({
       const api = await (credentials ??= apiCredentials(electronApp));
       // The runner may itself be inside an Ouijit terminal, whose session would
       // otherwise answer the markdown and preview commands.
-      const { OUIJIT_PTY_ID: _, ...env } = process.env;
+      const { OUIJIT_SESSION_ID: _, ...env } = process.env;
       // The driver's token belongs to no terminal, so a command that needs a
       // project has to name one.
       const projectFlag = project ? '--project "$OUIJIT_E2E_PROJECT" ' : '';

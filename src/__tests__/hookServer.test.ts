@@ -137,8 +137,8 @@ describe('CLI_REFERENCE', () => {
     // Notes a person left on the diff reach an agent only if it asks for them.
     expect(CLI_REFERENCE).toContain('ouijit diff notes');
     // Watching and nudging another agent, the paste staying unsent.
-    expect(CLI_REFERENCE).toContain('ouijit terminal read');
-    expect(CLI_REFERENCE).toMatch(/ouijit terminal paste .*never pressing Enter/);
+    expect(CLI_REFERENCE).toContain('ouijit session read');
+    expect(CLI_REFERENCE).toMatch(/ouijit session paste .*never pressing Enter/);
     // The one way to show the user something, since nothing moves their view.
     expect(CLI_REFERENCE).toContain('ouijit link diff');
 
@@ -369,7 +369,7 @@ describe('installWrapper', () => {
     const helper = fs.readFileSync(helperPath, 'utf-8');
     expect(helper).toContain('#!/bin/bash');
     expect(helper).toContain('OUIJIT_API_URL');
-    expect(helper).toContain('OUIJIT_PTY_ID');
+    expect(helper).toContain('OUIJIT_SESSION_ID');
     expect(helper).toContain('[a-zA-Z0-9._-]+');
 
     // Claude wrapper exists with expected content
@@ -493,7 +493,7 @@ describe('installWrapper', () => {
     expect(content).toContain('ouijit project list');
     // Contains env var documentation
     expect(content).toContain('OUIJIT_API_URL');
-    expect(content).toContain('OUIJIT_PTY_ID');
+    expect(content).toContain('OUIJIT_SESSION_ID');
   });
 
   test('does not require ~/.claude to exist', () => {
@@ -900,7 +900,7 @@ describe('ouijit-hook script → hook server integration', () => {
   test('thinking status reaches hook server and triggers IPC', async () => {
     await runHookScript('status', ['status=thinking'], {
       OUIJIT_API_URL: `http://127.0.0.1:${port}`,
-      OUIJIT_PTY_ID: 'pty-integration-1',
+      OUIJIT_SESSION_ID: 'pty-integration-1',
       OUIJIT_API_TOKEN: issueToken('pty-integration-1', 'host'),
       PATH: process.env['PATH'] || '',
     });
@@ -912,7 +912,7 @@ describe('ouijit-hook script → hook server integration', () => {
   test('ready status reaches hook server and triggers IPC', async () => {
     await runHookScript('status', ['status=ready'], {
       OUIJIT_API_URL: `http://127.0.0.1:${port}`,
-      OUIJIT_PTY_ID: 'pty-integration-2',
+      OUIJIT_SESSION_ID: 'pty-integration-2',
       OUIJIT_API_TOKEN: issueToken('pty-integration-2', 'host'),
       PATH: process.env['PATH'] || '',
     });
@@ -923,7 +923,7 @@ describe('ouijit-hook script → hook server integration', () => {
 
   test('script exits silently when OUIJIT_API_URL is unset', async () => {
     await runHookScript('status', ['status=thinking'], {
-      OUIJIT_PTY_ID: 'pty-integration-3',
+      OUIJIT_SESSION_ID: 'pty-integration-3',
       OUIJIT_API_TOKEN: issueToken('pty-integration-3', 'host'),
       PATH: process.env['PATH'] || '',
     });
@@ -935,7 +935,7 @@ describe('ouijit-hook script → hook server integration', () => {
   test('script exits silently when OUIJIT_API_TOKEN is unset', async () => {
     await runHookScript('status', ['status=thinking'], {
       OUIJIT_API_URL: `http://127.0.0.1:${port}`,
-      OUIJIT_PTY_ID: 'pty-integration-notoken',
+      OUIJIT_SESSION_ID: 'pty-integration-notoken',
       PATH: process.env['PATH'] || '',
     });
 
@@ -946,7 +946,7 @@ describe('ouijit-hook script → hook server integration', () => {
   test('script exits silently for invalid ptyId', async () => {
     await runHookScript('status', ['status=thinking'], {
       OUIJIT_API_URL: `http://127.0.0.1:${port}`,
-      OUIJIT_PTY_ID: 'pty with spaces',
+      OUIJIT_SESSION_ID: 'pty with spaces',
       OUIJIT_API_TOKEN: 'some-token',
       PATH: process.env['PATH'] || '',
     });
@@ -1024,7 +1024,7 @@ describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
         PATH: `${binDir}:${mockBinDir}:${process.env['PATH'] || ''}`,
         HOME: tmpHome,
         OUIJIT_API_URL: `http://127.0.0.1:${port}`,
-        OUIJIT_PTY_ID: 'pty-e2e-1',
+        OUIJIT_SESSION_ID: 'pty-e2e-1',
         OUIJIT_API_TOKEN: issueToken('pty-e2e-1', 'host'),
       },
     });
@@ -1061,7 +1061,7 @@ describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
         PATH: `${binDir}:${process.env['PATH'] || ''}`,
         HOME: tmpHome,
         OUIJIT_API_URL: `http://127.0.0.1:${port}`,
-        OUIJIT_PTY_ID: 'pty-e2e-2',
+        OUIJIT_SESSION_ID: 'pty-e2e-2',
         OUIJIT_API_TOKEN: issueToken('pty-e2e-2', 'host'),
         OUIJIT_WRAPPER_DIR: binDir,
         OUIJIT_SHELL_INTEGRATION_DIR: integrationDir,
@@ -1094,7 +1094,7 @@ describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
         HOME: tmpHome,
         ZDOTDIR: path.join(integrationDir, 'zsh'),
         OUIJIT_API_URL: `http://127.0.0.1:${port}`,
-        OUIJIT_PTY_ID: 'pty-e2e-zsh-hook',
+        OUIJIT_SESSION_ID: 'pty-e2e-zsh-hook',
         OUIJIT_API_TOKEN: issueToken('pty-e2e-zsh-hook', 'host'),
         OUIJIT_WRAPPER_DIR: binDir,
         OUIJIT_SHELL_INTEGRATION_DIR: integrationDir,

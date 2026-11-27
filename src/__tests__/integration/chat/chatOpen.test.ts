@@ -155,7 +155,7 @@ beforeAll(async () => {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   vi.stubEnv('OUIJIT_API_URL', `http://127.0.0.1:${getApiPort()}`);
-  vi.stubEnv('OUIJIT_PTY_ID', chat);
+  vi.stubEnv('OUIJIT_SESSION_ID', chat);
 });
 
 afterAll(async () => {
@@ -194,7 +194,7 @@ describe('ouijit chat open', () => {
       'host',
     );
     stdin.mockRestore();
-    expect(result).toMatchObject({ ptyId: 'pty-chat-new', taskNumber: 2 });
+    expect(result).toMatchObject({ sessionId: 'pty-chat-new', taskNumber: 2 });
     expect(opened).toEqual([
       expect.objectContaining({
         action: 'open',

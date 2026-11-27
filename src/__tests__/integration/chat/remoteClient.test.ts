@@ -65,7 +65,7 @@ describe('a chat followed from another client', () => {
       '/api/terminals',
     );
     expect(terminals.json).toContainEqual(
-      expect.objectContaining({ ptyId: id, surface: 'chat', agentStatus: 'ready' }),
+      expect.objectContaining({ sessionId: id, kind: 'chat', agentStatus: 'ready' }),
     );
 
     const before = await call<{ seq: number; info: { status: string } }>(phone, 'GET', `/api/chats/${id}`);

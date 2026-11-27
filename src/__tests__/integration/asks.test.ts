@@ -82,7 +82,7 @@ beforeAll(async () => {
   ptyId = spawned.ptyId!;
   vi.stubEnv('OUIJIT_API_URL', `http://127.0.0.1:${getApiPort()}`);
   vi.stubEnv('OUIJIT_API_TOKEN', issueToken(ptyId, 'host'));
-  vi.stubEnv('OUIJIT_PTY_ID', ptyId);
+  vi.stubEnv('OUIJIT_SESSION_ID', ptyId);
 });
 
 afterAll(async () => {

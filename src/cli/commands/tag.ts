@@ -6,7 +6,7 @@
 import type { Command } from 'commander';
 import { get, post, del } from '../api';
 import { printJson } from '../output';
-import { resolvePtyId } from '../ptyId';
+import { resolveSessionId } from '../sessionId';
 
 function tagsUrl(ptyId: string): string {
   return `/api/terminals/${encodeURIComponent(ptyId)}/tags`;
@@ -38,34 +38,34 @@ Examples:
   tag
     .command('get')
     .description("Show a terminal's tags")
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
-    .action(async (explicitPtyId?: string) => {
-      printJson(await get(tagsUrl(resolvePtyId(explicitPtyId))));
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
+    .action(async (explicitSessionId?: string) => {
+      printJson(await get(tagsUrl(resolveSessionId(explicitSessionId))));
     });
 
   tag
     .command('add')
     .description('Add a tag to a terminal')
     .argument('<tag>', 'tag name')
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
-    .action(async (tagName: string, explicitPtyId?: string) => {
-      printJson(await post(tagsUrl(resolvePtyId(explicitPtyId)), { tag: tagName }));
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
+    .action(async (tagName: string, explicitSessionId?: string) => {
+      printJson(await post(tagsUrl(resolveSessionId(explicitSessionId)), { tag: tagName }));
     });
 
   tag
     .command('remove')
     .description('Remove a tag from a terminal')
     .argument('<tag>', 'tag name')
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
-    .action(async (tagName: string, explicitPtyId?: string) => {
-      printJson(await del(`${tagsUrl(resolvePtyId(explicitPtyId))}/${encodeURIComponent(tagName)}`));
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
+    .action(async (tagName: string, explicitSessionId?: string) => {
+      printJson(await del(`${tagsUrl(resolveSessionId(explicitSessionId))}/${encodeURIComponent(tagName)}`));
     });
 
   tag
     .command('clear')
     .description("Remove all of a terminal's tags")
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
-    .action(async (explicitPtyId?: string) => {
-      printJson(await del(tagsUrl(resolvePtyId(explicitPtyId))));
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
+    .action(async (explicitSessionId?: string) => {
+      printJson(await del(tagsUrl(resolveSessionId(explicitSessionId))));
     });
 }

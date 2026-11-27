@@ -26,6 +26,7 @@ vi.mock('../ptyManager', () => ({
   getPtyTaskContext: () => getPtyTaskContextMock(),
   callerTerminal: (ptyId: string) => ptyId,
   getPtySpawnContext: () => ({ projectPath: '/tmp/test-project', worktreePath: '/tmp/test-project/T-7' }),
+  getActiveSessions: () => [],
 }));
 
 // Prevent real IPC broadcasts; we're driving HTTP directly.

@@ -61,8 +61,8 @@ test('a chat whose turn ended with work still running in the background lists as
   await chatHost.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
   const cli = issueToken('pty-cli', 'host');
   const listed = async () =>
-    (await get<{ ptyId: string; agentStatus: string | null; background?: number }[]>(cli, '/api/terminals')).find(
-      (session) => session.ptyId === id,
+    (await get<{ sessionId: string; agentStatus: string | null; background?: number }[]>(cli, '/api/terminals')).find(
+      (session) => session.sessionId === id,
     );
 
   await chatHost.prompt(id, {

@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import type { Command } from 'commander';
 import { get, post } from '../api';
 import { printError, printJson } from '../output';
-import { resolvePtyId } from '../ptyId';
+import { resolveSessionId } from '../sessionId';
 import { SANDBOX_FLAG, parseSandboxFlag, sandboxFlagHelp } from '../sandboxFlag';
 
 function panelsUrl(ptyId: string): string {
@@ -34,9 +34,9 @@ Examples:
   panel
     .command('list')
     .description("List a terminal's panels: markdown, browser, script and shell")
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
-    .action(async (explicitPtyId?: string) => {
-      printJson(await get(panelsUrl(resolvePtyId(explicitPtyId))));
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
+    .action(async (explicitSessionId?: string) => {
+      printJson(await get(panelsUrl(resolveSessionId(explicitSessionId))));
     });
 
   panel
@@ -45,29 +45,31 @@ Examples:
       "Show a script or shell panel's screen as text, with its status and exit code; a markdown or browser panel's path or url",
     )
     .argument('<id>', 'a panel id from `panel list`')
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
     .option('--lines <n>', 'how many lines from the bottom (default 100)')
-    .action(async (id: string, explicitPtyId: string | undefined, opts: { lines?: string }) => {
+    .action(async (id: string, explicitSessionId: string | undefined, opts: { lines?: string }) => {
       const query = opts.lines === undefined ? '' : `?lines=${encodeURIComponent(opts.lines)}`;
-      printJson(await get(`${panelsUrl(resolvePtyId(explicitPtyId))}/${encodeURIComponent(id)}/screen${query}`));
+      printJson(
+        await get(`${panelsUrl(resolveSessionId(explicitSessionId))}/${encodeURIComponent(id)}/screen${query}`),
+      );
     });
 
   panel
     .command('focus')
     .description('Bring a panel to the front, or the terminal itself with `terminal`')
     .argument('<id>', 'a panel id from `panel list`, or terminal')
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
-    .action(async (id: string, explicitPtyId?: string) => {
-      printJson(await post(`${panelsUrl(resolvePtyId(explicitPtyId))}/focus`, { id }));
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
+    .action(async (id: string, explicitSessionId?: string) => {
+      printJson(await post(`${panelsUrl(resolveSessionId(explicitSessionId))}/focus`, { id }));
     });
 
   panel
     .command('close')
     .description('Close a panel, stopping what runs in it')
     .argument('<id>', 'a panel id from `panel list`')
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
-    .action(async (id: string, explicitPtyId?: string) => {
-      printJson(await post(`${panelsUrl(resolvePtyId(explicitPtyId))}/close`, { id }));
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
+    .action(async (id: string, explicitSessionId?: string) => {
+      printJson(await post(`${panelsUrl(resolveSessionId(explicitSessionId))}/close`, { id }));
     });
 
   const open = panel.command('open').description('Open a panel on a terminal, or bring forward the one already open');
@@ -76,20 +78,22 @@ Examples:
     .command('markdown')
     .description('A markdown file, rendered')
     .argument('<path>', 'path to a .md file')
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
-    .action(async (mdPath: string, explicitPtyId?: string) => {
-      printJson(await post(`${panelsUrl(resolvePtyId(explicitPtyId))}/markdown`, { path: path.resolve(mdPath) }));
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
+    .action(async (mdPath: string, explicitSessionId?: string) => {
+      printJson(
+        await post(`${panelsUrl(resolveSessionId(explicitSessionId))}/markdown`, { path: path.resolve(mdPath) }),
+      );
     });
 
   open
     .command('browser')
     .description('A browser tab; from a sandbox, a page off localhost waits for approval')
     .argument('<url>', 'http(s) URL to open')
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
     .option('-m, --message <why>', 'why, for the user, when it waits for approval')
-    .action(async (url: string, explicitPtyId: string | undefined, opts: { message?: string }) => {
+    .action(async (url: string, explicitSessionId: string | undefined, opts: { message?: string }) => {
       printJson(
-        await post(`${panelsUrl(resolvePtyId(explicitPtyId))}/browser`, {
+        await post(`${panelsUrl(resolveSessionId(explicitSessionId))}/browser`, {
           url,
           ...(opts.message && { message: opts.message }),
         }),
@@ -102,34 +106,36 @@ Examples:
       "A project script, running in the project's default sandbox; from a sandbox, in its own, or anywhere else once the user approves",
     )
     .argument('<script>', 'script id or name, from `script list`')
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
     .option(SANDBOX_FLAG, sandboxFlagHelp('where it runs'))
     .option('-m, --message <why>', 'why, for the user, when it waits for approval')
-    .action(async (script: string, explicitPtyId: string | undefined, opts: { sandbox?: string; message?: string }) => {
-      const parsed = parseSandboxFlag(opts.sandbox);
-      if ('error' in parsed) return printError(parsed.error);
-      printJson(
-        await post(`${panelsUrl(resolvePtyId(explicitPtyId))}/runner`, {
-          script,
-          ...parsed,
-          ...(opts.message && { message: opts.message }),
-        }),
-      );
-    });
+    .action(
+      async (script: string, explicitSessionId: string | undefined, opts: { sandbox?: string; message?: string }) => {
+        const parsed = parseSandboxFlag(opts.sandbox);
+        if ('error' in parsed) return printError(parsed.error);
+        printJson(
+          await post(`${panelsUrl(resolveSessionId(explicitSessionId))}/runner`, {
+            script,
+            ...parsed,
+            ...(opts.message && { message: opts.message }),
+          }),
+        );
+      },
+    );
 
   open
     .command('shell')
     .description(
       "A shell in the terminal's worktree, in the project's default sandbox; from a sandbox, in its own, or anywhere else once the user approves",
     )
-    .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
     .option(SANDBOX_FLAG, sandboxFlagHelp('where it runs'))
     .option('-m, --message <why>', 'why, for the user, when it waits for approval')
-    .action(async (explicitPtyId: string | undefined, opts: { sandbox?: string; message?: string }) => {
+    .action(async (explicitSessionId: string | undefined, opts: { sandbox?: string; message?: string }) => {
       const parsed = parseSandboxFlag(opts.sandbox);
       if ('error' in parsed) return printError(parsed.error);
       printJson(
-        await post(`${panelsUrl(resolvePtyId(explicitPtyId))}/runner`, {
+        await post(`${panelsUrl(resolveSessionId(explicitSessionId))}/runner`, {
           shell: true,
           ...parsed,
           ...(opts.message && { message: opts.message }),

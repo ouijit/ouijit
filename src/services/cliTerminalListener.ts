@@ -107,7 +107,7 @@ async function chatOp(ptyId: string, op: CliTerminalOp): Promise<CliTerminalResp
   return { ok: true, ptyId, text: lines.slice(-(op.lines ?? DEFAULT_READ_LINES)).join('\n'), alternateScreen: false };
 }
 
-/** Handle `ouijit terminal read/paste/open/close`. Install once for the life of the renderer. */
+/** Handle `ouijit session read/paste/close` and `ouijit terminal open`. Install once for the life of the renderer. */
 export function installCliTerminalListener(): () => void {
   return window.api.cliTerminals.onOp((op) => {
     void handleOp(op)

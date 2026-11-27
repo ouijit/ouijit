@@ -74,7 +74,7 @@ ouijit task trash 5                           # worktree goes to the system tras
   </p>
   <p>
     <code>ouijit task current</code> resolves the task that owns the current terminal, through the
-    <code>OUIJIT_PTY_ID</code> variable Ouijit sets on every spawn:
+    <code>OUIJIT_SESSION_ID</code> variable Ouijit sets on every spawn:
   </p>
   <pre class="glass-bevel"><code>TASK=$(ouijit task current | jq -r .taskNumber)
 ouijit task set-status "$TASK" in_review</code></pre>
@@ -128,23 +128,25 @@ ouijit settings chat set --sandbox custom --launcher /usr/local/bin/my-sandbox</
     only: a sandboxed session gets 403 whatever its Ouijit CLI access.
   </p>
 
-  <h2>Terminals</h2>
+  <h2>Sessions</h2>
   <p>
-    See every open terminal, read what's on its screen, open and close terminals, and paste a message into
-    one for you to send. A terminal opened here goes behind the one on screen, and a paste never presses Enter.
-    From a sandbox only <code>terminal read</code> works, on its own terminal.
+    A terminal or a chat on a card is a session. See every one with its task, read what's on its screen or in its
+    transcript, paste a message into one for you to send, and close it. A paste never presses Enter. From a sandbox
+    only <code>session read</code> works, on its own session.
   </p>
-  <pre class="glass-bevel"><code>ouijit terminal list                          # every project's terminals, with task, sandbox and agent status
-ouijit terminal read pty_abc123 --lines 40    # its screen and recent scrollback, as text
-ouijit terminal open --task 5                 # a shell in a started task's worktree
+  <pre class="glass-bevel"><code>ouijit session list                           # every project's sessions, with kind, task, sandbox and agent status
+ouijit session list --task 5                  # one task's
+ouijit session read pty_abc123 --lines 40     # its screen and recent scrollback, as text
+ouijit session paste pty_abc123 "run the tests again"
+ouijit session paste pty_abc123 - &lt; followup.md
+ouijit session close pty_abc123</code></pre>
+  <p>
+    A multi-line paste is refused where the program in that session would read each newline as Enter.
+    <code>terminal open</code> opens a new terminal, behind the one on screen.
+  </p>
+  <pre class="glass-bevel"><code>ouijit terminal open --task 5                 # a shell in a started task's worktree
 ouijit terminal open --task 5 --resume        # running the continue hook
-ouijit terminal open                          # a shell in the project
-ouijit terminal paste pty_abc123 "run the tests again"
-ouijit terminal paste pty_abc123 - &lt; followup.md
-ouijit terminal close pty_abc123</code></pre>
-  <p>
-    A multi-line paste is refused where the program in that terminal would read each newline as Enter.
-  </p>
+ouijit terminal open                          # a shell in the project</code></pre>
 
   <h2>Diff notes</h2>
   <p>
@@ -163,7 +165,7 @@ ouijit diff close</code></pre>
   </p>
   <pre class="glass-bevel"><code>ouijit link diff src/auth/session.ts:88       # → {`{"url": "ouijit://horizon/tasks/14/diff/src/auth/session.ts:88"}`}
 ouijit link task 14
-ouijit link terminal pty_abc123
+ouijit link session pty_abc123
 ouijit link panel panel-3fa9
 ouijit link pr 212
 ouijit link issue ENG-231                     # or a GitHub issue number
@@ -196,17 +198,17 @@ ouijit ask script "Dev server"                # a project script, by id or name<
     Tag a terminal to <a href="/docs/terminals/">group and filter</a> it. A terminal can carry several, and the pty
     id defaults to the current terminal. A sandboxed session can tag its own terminal.
   </p>
-  <pre class="glass-bevel"><code>ouijit tag list                               # tags on open terminals, and which carry each
-ouijit tag get                                # this terminal's tags
+  <pre class="glass-bevel"><code>ouijit tag list                               # tags on open sessions, and which carry each
+ouijit tag get                                # this session's tags
 ouijit tag add review
-ouijit tag add review pty_abc123              # explicit pty id
+ouijit tag add review pty_abc123              # another session
 ouijit tag remove review
 ouijit tag clear                              # removes all of them</code></pre>
 
   <h2 id="chats">Chats</h2>
   <p>
     A task can run its agent as a chat instead of a terminal. These open a chat on a task, read a chat and send it
-    messages; a chat card's pty id works with the tag and panel commands too. Opening, sending, answering and
+    messages; a chat is a session, so the session, tag and panel commands work on it too. Opening, sending, answering and
     interrupting are host only, and a chat cannot answer its own approvals.
   </p>
   <pre class="glass-bevel"><code>ouijit chat list                              # running chats
@@ -298,9 +300,9 @@ ouijit linear draft discard ENG-214 &lt;draft-id&gt;</code></pre>
   <h2>Panels</h2>
   <p>
     Open <a href="/docs/panels/">panels</a> as tabs on a terminal, list and read them, bring one to the front, and
-    close one. The pty id defaults to the current terminal. Opening one that is already open brings it forward.
+    close one. The session id defaults to the current one. Opening one that is already open brings it forward.
   </p>
-  <pre class="glass-bevel"><code>ouijit panel open markdown ./plan.md          # uses current OUIJIT_PTY_ID
+  <pre class="glass-bevel"><code>ouijit panel open markdown ./plan.md          # uses current OUIJIT_SESSION_ID
 ouijit panel open markdown ./plan.md pty_abc123
 ouijit panel open browser http://localhost:3000
 ouijit panel open script "Dev server"         # a project <a href="#scripts">script</a>, by id or name
@@ -341,7 +343,7 @@ ouijit project add ~/code/existing-repo       # a repo you already have</code></
     <tbody>
       <tr><td><code>OUIJIT_API_URL</code></td><td>Base URL for the local REST API the CLI talks to.</td></tr>
       <tr><td><code>OUIJIT_API_TOKEN</code></td><td>Bearer token scoped to this terminal session.</td></tr>
-      <tr><td><code>OUIJIT_PTY_ID</code></td><td>Unique id for this terminal session. Every command that takes a <code>[pty-id]</code> defaults to it.</td></tr>
+      <tr><td><code>OUIJIT_SESSION_ID</code></td><td>Unique id for this terminal session. Every command that takes a <code>[session-id]</code> defaults to it.</td></tr>
     </tbody>
   </table>
   <p>

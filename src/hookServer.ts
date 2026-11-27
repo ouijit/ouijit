@@ -224,11 +224,11 @@ export const HELPER_SCRIPT = [
   '[ -z "$OUIJIT_API_TOKEN" ] && exit 0',
   '',
   '# Validate inputs to prevent malformed JSON',
-  `[[ "$OUIJIT_PTY_ID" =~ ^${SAFE_VALUE}$ ]] || exit 0`,
+  `[[ "$OUIJIT_SESSION_ID" =~ ^${SAFE_VALUE}$ ]] || exit 0`,
   'action="$1"; shift',
   `[[ "$action" =~ ^${SAFE_VALUE}$ ]] || exit 0`,
   '',
-  'json="\\"ptyId\\":\\"$OUIJIT_PTY_ID\\",\\"action\\":\\"$action\\""',
+  'json="\\"ptyId\\":\\"$OUIJIT_SESSION_ID\\",\\"action\\":\\"$action\\""',
   'for arg in "$@"; do',
   '  key="${arg%%=*}"; val="${arg#*=}"',
   `  [[ "$key" =~ ^${SAFE_VALUE}$ ]] || continue`,
@@ -250,12 +250,12 @@ You are running inside an Ouijit terminal. The \`ouijit\` CLI manages tasks, ter
 
 ## Environment (pre-set, do not modify)
 - OUIJIT_API_URL — REST API endpoint (already configured)
-- OUIJIT_PTY_ID — this terminal session's ID (the default for every [pty-id] argument)
+- OUIJIT_SESSION_ID — this session's ID (the default for every [session-id] argument)
 
 ## Task Commands (most common)
 ouijit task list                              # → [{taskNumber, name, status, branch, worktreePath, prompt, ...}]
-ouijit task get <number>                      # → single task object
-ouijit task current                           # → task owning this terminal (resolves via OUIJIT_PTY_ID)
+ouijit task get <number>                      # → the task, with sessions: its open terminals and chats
+ouijit task current                           # → the task this session is on, with its sessions
 ouijit task create "<name>"                   # → {success, task: {taskNumber, ...}}
 ouijit task create "<name>" --prompt "<text>" # set description at creation
 ouijit task start <number>                    # creates git worktree, sets in_progress; default: the start hook waits for the user
@@ -282,37 +282,41 @@ ouijit task set-description <number> <text>
 ouijit task set-merge-target <number> <branch>
 ouijit task trash <number>                    # removes task, worktree goes to the system trash
 
-## Terminal Commands
-ouijit terminal list                          # → [{ptyId, label, projectPath, taskNumber, worktreePath, sandbox, surface, agentStatus, background?}] across every project
-                                              # surface: terminal | chat — a chat card reads as its transcript, and paste fills its composer
+## Session Commands (a terminal or a chat open on a card)
+A terminal or a chat is a session. The user may call one "the terminal", "the
+chat", or name its task; session list shows every one with the task it belongs to.
+
+ouijit session list                           # → [{sessionId, kind, label, projectPath, taskNumber, worktreePath, sandbox, agentStatus, background?}] across every project
+                                              # kind: terminal | chat — a chat reads as its transcript, and paste fills its composer
                                               # agentStatus: thinking | ready, or null where no agent has reported
                                               # a chat with work still running in the background is thinking, with background: how many
-ouijit terminal read <pty-id> [--lines <n>]   # → {ptyId, text, alternateScreen}: its screen and recent scrollback, as text
+ouijit session list --task <n>                # only that task's, in this project
+ouijit session read <session-id> [--lines <n>] # → {sessionId, text, alternateScreen}: its screen and recent scrollback, as text
+ouijit session paste <session-id> "<text>"    # into its prompt, never pressing Enter: the user sends it
+ouijit session paste <session-id> -           # text on stdin, for anything multi-line
+ouijit session close <session-id>
 ouijit terminal open [--task <n>] [--resume] [--sandbox host|nono|custom]
-                                              # a terminal in a started task's worktree, or a shell in the project; --resume runs the continue hook
-ouijit terminal paste <pty-id> "<text>"       # into its prompt, never pressing Enter: the user sends it
-ouijit terminal paste <pty-id> -              # text on stdin, for anything multi-line
-ouijit terminal close <pty-id>
+                                              # a new terminal in a started task's worktree, or a shell in the project; --resume runs the continue hook
 
 Opening a terminal never changes what the user is looking at: it opens behind
 the one on screen. A multi-line paste is refused where the program in that
-terminal would read each newline as Enter.
+session would read each newline as Enter.
 
 ## Diff Notes (left by the user on a worktree's diff, for you)
 ouijit diff notes                             # → [{id, path, startLine, line, side, snippet, body, createdAt}] on this terminal's worktree
 ouijit diff notes --task <n>                  # on a task's worktree instead
-ouijit diff open [pty-id]                     # show a terminal's diff panel
-ouijit diff close [pty-id]
+ouijit diff open [session-id]                 # show a terminal's diff panel
+ouijit diff close [session-id]
 
 Each note is about lines startLine–line of path, kept current as the file
 changes. side LEFT means code that was removed, numbered as the file was.
 snippet is the source the note was written against.
 
 ## Links (send the user somewhere from your reply)
-ouijit link diff <file>[:<line>] [pty-id]     # a file, or a line, in this terminal's diff → {url}
+ouijit link diff <file>[:<line>] [session-id]     # a file, or a line, in this terminal's diff → {url}
 ouijit link task <n>                          # its terminal, or its card if it was never started
-ouijit link terminal [pty-id]
-ouijit link panel <id> [pty-id]               # an id from panel list
+ouijit link session [session-id]
+ouijit link panel <id> [session-id]           # an id from panel list
 ouijit link pr <n>
 ouijit link issue <id>                        # a GitHub issue number, or a Linear identifier like ENG-231
 ouijit link board
@@ -349,32 +353,32 @@ runs is shown in full when it is in your worktree or a temp folder, and that
 copy is what runs; keep such a script short. Pagers are off. A command that
 opens an editor or prompts waits for the user, so pass non-interactive flags.
 
-## Tag Commands (the tags on a terminal's card)
-ouijit tag list                               # → [{name, terminals: [{ptyId, label, projectPath}]}] across open terminals
-ouijit tag get [pty-id]                       # → {ptyId, tags} — defaults to this terminal
-ouijit tag add <tag> [pty-id]                 # add a tag to the terminal
-ouijit tag remove <tag> [pty-id]              # remove one tag
-ouijit tag clear [pty-id]                     # remove all of them
+## Tag Commands (the tags on a session's card)
+ouijit tag list                               # → [{name, sessions: [{sessionId, label, projectPath}]}] across open sessions
+ouijit tag get [session-id]                   # → {sessionId, tags} — defaults to this session
+ouijit tag add <tag> [session-id]             # add a tag to the session
+ouijit tag remove <tag> [session-id]          # remove one tag
+ouijit tag clear [session-id]                 # remove all of them
 
 ## Chat Commands (a task card can run its agent as a chat instead of a terminal)
 ouijit chat list                              # → running chats [{id, agent, status, taskId, ...}]
-ouijit chat open --task <n> [--prompt "<first message>"]  # a new chat on a started task, behind what's on screen → {ptyId, ...}
+ouijit chat open --task <n> [--prompt "<first message>"]  # a new chat on a started task, behind what's on screen → {sessionId, ...}
                                               # --prompt - reads it from stdin; --agent claude|codex|pi|opencode|acp
                                               # and --sandbox host|nono|custom, omitted, as the task menu's New chat
                                               # --from <chat-id> starts it on that chat's conversation so far, to carry it on
-ouijit chat read [pty-id]                     # → {info, nodes, seq, text, pending} — defaults to this card
-ouijit chat read <pty-id> --after <seq>       # → {id, events} after a sequence number, for following along
+ouijit chat read [session-id]                 # → {info, nodes, seq, text, pending} — defaults to this card
+ouijit chat read <session-id> --after <seq>   # → {id, events} after a sequence number, for following along
                                               # add --wait <seconds> to wait for the next one (long poll)
-ouijit chat answer <pty-id> <request-id> --option <id> [--message "<note>"]
-ouijit chat answer <pty-id> <request-id> --answer <question-id>=<value>...  # or --cancel
-ouijit chat send <pty-id> "<text>"            # steers a running turn, or starts one; --queue waits for the turn
-ouijit chat send <pty-id> -                   # text on stdin, for anything multi-line
-ouijit chat interrupt <pty-id>                # stop the running turn
+ouijit chat answer <session-id> <request-id> --option <id> [--message "<note>"]
+ouijit chat answer <session-id> <request-id> --answer <question-id>=<value>...  # or --cancel
+ouijit chat send <session-id> "<text>"        # steers a running turn, or starts one; --queue waits for the turn
+ouijit chat send <session-id> -               # text on stdin, for anything multi-line
+ouijit chat interrupt <session-id>            # stop the running turn
 ouijit chat follow <task-or-chat>             # Chat only: hear what happens to it; a task number takes --project
 ouijit chat unfollow <task-or-chat>           # Chat only: stop hearing about it
 ouijit chat following                         # Chat only: → [{task, project, name, status} | {chat, label, status}]
 
-A chat card has a pty-id like any terminal, so tag and panel commands
+A chat is a session like any terminal, so session, tag and panel commands
 reach it the same way. A chat cannot answer its own requests; opening, sending,
 answering and interrupting need a host terminal.
 
@@ -494,16 +498,16 @@ sends them. There is no command that moves an issue — that is a control on the
 issue, pressed by someone looking at it.
 
 ## Panel Commands (the tabs on a terminal)
-ouijit panel open markdown <path.md> [pty-id] # a markdown file, rendered
-ouijit panel open browser <url> [pty-id] [-m "<why>"]   # a browser tab (http/https)
-ouijit panel open script <script> [pty-id] [--sandbox host|nono|custom] [-m "<why>"]
+ouijit panel open markdown <path.md> [session-id] # a markdown file, rendered
+ouijit panel open browser <url> [session-id] [-m "<why>"]   # a browser tab (http/https)
+ouijit panel open script <script> [session-id] [--sandbox host|nono|custom] [-m "<why>"]
                                               # a project script by id or name from script list, in the project's default sandbox
-ouijit panel open shell [pty-id] [--sandbox host|nono|custom] [-m "<why>"]   # a shell to type in, in this terminal's worktree
-ouijit panel list [pty-id]                    # → {ptyId, panels: [{id, kind, label, active, path|url|script}], diffOpen}
+ouijit panel open shell [session-id] [--sandbox host|nono|custom] [-m "<why>"]   # a shell to type in, in this terminal's worktree
+ouijit panel list [session-id]                # → {sessionId, panels: [{id, kind, label, active, path|url|script}], diffOpen}
                                               # kind: markdown | browser | script | shell
-ouijit panel read <id> [pty-id] [--lines <n>] # a script or shell → {kind, text, status, exitCode}; markdown → {path}; browser → {url}
-ouijit panel focus <id> [pty-id]              # bring one forward; focus terminal shows the terminal itself
-ouijit panel close <id> [pty-id]              # close it, stopping what runs in it
+ouijit panel read <id> [session-id] [--lines <n>] # a script or shell → {kind, text, status, exitCode}; markdown → {path}; browser → {url}
+ouijit panel focus <id> [session-id]          # bring one forward; focus terminal shows the terminal itself
+ouijit panel close <id> [session-id]          # close it, stopping what runs in it
 
 Opening one that is already open brings it forward. From a sandbox, a script
 or shell runs in that sandbox, and a browser tab on localhost, 127.0.0.1 or
@@ -535,12 +539,12 @@ ouijit theme delete <id>                      # remove a custom theme
 A sandboxed terminal reaches Ouijit in its own project, at that project's CLI access level:
 - View, the default (Whole board for Chat): its own task (task current, task get), diff notes,
   link, ask, pr list and view, pr and linear drafts, pr lenses, linear list
-  and view. On this terminal: terminal read, tags, panel list, read and
+  and view. On this session: session read, tags, panel list, read and
   close, markdown panels for files in its worktree, and script, shell and
   browser panels as above.
 - Own task: also task set-status, set-name and set-description on its own
   task, pr link and issue link to it, and task create for a to-do card.
-  terminal read, tags and panels reach every sandboxed terminal on its task. A hook that
+  session read, tags and panels reach every sandboxed session on its task. A hook that
   runs on the host waits for the user even with --run-hook, and --hook-command
   and --sandbox are refused.
 - Whole board: what a host terminal can, except changing hooks, scripts, and

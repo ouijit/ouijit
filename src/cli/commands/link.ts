@@ -8,7 +8,7 @@ import * as path from 'node:path';
 import type { Command } from 'commander';
 import { get } from '../api';
 import { printJson, printError } from '../output';
-import { resolvePtyId } from '../ptyId';
+import { resolveSessionId } from '../sessionId';
 import { relativeWithin } from '../../utils/pathSafety';
 import { buildLink, type DiffSpot, type LinkTarget } from '../../links/ouijitLink';
 
@@ -18,15 +18,15 @@ function int(value: string, label: string): number {
   return n;
 }
 
-interface Terminal {
-  ptyId: string;
+interface Session {
+  sessionId: string;
   projectPath: string;
   taskNumber: number | null;
   worktreePath: string | null;
 }
 
-async function terminal(ptyId?: string): Promise<Terminal & { project: string }> {
-  const found = await get<Terminal>(`/api/terminals/${encodeURIComponent(resolvePtyId(ptyId))}`);
+async function session(sessionId?: string): Promise<Session & { project: string }> {
+  const found = await get<Session>(`/api/terminals/${encodeURIComponent(resolveSessionId(sessionId))}`);
   return { ...found, project: path.basename(found.projectPath) };
 }
 
@@ -37,7 +37,7 @@ async function terminal(ptyId?: string): Promise<Terminal & { project: string }>
  */
 function diffSpot(
   spec: string,
-  { worktreePath, projectPath }: Pick<Terminal, 'worktreePath' | 'projectPath'>,
+  { worktreePath, projectPath }: Pick<Session, 'worktreePath' | 'projectPath'>,
 ): DiffSpot {
   const match = /^(.*):(\d+)$/.exec(spec);
   const root = worktreePath || projectPath;
@@ -78,31 +78,31 @@ A link only navigates: opening one never runs or changes anything.`,
     .command('diff')
     .description("A file in this terminal's diff, or one line of it")
     .argument('<file[:line]>', 'path, optionally with a line')
-    .argument('[pty-id]', 'terminal session id (defaults to this terminal)')
-    .action(async (spec: string, ptyId?: string) => {
-      const { project, ptyId: id, taskNumber, ...where } = await terminal(ptyId);
+    .argument('[session-id]', 'session id (defaults to this one)')
+    .action(async (spec: string, sessionId?: string) => {
+      const { project, sessionId: id, taskNumber, ...where } = await session(sessionId);
       const diff = diffSpot(spec, where);
-      // A link through the task outlives the terminal.
-      if (!ptyId && taskNumber != null) return print({ kind: 'task', project, taskNumber, diff });
+      // A link through the task outlives the session.
+      if (!sessionId && taskNumber != null) return print({ kind: 'task', project, taskNumber, diff });
       print({ kind: 'terminal', project, ptyId: id, diff });
     });
 
   link
-    .command('terminal')
-    .description('A terminal')
-    .argument('[pty-id]', 'terminal session id (defaults to this terminal)')
-    .action(async (ptyId?: string) => {
-      const { project, ptyId: id } = await terminal(ptyId);
+    .command('session')
+    .description('A session: a terminal or a chat')
+    .argument('[session-id]', 'session id (defaults to this one)')
+    .action(async (sessionId?: string) => {
+      const { project, sessionId: id } = await session(sessionId);
       print({ kind: 'terminal', project, ptyId: id });
     });
 
   link
     .command('panel')
-    .description('A panel on a terminal, by id from `panel list`')
+    .description('A panel on a session, by id from `panel list`')
     .argument('<id>', 'panel id')
-    .argument('[pty-id]', 'terminal session id (defaults to this terminal)')
-    .action(async (panelId: string, ptyId?: string) => {
-      const { project, ptyId: id } = await terminal(ptyId);
+    .argument('[session-id]', 'session id (defaults to this one)')
+    .action(async (panelId: string, sessionId?: string) => {
+      const { project, sessionId: id } = await session(sessionId);
       print({ kind: 'terminal', project, ptyId: id, panelId });
     });
 

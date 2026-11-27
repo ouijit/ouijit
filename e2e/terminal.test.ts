@@ -62,9 +62,9 @@ test('clicking an ouijit:// link printed in a terminal opens what it names', asy
 });
 
 const taskTerminals = async (cli: Cli, repoPath: string, taskNumber: number): Promise<string[]> =>
-  (await cli<Array<{ ptyId: string; taskNumber?: number | null }>>('terminal list', { project: repoPath }))
+  (await cli<Array<{ sessionId: string; taskNumber?: number | null }>>('session list', { project: repoPath }))
     .filter((t) => t.taskNumber === taskNumber)
-    .map((t) => t.ptyId);
+    .map((t) => t.sessionId);
 
 const status = (appPage: Page, ptyId: string) =>
   appPage.evaluate((id) => (window as any).__terminalStore.getState().displayStates[id]?.status, ptyId);

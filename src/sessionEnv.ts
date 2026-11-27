@@ -26,7 +26,7 @@ export function ouijitSessionEnv(
 ): Record<string, string> {
   const wrapperBinDir = getWrapperBinDir();
   const env: Record<string, string> = {
-    OUIJIT_PTY_ID: sessionId,
+    OUIJIT_SESSION_ID: sessionId,
     OUIJIT_API_URL: `http://127.0.0.1:${getApiPort()}`,
     OUIJIT_API_TOKEN: token,
     OUIJIT_WRAPPER_DIR: wrapperBinDir,

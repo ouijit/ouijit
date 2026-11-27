@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import type { BrowserWindow } from 'electron';
 
 import { registerTerminalCommands } from '../../../cli/commands/terminal';
+import { registerSessionCommands } from '../../../cli/commands/session';
 import { registerPanelCommands } from '../../../cli/commands/panel';
 import { registerDiffCommands } from '../../../cli/commands/diff';
 import { startHookServer, stopHookServer } from '../../../hookServer';
@@ -83,6 +84,7 @@ async function ouijit(...args: string[]): Promise<unknown> {
   });
   const program = new Command();
   program.exitOverride();
+  registerSessionCommands(program, async () => '/p');
   registerTerminalCommands(program, async () => '/p');
   registerPanelCommands(program);
   registerDiffCommands(program, async () => '/p');
@@ -110,7 +112,7 @@ beforeEach(async () => {
   await startHookServer(window);
   vi.stubEnv('OUIJIT_API_URL', `http://127.0.0.1:${getApiPort()}`);
   vi.stubEnv('OUIJIT_API_TOKEN', issueToken('pty-a', 'host'));
-  vi.stubEnv('OUIJIT_PTY_ID', 'pty-a');
+  vi.stubEnv('OUIJIT_SESSION_ID', 'pty-a');
 });
 
 afterEach(async () => {
@@ -118,20 +120,27 @@ afterEach(async () => {
   await stopHookServer();
 });
 
-describe('ouijit terminal', () => {
-  test('reads, pastes into, opens and closes terminals, and only from the host', async () => {
-    expect(await ouijit('terminal', 'read', 'pty-a', '--lines', '40')).toEqual({
-      ptyId: 'pty-a',
+describe('ouijit session', () => {
+  test('lists, reads, pastes into and closes sessions, opens a terminal, and only from the host', async () => {
+    expect(await ouijit('session', 'list', '--task', '4')).toEqual([
+      expect.objectContaining({ sessionId: 'pty-a', kind: 'terminal', taskNumber: 4, sandbox: 'host' }),
+    ]);
+    expect(await ouijit('session', 'list', '--task', '5')).toEqual([]);
+    expect(await ouijit('session', 'read', 'pty-a', '--lines', '40')).toEqual({
+      sessionId: 'pty-a',
       text: '3 failing',
       alternateScreen: false,
     });
-    expect(await ouijit('terminal', 'paste', 'pty-a', 'run the tests again')).toEqual({ ptyId: 'pty-a', pasted: true });
-    await expect(ouijit('terminal', 'paste', 'pty-a', 'one\ntwo')).rejects.toThrow(/send one line/);
+    expect(await ouijit('session', 'paste', 'pty-a', 'run the tests again')).toEqual({
+      sessionId: 'pty-a',
+      pasted: true,
+    });
+    await expect(ouijit('session', 'paste', 'pty-a', 'one\ntwo')).rejects.toThrow(/send one line/);
 
     expect(await ouijit('terminal', 'open', '--task', '4', '--resume', '--sandbox', 'host')).toEqual(
-      expect.objectContaining({ ptyId: 'pty-new', projectPath: '/p', taskNumber: 4 }),
+      expect.objectContaining({ sessionId: 'pty-new', projectPath: '/p', taskNumber: 4 }),
     );
-    expect(await ouijit('terminal', 'close', 'pty-new')).toEqual({ ptyId: 'pty-new', closed: true });
+    expect(await ouijit('session', 'close', 'pty-new')).toEqual({ sessionId: 'pty-new', closed: true });
     expect(renderer.terminalOps).toEqual([
       expect.objectContaining({ action: 'read', ptyId: 'pty-a', lines: 40 }),
       expect.objectContaining({ action: 'paste', text: 'run the tests again' }),
@@ -139,13 +148,13 @@ describe('ouijit terminal', () => {
       expect.objectContaining({ action: 'open', projectPath: '/p', taskNumber: 4, resume: true, sandbox: 'none' }),
       expect.objectContaining({ action: 'close', ptyId: 'pty-new' }),
     ]);
-    await expect(ouijit('terminal', 'read', 'pty-gone')).rejects.toThrow(/not found/);
+    await expect(ouijit('session', 'read', 'pty-gone')).rejects.toThrow(/not found/);
 
-    // A sandbox reads its own screen; another terminal's, and typing into any, are the host's.
+    // A sandbox reads its own screen; another session's, and typing into any, are the host's.
     vi.stubEnv('OUIJIT_API_TOKEN', issueToken('pty-a', 'sandbox'));
-    expect(await ouijit('terminal', 'read', 'pty-a')).toEqual(expect.objectContaining({ ptyId: 'pty-a' }));
-    await expect(ouijit('terminal', 'read', 'pty-new')).rejects.toThrow(/Forbidden/);
-    await expect(ouijit('terminal', 'paste', 'pty-a', 'hi')).rejects.toThrow(/Forbidden/);
+    expect(await ouijit('session', 'read', 'pty-a')).toEqual(expect.objectContaining({ sessionId: 'pty-a' }));
+    await expect(ouijit('session', 'read', 'pty-new')).rejects.toThrow(/Forbidden/);
+    await expect(ouijit('session', 'paste', 'pty-a', 'hi')).rejects.toThrow(/Forbidden/);
   });
 });
 
@@ -159,7 +168,7 @@ describe('ouijit panel and diff', () => {
     await ouijit('panel', 'list');
     await ouijit('panel', 'focus', 'panel-2', 'pty-a');
     await ouijit('panel', 'close', 'panel-2');
-    expect(await ouijit('diff', 'open')).toEqual({ ptyId: 'pty-a', panels: [], diffOpen: true });
+    expect(await ouijit('diff', 'open')).toEqual({ sessionId: 'pty-a', panels: [], diffOpen: true });
     await ouijit('diff', 'close');
 
     expect(renderer.panelOps.map((op) => (({ requestId: _, ...rest }) => rest)(op as CliPanelOp))).toEqual([
