@@ -1,5 +1,5 @@
 /**
- * URL utilities for the web preview panel.
+ * URL utilities for the browser panel.
  *
  * Kept separate so they can be unit-tested without pulling in React or
  * the Electron <webview> element.

@@ -74,7 +74,7 @@ export const DOC_PAGES: DocPage[] = [
     slug: 'panels',
     label: 'Panels',
     href: '/docs/panels/',
-    description: 'Runner, web preview, and markdown panels attached to a terminal as tabs.',
+    description: 'Runner, browser, and markdown panels attached to a terminal as tabs.',
     group: 'Using the app',
   },
   {

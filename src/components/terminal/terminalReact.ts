@@ -30,7 +30,7 @@ import { generateId } from '../../utils/ids';
 import { useTerminalStore, type TerminalStatus } from '../../stores/terminalStore';
 import { diffBaseSettingKey } from '../../diffSource';
 import { parseOsc133ExitCodes } from './osc133';
-import type { TerminalPanel, RunnerPanel, WebPreviewPanel } from './panelTypes';
+import type { TerminalPanel, RunnerPanel, BrowserPanel } from './panelTypes';
 import { terminalInstances } from './terminalRegistry';
 import type { RegisteredTerminal, RunnerPanelScript } from './terminalTypes';
 
@@ -437,7 +437,7 @@ export class OuijitTerminal implements RegisteredTerminal {
    *  133;D path and the PTY-exit path fire for the same successful command. */
   private autoCloseScheduled = false;
 
-  // ── Panels (runner / web preview / plan / diff) ────────────────────
+  // ── Panels (runner / browser / plan / diff) ────────────────────
   // An ordered tab list; one is active at a time. Runner/preview/plan can have
   // multiple instances, diff is limited to one.
   panels: TerminalPanel[] = [];
@@ -864,11 +864,11 @@ export class OuijitTerminal implements RegisteredTerminal {
     return id;
   }
 
-  addWebPreviewPanel(url: string | null = null, opts?: { activate?: boolean; replacing?: string }): string {
+  addBrowserPanel(url: string | null = null, opts?: { activate?: boolean; replacing?: string }): string {
     const id = generateId('panel');
-    const panel: WebPreviewPanel = {
+    const panel: BrowserPanel = {
       id,
-      kind: 'webPreview',
+      kind: 'browser',
       url: url || null,
     };
     this.appendPanel(panel, opts?.activate ?? true, opts?.replacing);

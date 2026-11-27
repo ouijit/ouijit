@@ -221,7 +221,7 @@ const createWindow = (): BrowserWindow => {
     return { action: 'deny' };
   });
 
-  // Lock down <webview> elements used for web preview panels. We strip node
+  // Lock down <webview> elements used for browser panels. We strip node
   // integration, disable the preload script, and prevent new window spawns so
   // an embedded dev server page can't escape the sandbox.
   window.webContents.on('will-attach-webview', (_event, webPreferences, params) => {

@@ -89,8 +89,8 @@ vi.mock('../../components/terminal/terminalReact', () => {
     addPlanPanel(planPath: string) {
       return this.append({ kind: 'plan', planPath });
     }
-    addWebPreviewPanel(url: string) {
-      return this.append({ kind: 'webPreview', url });
+    addBrowserPanel(url: string) {
+      return this.append({ kind: 'browser', url });
     }
     updatePanel(id: string, patch: Record<string, unknown>) {
       Object.assign(this.panels.find((p) => p.id === id) ?? {}, patch);

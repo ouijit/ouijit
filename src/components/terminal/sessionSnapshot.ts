@@ -45,8 +45,8 @@ export function uiFor(term: RegisteredTerminal): SnapshotTerminalUi {
           ...(p.shell && { shell: true }),
         });
         break;
-      case 'webPreview':
-        if (p.url) panels.push({ kind: 'webPreview', url: p.url });
+      case 'browser':
+        if (p.url) panels.push({ kind: 'browser', url: p.url });
         break;
       case 'plan':
         panels.push({ kind: 'plan', planPath: p.planPath });

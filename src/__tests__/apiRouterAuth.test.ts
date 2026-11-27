@@ -357,9 +357,9 @@ describe('panel scope', () => {
     expect(res.status).toBe(200);
   });
 
-  test('host token can POST a preview panel', async () => {
+  test('host token can POST a browser panel', async () => {
     const token = issueToken('pty-42', 'host');
-    const res = await request('POST', '/api/panels/pty-42/preview', token, { url: 'http://localhost:3000' });
+    const res = await request('POST', '/api/panels/pty-42/browser', token, { url: 'http://localhost:3000' });
     expect(res.status).toBe(200);
   });
 });

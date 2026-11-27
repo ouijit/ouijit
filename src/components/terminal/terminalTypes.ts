@@ -61,7 +61,7 @@ export interface RegisteredTerminal {
   deactivatePanel(): void;
   setPanelFullWidth(fullWidth: boolean): void;
   addRunnerPanel(script?: RunnerPanelScript | null, activate?: boolean, replacing?: string): string;
-  addWebPreviewPanel(url?: string | null, opts?: { activate?: boolean; replacing?: string }): string;
+  addBrowserPanel(url?: string | null, opts?: { activate?: boolean; replacing?: string }): string;
   addPlanPanel(planPath: string, activate?: boolean, replacing?: string): string;
   addNewTabPanel(): string;
   setDiffPanelOpen(open: boolean): void;

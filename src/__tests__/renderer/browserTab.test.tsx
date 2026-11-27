@@ -1,28 +1,28 @@
 import { test, expect } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { WebPreviewPanel } from '../../components/webPreview/WebPreviewPanel';
+import { BrowserPanel } from '../../components/browser/BrowserPanel';
 import { PanelBar } from '../../components/terminal/PanelTabs';
 import { DEFAULT_DISPLAY_STATE, useTerminalStore } from '../../stores/terminalStore';
-import type { WebPreviewPanel as Preview } from '../../components/terminal/panelTypes';
+import type { BrowserPanel as Browser } from '../../components/terminal/panelTypes';
 
-const PTY = 'pty-preview';
+const PTY = 'pty-browser';
 
-test("a preview's tab is named for the page and wears its icon through a navigation, and a page without one goes back to the globe", () => {
-  const panel: Preview = { id: 'panel-1', kind: 'webPreview', url: 'http://localhost:4321/writing' };
+test('a browser tab is named for the page and wears its icon through a navigation, and a page without one goes back to the globe', () => {
+  const panel: Browser = { id: 'panel-1', kind: 'browser', url: 'http://localhost:4321/writing' };
   useTerminalStore.getState().addTerminal('/code/site', PTY, {
     ...DEFAULT_DISPLAY_STATE,
     ptyId: PTY,
     panels: [panel],
     activePanelId: panel.id,
   });
-  const update = (info: Partial<Preview>) => {
-    const [current] = useTerminalStore.getState().displayStates[PTY].panels as Preview[];
+  const update = (info: Partial<Browser>) => {
+    const [current] = useTerminalStore.getState().displayStates[PTY].panels as Browser[];
     useTerminalStore.getState().updateDisplay(PTY, { panels: [{ ...current, ...info }] });
   };
   const { container } = render(
     <>
       <PanelBar ptyId={PTY} />
-      <WebPreviewPanel ptyId={PTY} panelId={panel.id} url={panel.url!} onChangeUrl={() => {}} onPageInfo={update} />
+      <BrowserPanel ptyId={PTY} panelId={panel.id} url={panel.url!} onChangeUrl={() => {}} onPageInfo={update} />
     </>,
   );
   const webview = container.querySelector('webview')!;

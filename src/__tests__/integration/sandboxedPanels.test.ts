@@ -130,28 +130,28 @@ describe('a panel a sandboxed terminal adds', () => {
 
     // Its own machine's pages open at once.
     for (const url of ['http://localhost:3000', 'http://127.0.0.1:8080/x', 'http://[::1]:5173']) {
-      expect((await add(token, sandboxed, 'preview', { url })).status).toBe(200);
-      expect(panelOps()).toMatchObject([{ action: 'add', kind: 'preview', value: url }]);
+      expect((await add(token, sandboxed, 'browser', { url })).status).toBe(200);
+      expect(panelOps()).toMatchObject([{ action: 'add', kind: 'browser', value: url }]);
     }
 
     // Any other page waits, showing the url, and opens only once the user presses Open.
-    const page = await add(token, sandboxed, 'preview', { url: 'https://example.com/admin' });
+    const page = await add(token, sandboxed, 'browser', { url: 'https://example.com/admin' });
     expect(page.data).toMatchObject({ status: 'pending' });
     expect(panelOps()).toEqual([]);
     const open = decisions().find((d) => d.ask.url === 'https://example.com/admin')!;
     expect(open).toMatchObject({ from: sandboxed, ask: { command: 'https://example.com/admin' } });
     await decide(open.id, { kind: 'run' });
-    expect(await until(() => panelOps()[0], 'the preview')).toMatchObject({
+    expect(await until(() => panelOps()[0], 'the browser tab')).toMatchObject({
       ptyId: sandboxed,
-      kind: 'preview',
+      kind: 'browser',
       value: 'https://example.com/admin',
     });
-    await add(token, sandboxed, 'preview', { url: 'https://example.org' });
+    await add(token, sandboxed, 'browser', { url: 'https://example.org' });
     await decide(decisions().find((d) => d.ask.url === 'https://example.org')!.id, { kind: 'decline' });
     expect(panelOps()).toEqual([]);
 
     // It still adds only to its own terminal.
-    expect((await add(token, host, 'preview', { url: 'http://localhost:3000' })).status).toBe(403);
+    expect((await add(token, host, 'browser', { url: 'http://localhost:3000' })).status).toBe(403);
     expect((await add(token, host, 'runner', { script: 'Dev' })).status).toBe(403);
     expect(decisions()).toEqual([]);
   });
@@ -164,8 +164,8 @@ describe('a panel a sandboxed terminal adds', () => {
     expect(panelOps()[0].sandbox).toBe('none');
     expect((await add(token, host, 'runner', { script: 'Dev', sandbox: 'custom' })).status).toBe(200);
     expect(panelOps()[0].sandbox).toEqual({ provider: 'custom', settings: repo });
-    expect((await add(token, sandboxed, 'preview', { url: 'https://example.com' })).status).toBe(200);
-    expect(panelOps()).toMatchObject([{ ptyId: sandboxed, kind: 'preview', value: 'https://example.com' }]);
+    expect((await add(token, sandboxed, 'browser', { url: 'https://example.com' })).status).toBe(200);
+    expect(panelOps()).toMatchObject([{ ptyId: sandboxed, kind: 'browser', value: 'https://example.com' }]);
     expect(decisions()).toEqual([]);
   });
 });

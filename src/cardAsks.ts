@@ -41,7 +41,7 @@ export function holdCardAsk(
 export function holdOpen(from: string, onto: string, url: string, cwd: string, message: string | undefined): void {
   hold({ kind: 'ask', from, ask: { command: url, cwd, url }, ...(message && { message }) }, async (choice) => {
     if (choice.kind === 'decline') return;
-    const opened = await cliPanelRequest({ ptyId: onto, action: 'add', kind: 'preview', value: url });
+    const opened = await cliPanelRequest({ ptyId: onto, action: 'add', kind: 'browser', value: url });
     if (!opened.ok) cardAsksLog.warn('approved preview did not open', { from, error: opened.error });
   });
 }

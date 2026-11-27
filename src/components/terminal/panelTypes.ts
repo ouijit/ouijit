@@ -1,6 +1,6 @@
 /**
  * Terminal panel model. A terminal owns an ordered list of user-managed panels
- * (runner, web preview, plan, or a new tab yet to be one) shown as tabs, displaying one at a time as the
+ * (runner, browser, plan, or a new tab yet to be one) shown as tabs, displaying one at a time as the
  * active panel. Each type can have multiple instances.
  *
  * The diff view is intentionally NOT a panel here — it's an automatic,
@@ -13,7 +13,7 @@
 
 import type { SandboxPlacement } from '../../sandbox/types';
 
-export type PanelKind = 'runner' | 'webPreview' | 'plan' | 'newTab';
+export type PanelKind = 'runner' | 'browser' | 'plan' | 'newTab';
 
 export type RunnerStatus = 'running' | 'success' | 'error' | 'idle';
 
@@ -50,9 +50,9 @@ export interface RunnerPanel {
   exitCode?: number | null;
 }
 
-export interface WebPreviewPanel {
+export interface BrowserPanel {
   id: string;
-  kind: 'webPreview';
+  kind: 'browser';
   url: string | null;
   /** As the page last reported them, for its tab. */
   title?: string;
@@ -71,13 +71,13 @@ export interface NewTabPanel {
   kind: 'newTab';
 }
 
-export type TerminalPanel = RunnerPanel | WebPreviewPanel | PlanPanel | NewTabPanel;
+export type TerminalPanel = RunnerPanel | BrowserPanel | PlanPanel | NewTabPanel;
 
 export function panelIcon(panel: TerminalPanel): string {
   switch (panel.kind) {
     case 'runner':
       return 'terminal';
-    case 'webPreview':
+    case 'browser':
       return 'globe-simple';
     case 'plan':
       return 'file-text';
@@ -86,8 +86,8 @@ export function panelIcon(panel: TerminalPanel): string {
   }
 }
 
-/** Short host[:port] for a preview URL, or the raw string if it won't parse. */
-function previewHostLabel(url: string): string {
+/** Short host[:port] for a browser URL, or the raw string if it won't parse. */
+function hostLabel(url: string): string {
   try {
     return new URL(url).host || url;
   } catch {
@@ -99,8 +99,8 @@ export function panelLabel(panel: TerminalPanel): string {
   switch (panel.kind) {
     case 'runner':
       return panel.scriptName || panel.command || 'Runner';
-    case 'webPreview':
-      return panel.title || (panel.url ? previewHostLabel(panel.url) : 'Preview');
+    case 'browser':
+      return panel.title || (panel.url ? hostLabel(panel.url) : 'Browser');
     case 'plan':
       return panel.planPath.split('/').pop() ?? 'Markdown File';
     case 'newTab':

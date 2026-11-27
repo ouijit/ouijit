@@ -481,7 +481,7 @@ async function addSandboxedPanel(r: ParsedRequest, ptyId: string, kind: CliPanel
     }
     return runPanelOp(ptyId, 'add', kind, value);
   }
-  if (kind === 'preview') {
+  if (kind === 'browser') {
     if (LOOPBACK_HOSTS.has(new URL(value).hostname)) return runPanelOp(ptyId, 'add', kind, value);
     const ctx = callerContext(r);
     holdOpen(r.auth.ptyId, ptyId, value, ctx.worktreePath || ctx.projectPath, askMessage(r));
@@ -680,8 +680,8 @@ function draftInput(body: Record<string, unknown>): {
 // ── Panel route helpers ──────────────────────────────────────────────
 
 function parsePanelKind(segment: string): CliPanelKind {
-  if (segment === 'markdown' || segment === 'preview' || segment === 'runner') return segment;
-  throw new HttpError(404, `Unknown panel kind '${segment}' (expected 'markdown', 'preview' or 'runner')`);
+  if (segment === 'markdown' || segment === 'browser' || segment === 'runner') return segment;
+  throw new HttpError(404, `Unknown panel kind '${segment}' (expected 'markdown', 'browser' or 'runner')`);
 }
 
 /**
@@ -707,7 +707,7 @@ function panelValue(kind: CliPanelKind, rawPath?: unknown, rawUrl?: unknown, raw
     throw new HttpError(400, `Invalid url: ${rawUrl}`);
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new HttpError(400, 'Preview url must be http(s)');
+    throw new HttpError(400, 'A browser url must be http(s)');
   }
   return rawUrl;
 }
@@ -1915,7 +1915,7 @@ const routes: Route[] = [
 
   // ── Panels ────────────────────────────────────────────────────────
   // A sandbox may list its own terminal's panels and read them, and attach
-  // markdown from its worktree. Previews and runners stay the host's: one loads
+  // markdown from its worktree. Browser tabs and runners stay the host's: one loads
   // any URL in this window, the other runs a script on the host.
   route('GET', 'panels/:ptyId', (r) => runTerminalPanelsOp(r.segments[1], 'list-all'), false, OWN_TERMINAL),
 

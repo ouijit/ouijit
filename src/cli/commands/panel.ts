@@ -29,7 +29,7 @@ Examples:
 
   panel
     .command('list')
-    .description("List a terminal's panels: markdown, preview and runner")
+    .description("List a terminal's panels: markdown, browser and runner")
     .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
     .action(async (explicitPtyId?: string) => {
       printJson(await get(panelsUrl(resolvePtyId(explicitPtyId))));
@@ -38,7 +38,7 @@ Examples:
   panel
     .command('read')
     .description(
-      "Show a runner's screen as text, with its status and exit code; a markdown or preview panel's path or url",
+      "Show a runner's screen as text, with its status and exit code; a markdown or browser panel's path or url",
     )
     .argument('<id>', 'a panel id from `panel list`')
     .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')

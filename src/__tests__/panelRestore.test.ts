@@ -70,7 +70,7 @@ describe('applyInitialUiState', () => {
 
   test('drops a legacy auto-detected preview with no url cleanly', async () => {
     const term = makeFakeTerm();
-    await applyInitialUiState(term, { webPreview: null });
+    await applyInitialUiState(term, { browser: null });
     expect(term.panels).toEqual([]);
     expect(term.activePanelId).toBeNull();
   });

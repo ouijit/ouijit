@@ -7,7 +7,7 @@ import { ChatView } from '../chat/ChatView';
 import { RunnerPanel } from './RunnerPanel';
 import { DiffPanel } from '../diff/DiffPanel';
 import { PlanPanel } from '../plan/PlanPanel';
-import { WebPreviewPanel } from '../webPreview/WebPreviewPanel';
+import { BrowserPanel } from '../browser/BrowserPanel';
 import { WaitingDialog } from '../waiting/WaitingDialog';
 import { useTerminalPanels } from './useTerminalPanels';
 import { MainPaneCorner, PanelBar } from './PanelTabs';
@@ -56,11 +56,11 @@ export function TerminalBody({ ptyId, projectPath, page }: TerminalBodyProps) {
   // that has gone counts as an empty slot.
   const slotKey = diffPanelOpen ? 'diff' : (activePanel?.id ?? null);
   const slotOpen = slotKey !== null;
-  // A page loaded in a preview is kept while its tab is in the background or
+  // A page loaded in a browser tab is kept while its tab is in the background or
   // the side is hidden: a <webview> taken out of the document drops its page,
   // and one moved to another parent reloads it.
-  const previews = panels.filter((p) => p.kind === 'webPreview');
-  const slotMounted = slotOpen || previews.length > 0;
+  const browsers = panels.filter((p) => p.kind === 'browser');
+  const slotMounted = slotOpen || browsers.length > 0;
   const split = slotOpen && !panelFullWidth;
 
   const instance = terminalInstances.get(ptyId);
@@ -243,20 +243,20 @@ export function TerminalBody({ ptyId, projectPath, page }: TerminalBodyProps) {
             ) : (
               activePanel && <PanelBar ptyId={ptyId} />
             )}
-            {!diffPanelOpen && activePanel && activePanel.kind !== 'webPreview' && (
+            {!diffPanelOpen && activePanel && activePanel.kind !== 'browser' && (
               <ActivePanel ptyId={ptyId} panel={activePanel} ops={ops} />
             )}
-            {previews.map((panel) => (
+            {browsers.map((panel) => (
               <div
                 key={panel.id}
                 className="flex flex-col flex-1 min-h-0"
                 style={!diffPanelOpen && panel.id === activePanel?.id ? undefined : HIDDEN_PREVIEW}
               >
-                <WebPreviewPanel
+                <BrowserPanel
                   ptyId={ptyId}
                   panelId={panel.id}
                   url={panel.url ?? ''}
-                  onChangeUrl={(url) => ops.changeWebPreviewUrl(panel.id, url)}
+                  onChangeUrl={(url) => ops.changeBrowserUrl(panel.id, url)}
                   onPageInfo={(info) => terminalInstances.get(ptyId)?.updatePanel(panel.id, info)}
                 />
               </div>
@@ -308,7 +308,7 @@ function ActivePanel({
           onKill={() => ops.killRunner(panel.id)}
         />
       );
-    case 'webPreview':
+    case 'browser':
       return null;
     case 'plan':
       return <PlanPanel ptyId={ptyId} panelId={panel.id} planPath={panel.planPath} />;

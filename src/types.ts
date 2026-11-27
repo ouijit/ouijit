@@ -176,7 +176,7 @@ export type {
 export const SNAPSHOT_KEY = 'lastSession:snapshot';
 
 export interface SnapshotPanel {
-  kind: 'runner' | 'webPreview' | 'plan';
+  kind: 'runner' | 'browser' | 'plan';
   /** runner */
   scriptName?: string | null;
   scriptCommand?: string | null;
@@ -187,7 +187,7 @@ export interface SnapshotPanel {
   env?: Record<string, string>;
   private?: boolean;
   shell?: boolean;
-  /** webPreview (only user-set URLs are persisted) */
+  /** browser (only user-set URLs are persisted) */
   url?: string | null;
   /** plan */
   planPath?: string | null;
@@ -210,7 +210,7 @@ export interface SnapshotTerminalUi {
   // ── Legacy singleton fields (kept optional for back-compat) ──────────
   planPath?: string | null;
   planPanelOpen?: boolean;
-  webPreview?: {
+  browser?: {
     url: string | null;
     panelOpen: boolean;
     fullWidth: boolean;
@@ -695,7 +695,7 @@ export interface ElectronAPI {
   /** CLI agent hook events (claude/codex/pi/opencode) */
   agentHooks: AgentHooksAPI;
   plan: PlanAPI;
-  /** CLI-driven terminal panel ops (markdown / web preview) */
+  /** CLI-driven terminal panel ops (markdown, browser, runner) */
   cliPanels: CliPanelsAPI;
   /** CLI-driven terminal tag ops */
   cliTags: CliTagsAPI;
@@ -955,7 +955,7 @@ export interface PlanAPI {
 
 /**
  * CLI-driven terminal panel operations. The CLI (and agents) can add, list, and
- * remove the two user-addressable panel kinds — markdown files and web previews
+ * remove the two user-addressable panel kinds — markdown files and browser tabs
  * — on a given terminal. The renderer owns the live panel list, so these ops are
  * a request/response bridge: the main process forwards the op to the renderer,
  * which mutates the terminal and replies with the resulting panel set.
@@ -963,7 +963,7 @@ export interface PlanAPI {
  * A terminal's panel kind is `'plan'` internally; the CLI surfaces it as
  * `'markdown'` to match the UI's "Markdown File" tab.
  */
-export type CliPanelKind = 'markdown' | 'preview' | 'runner';
+export type CliPanelKind = 'markdown' | 'browser' | 'runner';
 
 /** A single panel as reported back to the CLI. */
 export interface CliPanelInfo {
@@ -974,7 +974,7 @@ export interface CliPanelInfo {
   label: string;
   /** Absolute file path — markdown panels only. */
   path?: string;
-  /** Preview URL — preview panels only. */
+  /** URL — browser panels only. */
   url?: string;
   /** Script name — runner panels only. */
   script?: string;
@@ -994,7 +994,7 @@ export interface CliPanelOp {
    */
   action: 'list' | 'add' | 'remove' | 'list-all' | 'focus' | 'diff-open' | 'diff-close' | 'read';
   kind?: CliPanelKind;
-  /** Absolute path (markdown), URL (preview) or script id or name (runner) for add/remove; a panel id for focus and read. */
+  /** Absolute path (markdown), URL (browser) or script id or name (runner) for add/remove; a panel id for focus and read. */
   value?: string;
   /** read: how many lines of a runner's screen. */
   lines?: number;
@@ -1027,7 +1027,7 @@ export interface CliPanelResponse {
   /** The terminal's panels after the op ran: of the op's kind, or all of them. */
   panels?: CliPanelInfo[];
   diffOpen?: boolean;
-  /** read: a runner's screen, or where a markdown or preview panel points. */
+  /** read: a runner's screen, or where a markdown or browser panel points. */
   read?: CliPanelRead;
 }
 

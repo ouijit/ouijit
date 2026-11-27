@@ -90,7 +90,7 @@ export interface CaptureNavigatePayload {
     linear: LinearAvailability;
     linearGroups: LinearIssueGroups;
   };
-  /** URL and terminal for the web preview panel — only consumed by the preview scene */
+  /** URL and terminal for the browser panel — only consumed by the preview scene */
   previewUrl?: string;
   previewPtyId?: string;
   /** Theme rendered for this shot (via previewTheme, never persisted) */

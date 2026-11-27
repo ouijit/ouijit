@@ -68,10 +68,10 @@ export function useTerminalPanels(ptyId: string | null) {
     [ptyId],
   );
 
-  const addWebPreviewPanel = useCallback(
+  const addBrowserPanel = useCallback(
     (url?: string) => {
       withInstance((instance) => {
-        instance.addWebPreviewPanel(url ?? null);
+        instance.addBrowserPanel(url ?? null);
         requestAnimationFrame(() => instance.fit());
       });
     },
@@ -105,7 +105,7 @@ export function useTerminalPanels(ptyId: string | null) {
     [withInstance],
   );
 
-  const changeWebPreviewUrl = useCallback(
+  const changeBrowserUrl = useCallback(
     (panelId: string, newUrl: string) => {
       withInstance((instance) => instance.updatePanel(panelId, { url: newUrl }));
     },
@@ -138,11 +138,11 @@ export function useTerminalPanels(ptyId: string | null) {
     minimizePanel,
     setPanelFullWidth,
     addRunnerPanel,
-    addWebPreviewPanel,
+    addBrowserPanel,
     addPlanPanel,
     addNewTab,
     changePlanFile,
-    changeWebPreviewUrl,
+    changeBrowserUrl,
     restartRunner,
     killRunner,
   };

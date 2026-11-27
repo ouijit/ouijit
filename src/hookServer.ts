@@ -374,7 +374,7 @@ ouijit chat follow <task-or-chat>             # Chat only: hear what happens to 
 ouijit chat unfollow <task-or-chat>           # Chat only: stop hearing about it
 ouijit chat following                         # Chat only: → [{task, project, name, status} | {chat, label, status}]
 
-A chat card has a pty-id like any terminal, so tag, markdown and preview commands
+A chat card has a pty-id like any terminal, so tag, markdown and browser commands
 reach it the same way. A chat cannot answer its own requests; opening, sending,
 answering and interrupting need a host terminal.
 
@@ -502,10 +502,10 @@ ouijit markdown add <path.md>                 # open a markdown file panel on th
 ouijit markdown list                          # → {ptyId, kind, panels: [{id, label, path, active}, ...]}
 ouijit markdown remove <path.md>              # close that markdown panel
 
-## Web Preview Commands (open a URL as a tab in this terminal)
-ouijit preview add <url> [-m "<why>"]         # open a web preview panel (http/https) on this terminal
-ouijit preview list                           # → {ptyId, kind, panels: [{id, label, url, active}, ...]}
-ouijit preview remove <url>                   # close that preview panel
+## Browser Commands (open a URL as a tab in this terminal)
+ouijit browser add <url> [-m "<why>"]         # open a browser tab (http/https) on this terminal
+ouijit browser list                           # → {ptyId, kind, panels: [{id, label, url, active}, ...]}
+ouijit browser remove <url>                   # close that browser tab
 
 ## Runner Commands (run a project script in a tab on this terminal)
 ouijit runner add <script>                    # by id or name from script list, in the project's default sandbox
@@ -514,8 +514,8 @@ ouijit runner shell [--sandbox host|nono|custom] [-m "<why>"]   # a shell to typ
 ouijit runner list                            # → {ptyId, kind, panels: [{id, label, script, active}, ...]}
 ouijit runner remove <script>                 # close it, stopping the script; a shell is "Shell"
 
-From a sandbox, a runner runs in that sandbox, and a preview of localhost,
-127.0.0.1 or [::1] opens at once. A runner with --sandbox host, or a preview of
+From a sandbox, a runner runs in that sandbox, and a browser tab on localhost,
+127.0.0.1 or [::1] opens at once. A runner with --sandbox host, or a browser tab on
 any other page, waits for the user to press Run or Open, as an ask does, and
 the reply is pending until then. A runner or shell asked for anywhere but that
 sandbox waits for the user the same way: Run or Open, or privately, when the
@@ -525,7 +525,7 @@ opened for this terminal's ask.
 
 ## Panel Commands (every kind of tab on a terminal)
 ouijit panel list [pty-id]                    # → {ptyId, panels: [{id, kind, label, active, ...}], diffOpen}
-ouijit panel read <id> [pty-id] [--lines <n>] # a runner → {kind, text, status, exitCode}; markdown → {path}; preview → {url}
+ouijit panel read <id> [pty-id] [--lines <n>] # a runner → {kind, text, status, exitCode}; markdown → {path}; browser → {url}
 ouijit panel focus <id> [pty-id]              # bring one forward; focus terminal shows the terminal itself
 
 ## Project Commands
@@ -549,7 +549,7 @@ A sandboxed terminal reaches Ouijit in its own project, at that project's CLI ac
 - View, the default (Whole board for Chat): its own task (task current, task get), diff notes,
   link, ask, pr list and view, pr and linear drafts, pr lenses, linear list
   and view. On this terminal: terminal read, tags, panel list and read,
-  markdown add and remove for files in its worktree, and runner and preview
+  markdown add and remove for files in its worktree, and runner and browser
   panels as above.
 - Own task: also task set-status, set-name and set-description on its own
   task, pr link and issue link to it, and task create for a to-do card.

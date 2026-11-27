@@ -40,7 +40,7 @@ function snapTerminal(over: Partial<SnapshotTerminal>): SnapshotTerminal {
     label: null,
     ordinalInProject: 0,
     isActiveInProject: false,
-    ui: { planPath: null, webPreview: null, runner: null },
+    ui: { planPath: null, browser: null, runner: null },
     ...over,
   };
 }

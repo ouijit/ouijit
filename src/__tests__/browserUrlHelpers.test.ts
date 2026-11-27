@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeUrl } from '../components/webPreview/urlHelpers';
+import { normalizeUrl } from '../components/browser/urlHelpers';
 
 describe('normalizeUrl', () => {
   it('returns empty string for blank input', () => {

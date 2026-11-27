@@ -311,13 +311,13 @@ ouijit markdown add ./plan.md pty_abc123      # explicit pty id
 ouijit markdown list
 ouijit markdown remove ./plan.md</code></pre>
 
-  <h2>Web preview panels</h2>
-  <pre class="glass-bevel"><code>ouijit preview add http://localhost:3000      # uses current OUIJIT_PTY_ID
-ouijit preview add http://localhost:3000 pty_abc123
-ouijit preview list
-ouijit preview remove http://localhost:3000</code></pre>
+  <h2>Browser tabs</h2>
+  <pre class="glass-bevel"><code>ouijit browser add http://localhost:3000      # uses current OUIJIT_PTY_ID
+ouijit browser add http://localhost:3000 pty_abc123
+ouijit browser list
+ouijit browser remove http://localhost:3000</code></pre>
   <p>
-    From a sandbox, a preview of <code>localhost</code>, <code>127.0.0.1</code> or <code>[::1]</code> opens at once.
+    From a sandbox, a browser tab on <code>localhost</code>, <code>127.0.0.1</code> or <code>[::1]</code> opens at once.
     Any other page waits for you to press <strong>Open</strong>, with <code>-m "&lt;why&gt;"</code> shown beside it.
   </p>
 

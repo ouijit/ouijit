@@ -8,7 +8,7 @@ import { TERMINAL_READY_WAIT_MS, type CliPanelOp, type CliPanelResponse } from '
 
 type Panel = {
   id: string;
-  kind: 'plan' | 'webPreview' | 'runner';
+  kind: 'plan' | 'browser' | 'runner';
   planPath?: string;
   url?: string;
   scriptName?: string;
@@ -38,9 +38,9 @@ class FakeTerminal {
     return this.append({ id: `panel-${this.nextId++}`, kind: 'plan', planPath }, activate);
   }
 
-  addWebPreviewPanel(url: string | null = null, opts?: { activate?: boolean }): string {
+  addBrowserPanel(url: string | null = null, opts?: { activate?: boolean }): string {
     return this.append(
-      { id: `panel-${this.nextId++}`, kind: 'webPreview', url: url ?? undefined },
+      { id: `panel-${this.nextId++}`, kind: 'browser', url: url ?? undefined },
       opts?.activate ?? true,
     );
   }
@@ -112,22 +112,22 @@ describe('CLI panel listener', () => {
     });
 
     // A second add of the same file surfaces the panel it already has.
-    await run({ ptyId: 'pty-home', action: 'add', kind: 'preview', value: 'http://localhost:3000' });
+    await run({ ptyId: 'pty-home', action: 'add', kind: 'browser', value: 'http://localhost:3000' });
     await run({ ptyId: 'pty-home', action: 'add', kind: 'markdown', value: '/notes.md' });
     expect(term.panels).toHaveLength(2);
     expect(term.activePanelId).toBe('panel-1');
 
     // Listing is scoped to the kind asked for.
-    const listed = await run({ ptyId: 'pty-home', action: 'list', kind: 'preview' });
+    const listed = await run({ ptyId: 'pty-home', action: 'list', kind: 'browser' });
     expect(listed.panels).toEqual([
-      { id: 'panel-2', kind: 'preview', label: 'localhost:3000', url: 'http://localhost:3000', active: false },
+      { id: 'panel-2', kind: 'browser', label: 'localhost:3000', url: 'http://localhost:3000', active: false },
     ]);
 
     expect(await run({ ptyId: 'pty-home', action: 'remove', kind: 'markdown', value: '/notes.md' })).toEqual({
       ok: true,
       panels: [],
     });
-    expect(term.panels.map((p) => p.kind)).toEqual(['webPreview']);
+    expect(term.panels.map((p) => p.kind)).toEqual(['browser']);
 
     const gone = await run({ ptyId: 'pty-home', action: 'remove', kind: 'markdown', value: '/notes.md' });
     expect(gone.ok).toBe(false);

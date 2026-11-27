@@ -4,21 +4,21 @@ import Docs from '../../layouts/Docs.astro';
 <Docs slug="panels">
   <h1>Panels</h1>
   <p class="lead">
-    Attach panels to a terminal as tabs: a runner for long-running commands, web previews, and rendered markdown
+    Attach panels to a terminal as tabs: a runner for long-running commands, browser tabs, and rendered markdown
     files. A plan can open right beside the agent working from it.
   </p>
 
   <h2>Open a panel</h2>
   <p>
     Click the <strong>+</strong> button in a terminal's header. The menu lists <strong>Run</strong> (when a
-    <a href="/docs/hooks/">run command</a> is configured), each project script, <strong>Web Preview</strong>, and
+    <a href="/docs/hooks/">run command</a> is configured), each project script, <strong>Browser</strong>, and
     <strong>Markdown File</strong>. Panels open as tabs, and a terminal can hold several of each kind. Tabs shrink
     like browser tabs when crowded. Clicking the active tab collapses the panel back to the bare terminal.
     Each panel can split beside the terminal or go full width.
   </p>
   <p>
     Agents and scripts open panels through the CLI: <code>ouijit markdown add</code> and
-    <code>ouijit preview add</code> attach to the terminal they run in. Adding a panel that is already open
+    <code>ouijit browser add</code> attach to the terminal they run in. Adding a panel that is already open
     activates it instead of duplicating it.
   </p>
 
@@ -35,16 +35,16 @@ import Docs from '../../layouts/Docs.astro';
     runners.
   </p>
 
-  <h2>Web preview</h2>
+  <h2>Browser</h2>
   <p>
     An embedded browser for the app you're building. It has back, forward, reload/stop, and an editable URL
-    field. Open one empty and type a URL, point it at a dev server the runner started, or let an agent open one with <code>ouijit preview add http://localhost:3000</code>.
+    field. Open one empty and type a URL, point it at a dev server the runner started, or let an agent open one with <code>ouijit browser add http://localhost:3000</code>.
   </p>
 
   <img
     class="docs-screenshot"
     src="/assets/screenshots/preview.png"
-    alt="Agent terminal beside a web preview of the app it is building"
+    alt="Agent terminal beside a browser tab showing the app it is building"
     loading="lazy"
   />
 

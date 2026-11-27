@@ -32,7 +32,7 @@ const card = {
   worktreePath: PROJECT,
   panels: [] as { id: string; kind: 'newTab' }[],
   addPlanPanel: vi.fn(),
-  addWebPreviewPanel: vi.fn(),
+  addBrowserPanel: vi.fn(),
   addNewTabPanel: vi.fn(),
   activatePanel: vi.fn(),
   closePanel: vi.fn(),
@@ -133,11 +133,11 @@ describe('a new tab', () => {
     type('4321');
     expect(marked().map((o) => o.textContent)).toEqual(['Open localhost:4321']);
     press('Enter');
-    expect(card.addWebPreviewPanel).toHaveBeenCalledWith('http://localhost:4321', { replacing: TAB });
+    expect(card.addBrowserPanel).toHaveBeenCalledWith('http://localhost:4321', { replacing: TAB });
 
     type('example.com/docs');
     fireEvent.click(screen.getByText('Open example.com/docs'));
-    expect(card.addWebPreviewPanel).toHaveBeenLastCalledWith('https://example.com/docs', { replacing: TAB });
+    expect(card.addBrowserPanel).toHaveBeenLastCalledWith('https://example.com/docs', { replacing: TAB });
 
     type('nothing like it');
     expect(screen.getByText('Nothing matches')).toBeTruthy();

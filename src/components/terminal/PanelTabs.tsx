@@ -90,7 +90,7 @@ const RUNNER_LABELS: Record<RunnerStatus, string> = {
 function PanelMark({ panel, active }: { panel: TerminalPanel; active: boolean }) {
   if (panel.kind === 'runner')
     return <RunnerDot status={panel.status} sandboxProvider={placementProvider(panel.sandbox)} />;
-  if (panel.kind === 'webPreview' && panel.favicon) return <Favicon src={panel.favicon} active={active} />;
+  if (panel.kind === 'browser' && panel.favicon) return <Favicon src={panel.favicon} active={active} />;
   return <Icon name={panelIcon(panel)} className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-ink/70' : 'text-ink/40'}`} />;
 }
 
@@ -106,7 +106,7 @@ function tailOfPath(dir: string, keep = 40): string {
 /** Where a tab points, under its title in its tip. */
 function panelDetail(panel: TerminalPanel): string | undefined {
   if (panel.kind === 'newTab') return undefined;
-  if (panel.kind === 'webPreview') return panel.url?.replace(/^https?:\/\//, '') ?? undefined;
+  if (panel.kind === 'browser') return panel.url?.replace(/^https?:\/\//, '') ?? undefined;
   if (panel.kind === 'plan') return tailOfPath(panel.planPath.replace(/\/[^/]+$/, '').replace(/^\/Users\/[^/]+/, '~'));
   const sandbox = placementProvider(panel.sandbox);
   const where = [RUNNER_LABELS[panel.status], sandbox && SANDBOX_LABELS[sandbox]];

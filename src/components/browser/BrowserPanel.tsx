@@ -3,7 +3,7 @@ import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
 import { normalizeUrl } from './urlHelpers';
 
-interface WebPreviewPanelProps {
+interface BrowserPanelProps {
   ptyId: string;
   panelId: string;
   url: string;
@@ -26,7 +26,7 @@ interface ElectronWebviewElement extends HTMLElement {
   openDevTools(): void;
 }
 
-export function WebPreviewPanel({ url, onChangeUrl, onPageInfo }: WebPreviewPanelProps) {
+export function BrowserPanel({ url, onChangeUrl, onPageInfo }: BrowserPanelProps) {
   const pageInfo = useRef(onPageInfo);
   pageInfo.current = onPageInfo;
   const [loading, setLoading] = useState(false);
@@ -262,7 +262,7 @@ export function WebPreviewPanel({ url, onChangeUrl, onPageInfo }: WebPreviewPane
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-ink/40 bg-terminal-bg">
-            Enter a URL above to preview it
+            Enter a URL above
           </div>
         )}
         {loadError && (

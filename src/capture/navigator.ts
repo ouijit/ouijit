@@ -288,8 +288,8 @@ export function installCaptureNavigator(): void {
         const term = target ? terminalInstances.get(target) : undefined;
         if (term && target && payload.previewUrl) {
           app.showTerminal(target);
-          if (!term.panels.some((p) => p.kind === 'webPreview')) {
-            term.addWebPreviewPanel(payload.previewUrl, { activate: true });
+          if (!term.panels.some((p) => p.kind === 'browser')) {
+            term.addBrowserPanel(payload.previewUrl, { activate: true });
           }
         }
         break;

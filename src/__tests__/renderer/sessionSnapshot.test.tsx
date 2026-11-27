@@ -60,7 +60,7 @@ interface FakeTermOpts {
 function makeFakeTerm(projectPath: string, opts: FakeTermOpts): OuijitTerminal {
   const panels: Array<Record<string, unknown>> = [];
   if (opts.planPath) panels.push({ id: 'plan', kind: 'plan', planPath: opts.planPath });
-  if (opts.previewUrl) panels.push({ id: 'prev', kind: 'webPreview', url: opts.previewUrl });
+  if (opts.previewUrl) panels.push({ id: 'prev', kind: 'browser', url: opts.previewUrl });
   return new OuijitTerminal({
     ptyId: opts.ptyId,
     projectPath,

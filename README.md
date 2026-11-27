@@ -26,11 +26,11 @@ Tasks live on a kanban board. Dragging a card between To Do, In Progress, In Rev
 
 ## Terminals and panels
 
-Terminals sit in a stack. Panels attach as tabs: a runner for the dev server or any script, a web preview, and markdown files with Mermaid diagrams, so a plan opens beside the agent working from it. Shells outside any task sit in the sidebar beside the tasks. Tag terminals and the Tags view groups them.
+Terminals sit in a stack. Panels attach as tabs: a runner for the dev server or any script, a browser, and markdown files with Mermaid diagrams, so a plan opens beside the agent working from it. Shells outside any task sit in the sidebar beside the tasks. Tag terminals and the Tags view groups them.
 
 <img src="website/public/assets/screenshots/markdown.png" alt="Agent terminal beside a rendered markdown plan" width="100%">
 
-<img src="website/public/assets/screenshots/preview.png" alt="Agent terminal beside a web preview of the app it is building" width="100%">
+<img src="website/public/assets/screenshots/preview.png" alt="Agent terminal beside a browser tab showing the app it is building" width="100%">
 
 ## Agents
 
@@ -61,7 +61,7 @@ ouijit theme use dracula
 # "open your plan next to you"
 ouijit markdown add ./plan.md
 # "show me the app"
-ouijit preview add http://localhost:3000
+ouijit browser add http://localhost:3000
 ```
 
 It works from your shell too, with JSON output. Full command list in the [docs](https://ouijit.com/docs/cli/).

@@ -1,7 +1,6 @@
 /**
- * CLI web-preview commands — add, list, and remove web preview panels on a
- * terminal session via the REST API. Lets an agent that started a dev server
- * open a preview tab pointed at it. A terminal can hold several previews.
+ * CLI browser commands: add, list and remove browser tabs on a terminal via the
+ * REST API. A terminal can hold several.
  */
 
 import type { Command } from 'commander';
@@ -10,29 +9,27 @@ import { printJson } from '../output';
 import { resolvePtyId } from '../ptyId';
 
 function panelsUrl(ptyId: string): string {
-  return `/api/panels/${encodeURIComponent(ptyId)}/preview`;
+  return `/api/panels/${encodeURIComponent(ptyId)}/browser`;
 }
 
-export function registerPreviewCommands(parent: Command) {
-  const preview = parent
-    .command('preview')
-    .description('Manage web preview panels on a terminal session')
+export function registerBrowserCommands(parent: Command) {
+  const browser = parent
+    .command('browser')
+    .description('Manage browser tabs on a terminal session')
     .addHelpText(
       'after',
       `
 Examples:
-  ouijit preview add http://localhost:3000
-  ouijit preview add http://localhost:3000 pty_abc123
-  ouijit preview list
-  ouijit preview remove http://localhost:3000`,
+  ouijit browser add http://localhost:3000
+  ouijit browser add http://localhost:3000 pty_abc123
+  ouijit browser list
+  ouijit browser remove http://localhost:3000`,
     );
 
-  preview
+  browser
     .command('add')
-    .description(
-      'Open a web preview panel on a terminal session; from a sandbox, a page off localhost waits for approval',
-    )
-    .argument('<url>', 'http(s) URL to preview')
+    .description('Open a browser tab on a terminal session; from a sandbox, a page off localhost waits for approval')
+    .argument('<url>', 'http(s) URL to open')
     .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
     .option('-m, --message <why>', 'why, for the user, when it waits for approval')
     .action(async (url: string, explicitPtyId: string | undefined, opts: { message?: string }) => {
@@ -40,19 +37,19 @@ Examples:
       printJson(await post(panelsUrl(ptyId), { url, ...(opts.message && { message: opts.message }) }));
     });
 
-  preview
+  browser
     .command('list')
-    .description('List web preview panels on a terminal session')
+    .description('List browser tabs on a terminal session')
     .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
     .action(async (explicitPtyId?: string) => {
       const ptyId = resolvePtyId(explicitPtyId);
       printJson(await get(panelsUrl(ptyId)));
     });
 
-  preview
+  browser
     .command('remove')
-    .description('Close a web preview panel on a terminal session')
-    .argument('<url>', 'URL of the preview panel to close')
+    .description('Close a browser tab on a terminal session')
+    .argument('<url>', 'URL of the tab to close')
     .argument('[pty-id]', 'terminal session id (defaults to OUIJIT_PTY_ID)')
     .action(async (url: string, explicitPtyId?: string) => {
       const ptyId = resolvePtyId(explicitPtyId);

@@ -167,7 +167,7 @@ function useOpeners(ptyId: string, panelId: string) {
   return {
     dir: instance()?.worktreePath || instance()?.projectPath || '',
     openFile: (path: string) => instance()?.addPlanPanel(path, true, panelId),
-    openUrl: (url: string) => instance()?.addWebPreviewPanel(url, { replacing: panelId }),
+    openUrl: (url: string) => instance()?.addBrowserPanel(url, { replacing: panelId }),
     cancel: () => instance()?.closePanel(panelId),
   };
 }

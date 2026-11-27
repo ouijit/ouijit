@@ -21,13 +21,13 @@ const cliPanelsLog = log.scope('cliPanels');
 
 const DEFAULT_READ_LINES = 100;
 
-const INTERNAL_KIND = { markdown: 'plan', preview: 'webPreview', runner: 'runner' } as const;
-const CLI_KIND = { plan: 'markdown', webPreview: 'preview', runner: 'runner' } as const;
+const INTERNAL_KIND = { markdown: 'plan', browser: 'browser', runner: 'runner' } as const;
+const CLI_KIND = { plan: 'markdown', browser: 'browser', runner: 'runner' } as const;
 
 /** The panel's own spelling of `CliPanelOp.value`. */
 function panelValue(panel: TerminalPanel): string | undefined {
   if (panel.kind === 'plan') return panel.planPath;
-  if (panel.kind === 'webPreview') return panel.url ?? undefined;
+  if (panel.kind === 'browser') return panel.url ?? undefined;
   if (panel.kind === 'newTab') return undefined;
   return panel.scriptName ?? undefined;
 }
@@ -42,7 +42,7 @@ function findPanel(instance: RegisteredTerminal, kind: CliPanelKind, value: stri
 
 function describe(instance: RegisteredTerminal, panel: Exclude<TerminalPanel, { kind: 'newTab' }>): CliPanelInfo {
   const kind = CLI_KIND[panel.kind];
-  const field = { markdown: 'path', preview: 'url', runner: 'script' }[kind];
+  const field = { markdown: 'path', browser: 'url', runner: 'script' }[kind];
   return {
     id: panel.id,
     kind,
@@ -90,7 +90,7 @@ async function add(
   const existing = findPanel(instance, kind, value);
   if (existing) instance.activatePanel(existing.id);
   else if (kind === 'markdown') instance.addPlanPanel(value, true);
-  else instance.addWebPreviewPanel(value, { activate: true });
+  else instance.addBrowserPanel(value, { activate: true });
   return null;
 }
 
@@ -137,7 +137,7 @@ function read(instance: RegisteredTerminal, op: CliPanelOp): CliPanelRead | stri
     return `The shell ${panel.id} runs outside your sandbox`;
   }
   if (panel.kind === 'plan') return { kind: 'markdown', path: panel.planPath };
-  if (panel.kind === 'webPreview') return { kind: 'preview', url: panel.url ?? undefined };
+  if (panel.kind === 'browser') return { kind: 'browser', url: panel.url ?? undefined };
   const ended = { status: panel.status, exitCode: panel.exitCode ?? null };
   if (panel.private) return { kind: 'runner', ...ended, private: true };
   const child = instance.runnerChildren.get(panel.id);
@@ -202,7 +202,7 @@ async function handleOp(op: CliPanelOp): Promise<void> {
 }
 
 /**
- * Handle CLI-driven panel ops (`ouijit markdown`, `preview`, `runner`, `panel`
+ * Handle CLI-driven panel ops (`ouijit markdown`, `browser`, `runner`, `panel`
  * and `diff open/close`).
  *
  * Install once for the life of the renderer.

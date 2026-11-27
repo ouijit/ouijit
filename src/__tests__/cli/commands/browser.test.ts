@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
-import { registerPreviewCommands } from '../../../cli/commands/preview';
+import { registerBrowserCommands } from '../../../cli/commands/browser';
 
 import { get, post, del } from '../../../cli/api';
 
@@ -43,11 +43,11 @@ function captureStderr() {
 function createProgram() {
   const program = new Command();
   program.exitOverride();
-  registerPreviewCommands(program);
+  registerBrowserCommands(program);
   return program;
 }
 
-describe('preview commands', () => {
+describe('browser commands', () => {
   const originalEnv = process.env['OUIJIT_PTY_ID'];
 
   beforeEach(() => {
@@ -63,41 +63,41 @@ describe('preview commands', () => {
     }
   });
 
-  test('add POSTs the url to the preview panels route', async () => {
-    vi.mocked(post).mockResolvedValue({ ptyId: 'pty123', kind: 'preview', panels: [] });
+  test('add POSTs the url to the browser panels route', async () => {
+    vi.mocked(post).mockResolvedValue({ ptyId: 'pty123', kind: 'browser', panels: [] });
     captureOutput();
-    await createProgram().parseAsync(['preview', 'add', 'http://localhost:3000', 'pty123'], { from: 'user' });
-    expect(post).toHaveBeenCalledWith('/api/panels/pty123/preview', { url: 'http://localhost:3000' });
+    await createProgram().parseAsync(['browser', 'add', 'http://localhost:3000', 'pty123'], { from: 'user' });
+    expect(post).toHaveBeenCalledWith('/api/panels/pty123/browser', { url: 'http://localhost:3000' });
   });
 
   test('add falls back to OUIJIT_PTY_ID env var', async () => {
     process.env['OUIJIT_PTY_ID'] = 'env-pty';
-    vi.mocked(post).mockResolvedValue({ ptyId: 'env-pty', kind: 'preview', panels: [] });
+    vi.mocked(post).mockResolvedValue({ ptyId: 'env-pty', kind: 'browser', panels: [] });
     captureOutput();
-    await createProgram().parseAsync(['preview', 'add', 'http://localhost:5173'], { from: 'user' });
-    expect(post).toHaveBeenCalledWith('/api/panels/env-pty/preview', { url: 'http://localhost:5173' });
+    await createProgram().parseAsync(['browser', 'add', 'http://localhost:5173'], { from: 'user' });
+    expect(post).toHaveBeenCalledWith('/api/panels/env-pty/browser', { url: 'http://localhost:5173' });
   });
 
-  test('list GETs the preview panels route', async () => {
-    vi.mocked(get).mockResolvedValue({ ptyId: 'pty123', kind: 'preview', panels: [] });
+  test('list GETs the browser panels route', async () => {
+    vi.mocked(get).mockResolvedValue({ ptyId: 'pty123', kind: 'browser', panels: [] });
     const output = captureOutput();
-    await createProgram().parseAsync(['preview', 'list', 'pty123'], { from: 'user' });
+    await createProgram().parseAsync(['browser', 'list', 'pty123'], { from: 'user' });
     const result = output.getJson();
-    expect(get).toHaveBeenCalledWith('/api/panels/pty123/preview');
-    expect(result.kind).toBe('preview');
+    expect(get).toHaveBeenCalledWith('/api/panels/pty123/browser');
+    expect(result.kind).toBe('browser');
   });
 
   test('remove DELETEs with the url in the query string', async () => {
-    vi.mocked(del).mockResolvedValue({ ptyId: 'pty123', kind: 'preview', panels: [] });
+    vi.mocked(del).mockResolvedValue({ ptyId: 'pty123', kind: 'browser', panels: [] });
     captureOutput();
-    await createProgram().parseAsync(['preview', 'remove', 'http://localhost:3000', 'pty123'], { from: 'user' });
-    expect(del).toHaveBeenCalledWith('/api/panels/pty123/preview?url=http%3A%2F%2Flocalhost%3A3000');
+    await createProgram().parseAsync(['browser', 'remove', 'http://localhost:3000', 'pty123'], { from: 'user' });
+    expect(del).toHaveBeenCalledWith('/api/panels/pty123/browser?url=http%3A%2F%2Flocalhost%3A3000');
   });
 
   test('errors when no pty-id and no OUIJIT_PTY_ID env var', async () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
     const stderr = captureStderr();
-    await createProgram().parseAsync(['preview', 'list'], { from: 'user' });
+    await createProgram().parseAsync(['browser', 'list'], { from: 'user' });
     const result = stderr.getJson();
     expect(result.error).toMatch(/No pty-id provided/);
     expect(exitSpy).toHaveBeenCalledWith(1);

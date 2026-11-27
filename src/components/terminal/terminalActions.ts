@@ -56,7 +56,7 @@ export interface AddProjectTerminalOptions {
   /** Overrides the auto-derived card label (e.g. a user-renamed terminal being
    *  restored from a session snapshot). */
   label?: string;
-  /** Apply persisted UI state (plan, web preview, runner panel) after spawn — for session restore. */
+  /** Apply persisted UI state (plan, browser, runner panel) after spawn — for session restore. */
   initialUiState?: SnapshotTerminalUi;
   /** If set, the new terminal takes this loading slot's place in the stack
    *  instead of entering it anew, so the loading card becomes the terminal. */
@@ -105,8 +105,8 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
             status: 'idle',
           });
           break;
-        case 'webPreview':
-          if (sp.url) panels.push({ id, kind: 'webPreview', url: sp.url });
+        case 'browser':
+          if (sp.url) panels.push({ id, kind: 'browser', url: sp.url });
           break;
         case 'plan':
           if (sp.planPath) panels.push({ id, kind: 'plan', planPath: sp.planPath });
@@ -124,10 +124,10 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
       panels.push({ id, kind: 'plan', planPath: ui.planPath });
       if (ui.planPanelOpen ?? true) activeId = id;
     }
-    if (ui.webPreview?.url) {
+    if (ui.browser?.url) {
       const id = generateId('panel');
-      panels.push({ id, kind: 'webPreview', url: ui.webPreview.url });
-      if (ui.webPreview.panelOpen) activeId = id;
+      panels.push({ id, kind: 'browser', url: ui.browser.url });
+      if (ui.browser.panelOpen) activeId = id;
     }
     if (ui.runner) {
       const id = generateId('panel');
@@ -142,8 +142,8 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
         status: 'idle',
       });
     }
-    term.panelFullWidth = ui.webPreview?.fullWidth ?? ui.runner?.fullWidth ?? true;
-    if (ui.webPreview?.splitRatio != null) term.panelSplitRatio = ui.webPreview.splitRatio;
+    term.panelFullWidth = ui.browser?.fullWidth ?? ui.runner?.fullWidth ?? true;
+    if (ui.browser?.splitRatio != null) term.panelSplitRatio = ui.browser.splitRatio;
   }
 
   term.setTags(ui.tags ?? []);
