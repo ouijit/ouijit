@@ -6,7 +6,7 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
-          setupFiles: ['./src/__tests__/setup.ts'],
+          setupFiles: ['./src/__tests__/agentGuard.ts', './src/__tests__/setup.ts'],
           include: ['src/__tests__/*.test.ts', 'src/__tests__/cli/**/*.test.ts'],
           exclude: ['e2e/**', 'node_modules/**'],
           isolate: true,
@@ -15,7 +15,7 @@ export default defineConfig({
       {
         test: {
           name: 'integration',
-          setupFiles: ['./src/__tests__/integration/setup.ts'],
+          setupFiles: ['./src/__tests__/agentGuard.ts', './src/__tests__/integration/setup.ts'],
           include: ['src/__tests__/integration/**/*.test.ts'],
           exclude: ['e2e/**', 'node_modules/**'],
           isolate: true,
@@ -25,7 +25,7 @@ export default defineConfig({
         test: {
           name: 'renderer',
           environment: 'jsdom',
-          setupFiles: ['./src/__tests__/renderer/setup.ts'],
+          setupFiles: ['./src/__tests__/agentGuard.ts', './src/__tests__/renderer/setup.ts'],
           include: ['src/__tests__/renderer/**/*.test.tsx'],
           exclude: ['e2e/**', 'node_modules/**'],
           isolate: true,
