@@ -559,7 +559,7 @@ function UserMessageView({ node, waiting, onEdit }: { node: UserMessageNode; wai
           {node.text}
         </Tooltip>
       )}
-      <div className="mt-1 -mb-2.5 -mr-1 flex items-center gap-2 h-[22px] text-[11px] text-text-tertiary">
+      <div className="mt-1 -mb-3.5 -mr-1 flex items-center gap-2 h-[22px] text-[11px] text-text-tertiary">
         {node.delivery === 'queued' && <span>Queued</span>}
         {node.delivery === 'steer' && !waiting && <span>Sent mid-turn</span>}
         <span className="flex items-center opacity-0 group-hover/user:opacity-100 focus-within:opacity-100 transition-opacity duration-100">

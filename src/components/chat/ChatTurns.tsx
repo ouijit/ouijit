@@ -355,11 +355,11 @@ function RequestLine({ note, request }: { note: WakeNote; request: WakeRequest }
  */
 function WakeOpener({ node, settled }: { node: UserMessageNode; settled: boolean }) {
   if (!node.notes?.length) {
-    return <div className="text-[13px] text-text-tertiary whitespace-pre-wrap break-words">{node.text}</div>;
+    return <div className="mb-2 text-[13px] text-text-tertiary whitespace-pre-wrap break-words">{node.text}</div>;
   }
   const events = node.notes.filter((n) => n.kind === 'event' && !n.request).map((n) => n.text);
   return (
-    <div className="min-w-0 flex flex-col gap-1 pt-1">
+    <div className="min-w-0 flex flex-col gap-1 mb-2">
       {node.notes.map((n, index) => {
         if (n.kind === 'decision' && n.command) {
           return <SettledLine key={index} summary={n.text} label={n.outcome ?? null} command={n.command} />;
@@ -627,15 +627,26 @@ export function ChatTurns({
             piece.kind === 'said' && piece.node.status !== 'running' ? [piece.node.text] : [],
           );
       if (reply.length > 0 && !(open && index === turns.length - 1)) {
+        const actions = (
+          <div className="-ml-1 flex items-center h-[22px] opacity-0 group-hover/turn:opacity-100 focus-within:opacity-100 transition-opacity duration-100">
+            <CopyAction text={reply.join('\n\n')} />
+          </div>
+        );
+        // Last in its turn, it hangs in the space between turns rather than adding to it; with more
+        // of the turn below, it takes room of its own so it never sits over what follows.
+        const last = afterReply === items.length && turn.kept.length === 0;
         items.splice(
           afterReply,
           0,
-          <div
-            key="reply-actions"
-            className="-mt-2 -mb-2 -ml-1 flex items-center h-[22px] opacity-0 group-hover/turn:opacity-100 focus-within:opacity-100 transition-opacity duration-100"
-          >
-            <CopyAction text={reply.join('\n\n')} />
-          </div>,
+          last ? (
+            <div key="reply-actions" className="relative h-0 -mt-3">
+              <div className="absolute inset-x-0 top-1">{actions}</div>
+            </div>
+          ) : (
+            <div key="reply-actions" className="-my-3">
+              {actions}
+            </div>
+          ),
         );
       }
       for (const node of turn.kept) items.push(<ChatNodeView key={node.id} node={node} context={context} />);
@@ -652,7 +663,7 @@ export function ChatTurns({
   });
   useEffect(() => onHeld?.(held), [held, onHeld]);
   return (
-    <div className="chat-turns min-w-0 flex flex-col gap-5">
+    <div className="chat-turns min-w-0 flex flex-col gap-9">
       {shown}
       {compacting && !held && (
         <WorkFold

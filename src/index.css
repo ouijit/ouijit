@@ -748,6 +748,15 @@ textarea,
   @apply my-2;
 }
 
+/* A reply's own edges are the turn's spacing, not its first and last paragraphs'. */
+.chat-markdown > :first-child {
+  margin-top: 0;
+}
+
+.chat-markdown > :last-child {
+  margin-bottom: 0;
+}
+
 .app-markdown ul,
 .app-markdown ol {
   @apply my-2 pl-5;
