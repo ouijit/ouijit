@@ -28,6 +28,7 @@ import { ResizeHandle } from './common/ResizeHandle';
 import { Icon } from './terminal/Icon';
 import { StatusGlyph } from './terminal/StatusDot';
 import { Tooltip } from './ui/Tooltip';
+import { FadeLine } from './ui/FadeLine';
 import { openProject, openProjectChat, openProjectPage, openShell, openTaskTerminal } from './navigation';
 import { isModKey } from '../utils/modKey';
 import { openTaskSheet } from '../utils/openTaskComposer';
@@ -584,7 +585,7 @@ function GroupHeader({
         }}
       >
         {icon}
-        <span className="truncate flex-1 min-w-0">{name}</span>
+        <FadeLine className="flex-1">{name}</FadeLine>
         {collapsed && <GroupDots ptyIds={ptyIds} />}
       </button>
       {actions}
@@ -778,7 +779,7 @@ function CloneRow({ projectPath, onSelect }: { projectPath: string; onSelect: ()
       <span className="opacity-50">
         <ProjectTile project={{ name: job.name }} />
       </span>
-      <span className="flex-1 min-w-0 truncate font-medium text-text-secondary">{job.name}</span>
+      <FadeLine className="flex-1 font-medium text-text-secondary">{job.name}</FadeLine>
       <span
         className={`shrink-0 font-mono text-[10.5px] ${job.status === 'failed' ? 'text-error' : 'text-text-tertiary'}`}
       >

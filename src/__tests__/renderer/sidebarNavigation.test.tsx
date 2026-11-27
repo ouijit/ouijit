@@ -828,6 +828,34 @@ describe('the sidebar tree', () => {
     await waitFor(() => expect(dotHidden()).toBe(false));
   });
 
+  test('a title too long for its row fades out at the edge, short of the … , and one that fits is left whole', async () => {
+    seed('long', { taskId: 12, label: 'Move the session snapshot into the main process and restore it on relaunch' });
+    seed('short', { taskId: 13, label: 'Tidy up' });
+    // jsdom lays nothing out: a line is as wide as its text, in a row 150px wide.
+    const wide = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return (this.textContent ?? '').length * 7;
+    });
+    const room = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(150);
+    try {
+      render(<Sidebar onAddProject={() => {}} onCloneSelect={() => {}} />);
+      const title = (ptyId: string) => {
+        const row = document.querySelector<HTMLElement>(`[data-sidebar-row][data-pty-id="${ptyId}"]`)!;
+        return within(row).getByText(useTerminalStore.getState().displayStates[ptyId].label);
+      };
+      expect(title('long').style.maskImage).toContain('linear-gradient');
+      expect(title('long').className).not.toContain('truncate');
+      expect(title('short').style.maskImage).toBe('');
+      // The fade is the title's own, so the … beside it stays clear of it.
+      const more = within(title('long').closest<HTMLElement>('[data-sidebar-row]')!).getByRole('button', {
+        name: /^More for /,
+      });
+      expect(more.contains(title('long'))).toBe(false);
+    } finally {
+      wide.mockRestore();
+      room.mockRestore();
+    }
+  });
+
   test('lists tasks in board order, branches multi-terminal tasks, groups by tag, and keeps every terminal reachable', async () => {
     seed('docs', { taskId: 9, label: 'Write docs', tags: ['Docs'] });
     seed('ship-a', { taskId: 8, label: 'Ship it', lastOscTitle: 'claude', gitFileStatus: diff, tags: ['release'] });

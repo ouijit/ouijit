@@ -20,6 +20,7 @@ import { Icon } from '../terminal/Icon';
 import { StatusGlyph } from '../terminal/StatusDot';
 import { useAsking, useWantsYou, wantsYou } from '../terminal/wantsYou';
 import { Tooltip } from '../ui/Tooltip';
+import { FadeLine } from '../ui/FadeLine';
 import { StageGlyph, StageIcon, TodoStackGlyph } from './StageIcon';
 import { formatSince, groupByTask, listedOrder, unitsFor, type TaskGroup } from './sidebarTree';
 import { isModKey } from '../../utils/modKey';
@@ -268,15 +269,15 @@ export function SidebarRow({
               data-bright={bright ? 'true' : undefined}
               data-faint={faint ? 'true' : undefined}
             >
-              <span
-                className={`flex-1 min-w-0 truncate ${mono ? 'font-mono text-[11.5px]' : ''}`}
+              <FadeLine
+                className={`flex-1 ${mono ? 'font-mono text-[11.5px]' : ''}`}
                 style={{
                   color: bright ? 'var(--color-text-primary)' : faint ? FAINT : DIM,
                   fontWeight: unread ? 600 : undefined,
                 }}
               >
                 {title}
-              </span>
+              </FadeLine>
               {detail && <span className="shrink-0 font-mono text-[10.5px] text-text-tertiary">{detail}</span>}
               {onContextMenu && trailing ? (
                 // Hidden under the row's "…" while it can be pressed, and while its menu is open,
