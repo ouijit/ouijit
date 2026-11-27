@@ -5,7 +5,7 @@ import started from 'electron-squirrel-startup';
 import fixPath from 'fix-path';
 import log from './log';
 import { setLogger, type Logger } from './logger';
-import { setUserDataPath, getDbPath, setCliPath, setDevResourcesRoot } from './paths';
+import { setUserDataPath, getDbPath, setCliPath, setDevResourcesRoot, setWorktreesRoot } from './paths';
 import { setTrashItem } from './platform';
 import { registerIpcHandlers, cleanupIpc } from './ipc/register';
 import { cancelAllClones } from './services/cloneRegistry';
@@ -66,10 +66,14 @@ process.stderr?.on?.('error', () => {});
 // This sources the user's shell PATH so npm/node are available in PTY
 fixPath();
 
-// Allow E2E tests to isolate userData per instance
+// Allow E2E tests to isolate userData and task worktrees per instance
 if (process.env.OUIJIT_TEST_USER_DATA) {
   app.setPath('userData', process.env.OUIJIT_TEST_USER_DATA);
   setUserDataPath(process.env.OUIJIT_TEST_USER_DATA);
+  // git reports worktree paths with symlinks resolved (macOS tmpdirs sit
+  // under /var -> /private/var), and listWorktrees matches them by prefix.
+  fs.mkdirSync(process.env.OUIJIT_TEST_USER_DATA, { recursive: true });
+  setWorktreesRoot(path.join(fs.realpathSync(process.env.OUIJIT_TEST_USER_DATA), 'worktrees'));
 } else if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
   // Isolate dev state per worktree so multiple dev instances can run in parallel
   // without stomping on each other (and without touching production).
