@@ -58,11 +58,16 @@ interface ApiCredentials {
   token: string;
 }
 
-async function apiCredentials(electronApp: ElectronApplication): Promise<ApiCredentials> {
+function apiCredentialsPath(userDataDir: string): string {
+  return path.join(userDataDir, 'e2e-api.json');
+}
+
+async function apiCredentials(userDataDir: string): Promise<ApiCredentials> {
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
-    const api = await electronApp.evaluate(() => (globalThis as { __ouijitE2EApi?: ApiCredentials }).__ouijitE2EApi);
-    if (api) return api;
+    if (fs.existsSync(apiCredentialsPath(userDataDir))) {
+      return JSON.parse(fs.readFileSync(apiCredentialsPath(userDataDir), 'utf8'));
+    }
     await new Promise((r) => setTimeout(r, 100));
   }
   throw new Error('The app never exposed its API credentials');
@@ -100,6 +105,8 @@ let agentEnv: { PATH: string; ZDOTDIR: string } | undefined;
 
 export function launchApp(userDataDir: string): Promise<ElectronApplication> {
   agentEnv ??= stubAgentEnv();
+  // A relaunch into the same userData would otherwise find the last run's token.
+  fs.rmSync(apiCredentialsPath(userDataDir), { force: true });
   return _electron.launch({
     args: [path.resolve(__dirname, '..', '.vite-e2e', 'build', 'main.cjs'), '--no-sandbox'],
     env: {
@@ -137,12 +144,12 @@ export const test = base.extend<OuijitFixtures>({
     }
   },
 
-  cli: async ({ electronApp }, use) => {
+  cli: async ({ electronApp: _app, userDataDir }, use) => {
     const cliPath = path.resolve(__dirname, '..', 'dist-cli', 'ouijit.js');
     let credentials: Promise<ApiCredentials> | undefined;
 
     await use(async (args, { project } = {}) => {
-      const api = await (credentials ??= apiCredentials(electronApp));
+      const api = await (credentials ??= apiCredentials(userDataDir));
       // The runner may itself be inside an Ouijit terminal, whose session would
       // otherwise answer the markdown and preview commands.
       const { OUIJIT_PTY_ID: _, ...env } = process.env;

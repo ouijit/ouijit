@@ -121,10 +121,12 @@ jobs:
       # Has to stay ahead of Publish, so a build that does not run is never uploaded.
       - name: Smoke test the macOS build
         if: matrix.platform == 'darwin'
+        timeout-minutes: 10
         run: node scripts/smoke-packaged.mjs "out/make/dmg/${{ matrix.arch }}/ouijit-darwin-${{ matrix.arch }}.dmg"
 
       - name: Smoke test the Linux build
         if: matrix.platform == 'linux'
+        timeout-minutes: 10
         run: xvfb-run -a node scripts/smoke-packaged.mjs "out/make/zip/linux/${{ matrix.arch }}/ouijit-linux-${{ matrix.arch }}.zip"
 
       - name: Publish

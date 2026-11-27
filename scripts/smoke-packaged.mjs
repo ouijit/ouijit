@@ -123,8 +123,7 @@ function cleanEnv() {
 
 function launch(executable) {
   for (const dir of [dirs.home, dirs.userData]) fs.mkdirSync(dir);
-  // A HOME of its own keeps the user's shell config out of the terminal and
-  // puts task worktrees, which live under ~/Ouijit, inside the temp dir.
+  // A HOME of its own keeps the user's shell config out of the terminal.
   const env = { ...cleanEnv(), HOME: dirs.home, OUIJIT_TEST_USER_DATA: dirs.userData, OUIJIT_E2E: '1' };
   // Chromium keeps its cookie key in the OS keyring, which a fresh HOME has
   // none of: macOS then blocks quitting on SecItemAdd. On Linux, unprivileged
@@ -152,6 +151,9 @@ function makeCli(cliPath, api) {
         env: { ...cleanEnv(), OUIJIT_API_URL: api.url, OUIJIT_API_TOKEN: api.token },
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
+        // until() cannot interrupt a synchronous call, and the CLI waits on
+        // the app with no timeout of its own.
+        timeout: STEP_TIMEOUT_MS,
       });
       return JSON.parse(stdout);
     } catch (err) {
