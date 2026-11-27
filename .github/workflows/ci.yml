@@ -30,6 +30,9 @@ jobs:
       - run: |
           sudo apt-get update
           sudo apt-get install -y xvfb libgtk-3-0t64 libnss3 libgbm1 libasound2t64 libxss1 libxtst6
+      # electron fetches its binary on first launch, which would otherwise come
+      # out of the first test's 10s budget.
+      - run: node node_modules/electron/install.js
       - run: npm run test:e2e:ci
       - if: failure()
         uses: actions/upload-artifact@v4
