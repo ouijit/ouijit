@@ -249,6 +249,40 @@ function FooterButton({
 }
 
 const CHAT_ROWS_SHOWN = 6;
+const EDGE_FADE = 28;
+
+/**
+ * Which ends of a scrolled list have more past them, faded so a list left
+ * scrolled down still shows there are newer rows above.
+ */
+function useScrollEdges(deps: unknown): {
+  ref: (node: HTMLDivElement | null) => void;
+  onScroll: () => void;
+  style: React.CSSProperties | undefined;
+} {
+  const node = useRef<HTMLDivElement | null>(null);
+  const [edges, setEdges] = useState({ above: false, below: false });
+  const measure = useCallback(() => {
+    const el = node.current;
+    if (!el) return;
+    const above = el.scrollTop > 0;
+    const below = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+    setEdges((was) => (was.above === above && was.below === below ? was : { above, below }));
+  }, []);
+  useEffect(measure, [measure, deps]);
+  const ref = useCallback(
+    (el: HTMLDivElement | null) => {
+      node.current = el;
+      measure();
+    },
+    [measure],
+  );
+  if (!edges.above && !edges.below) return { ref, onScroll: measure, style: undefined };
+  const top = edges.above ? EDGE_FADE : 0;
+  const bottom = edges.below ? EDGE_FADE : 0;
+  const mask = `linear-gradient(to bottom, transparent, black ${top}px, black calc(100% - ${bottom}px), transparent)`;
+  return { ref, onScroll: measure, style: { maskImage: mask, WebkitMaskImage: mask } };
+}
 
 /** Chat's conversations, above the projects they work across, newest started first. */
 function ChatGroup() {
@@ -258,6 +292,7 @@ function ChatGroup() {
   const inChat = useAppStore((s) => s.selection.kind === 'chat');
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const edges = useScrollEdges(chats.length);
   return (
     <div className="flex flex-col mb-2" data-group="home-chat">
       <div className={`group/header h-7 flex items-center gap-0.5 px-1 rounded-[7px] ${ROW_IDLE}`}>
@@ -296,8 +331,10 @@ function ChatGroup() {
       {!collapsed && (
         <div className="relative">
           <div
+            ref={edges.ref}
+            onScroll={edges.onScroll}
             className="overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            style={{ maxHeight: CHAT_ROWS_SHOWN * 28 }}
+            style={{ maxHeight: CHAT_ROWS_SHOWN * 28, ...edges.style }}
             data-chat-list
           >
             {chats.map((chat) => (
@@ -325,13 +362,6 @@ function ChatGroup() {
               />
             ))}
           </div>
-          {chats.length > CHAT_ROWS_SHOWN && (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-10"
-              style={{ background: 'linear-gradient(to bottom, transparent, var(--sidebar-bg))' }}
-            />
-          )}
         </div>
       )}
       {menu && (

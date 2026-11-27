@@ -643,3 +643,49 @@ describe('Chat', () => {
     stopListening();
   });
 });
+
+describe("Chat's list in the sidebar", () => {
+  test('fades the end that has more past it, so a list left scrolled down still shows there are newer chats above', () => {
+    useHomeChatStore.getState().set({
+      currentId: 'home-0',
+      chats: Array.from({ length: 10 }, (_, i) => ({
+        id: `home-${i}`,
+        title: `Conversation ${i}`,
+        createdAt: '2026-11-10T00:00:00Z',
+        activeAt: 10 - i,
+      })),
+      owners: {},
+    });
+    // jsdom lays nothing out: ten rows of 28px in a box six rows tall.
+    const tall = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(280);
+    const box = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(168);
+    try {
+      render(<App />);
+      const list = document.querySelector<HTMLElement>('[data-chat-list]')!;
+      const fade = () => list.style.maskImage;
+      // At the top, only the bottom fades: there is more below, nothing above.
+      expect(fade()).toContain('transparent, black 0px');
+      expect(fade()).toContain('calc(100% - 28px)');
+
+      // Scrolled partway, both ends do.
+      list.scrollTop = 60;
+      fireEvent.scroll(list);
+      expect(fade()).toContain('transparent, black 28px');
+      expect(fade()).toContain('calc(100% - 28px)');
+
+      // At the bottom, only the top: the newer chats are above.
+      list.scrollTop = 112;
+      fireEvent.scroll(list);
+      expect(fade()).toContain('transparent, black 28px');
+      expect(fade()).not.toContain('calc(100% - 28px)');
+
+      // Back at the top, the hint goes with it.
+      list.scrollTop = 0;
+      fireEvent.scroll(list);
+      expect(fade()).toContain('transparent, black 0px');
+    } finally {
+      tall.mockRestore();
+      box.mockRestore();
+    }
+  });
+});
