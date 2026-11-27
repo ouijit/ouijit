@@ -16,3 +16,24 @@ concurrency:
 jobs:
   checks:
     uses: ./.github/workflows/checks.yml
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Electron's shared libraries, and the X server it draws into.
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0t64 libnss3 libgbm1 libasound2t64 libxss1 libxtst6
+      - run: npm run test:e2e:ci
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: e2e/results
+          if-no-files-found: ignore

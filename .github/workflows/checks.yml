@@ -2,10 +2,8 @@
 # the release workflow's gate job, so a PR runs exactly what the release runs
 # and the two cannot drift.
 #
-# E2E is deliberately not here. It needs a full Vite build under xvfb, and
-# e2e/playwright.config.ts uses retries: 0 with a 10s per-test timeout, which
-# is tight for a cold runner. The suite has also never run on a GitHub runner,
-# so its headless behaviour there is unknown.
+# E2E runs from ci.yml alone, so a release is not held up by an Electron
+# window under xvfb.
 name: Checks
 
 on:
@@ -26,6 +24,9 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run docs:check
-      # Only the unit project: integration tests need a git identity the
-      # runner does not have (see #63).
-      - run: npx vitest run --project unit
+      # Integration tests commit into real repos, and the runner has no git
+      # identity of its own.
+      - run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.com"
+      - run: npx vitest run --project unit --project integration
