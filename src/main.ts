@@ -102,8 +102,11 @@ let quitConfirmed = false;
 
 // Playwright drives the page over CDP, which needs neither a visible window
 // nor OS focus, so the suite runs without taking the screen from the user.
-const backgroundE2E = process.env.OUIJIT_E2E === '1' && process.env.OUIJIT_E2E_HEADFUL !== '1';
-if (backgroundE2E && process.platform === 'darwin') app.setActivationPolicy('accessory');
+// macOS only: on Linux the suite runs under xvfb, and there a never-mapped
+// window renders so slowly that tests time out.
+const backgroundE2E =
+  process.platform === 'darwin' && process.env.OUIJIT_E2E === '1' && process.env.OUIJIT_E2E_HEADFUL !== '1';
+if (backgroundE2E) app.setActivationPolicy('accessory');
 
 // Reachable from the menu bar with no window open: macOS keeps the app alive
 // after the last window closes, so this has to be able to make one.
