@@ -25,6 +25,7 @@ import { useGithubStore } from '../stores/githubStore';
 import { useLinearStore } from '../stores/linearStore';
 import { useExperimentalStore } from '../stores/experimentalStore';
 import { useUIStore } from '../stores/uiStore';
+import { useHomeChatStore } from '../stores/homeChatStore';
 import { scoreFields, type FieldMatch } from '../utils/paletteScore';
 import { frecencyBoost, frecencyMap, type FrecencyMap } from '../utils/paletteFrecency';
 import { buildPaletteItems, KIND_LABEL, type PaletteItem, type PaletteKind } from './palette/paletteItems';
@@ -44,7 +45,7 @@ const VISIBLE_ROWS = 9;
 /** Fade-out duration; matches the dialog transitions. */
 const EXIT_MS = 200;
 
-const GROUP_ORDER: PaletteKind[] = ['terminal', 'project', 'task', 'pull', 'issue'];
+const GROUP_ORDER: PaletteKind[] = ['chat', 'terminal', 'project', 'task', 'pull', 'issue'];
 
 type GroupKey = 'results' | 'recent' | PaletteKind;
 
@@ -214,6 +215,10 @@ function PaletteBody({ visible }: { visible: boolean }) {
     return [...inbox.needsReview, ...inbox.mine, ...inbox.others];
   }, [githubEnabled, inbox]);
 
+  const chatEnabled = useHomeChatStore((s) => s.enabled);
+  const homeChats = useHomeChatStore((s) => s.chats);
+  const chats = chatEnabled ? homeChats : undefined;
+
   const linearIssues = useMemo(() => {
     if (!linearEnabled || !linearGroups) return undefined;
     // The groups already exclude each other, so this is every issue once.
@@ -231,6 +236,7 @@ function PaletteBody({ visible }: { visible: boolean }) {
         taskCacheByProject,
         pullRequests,
         linearIssues,
+        chats,
       }),
     [
       projects,
@@ -241,6 +247,7 @@ function PaletteBody({ visible }: { visible: boolean }) {
       taskCacheByProject,
       pullRequests,
       linearIssues,
+      chats,
     ],
   );
 

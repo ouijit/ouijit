@@ -5,6 +5,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useTerminalStore, DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useGithubStore } from '../../stores/githubStore';
 import { usePanelStore } from '../../stores/panelStore';
+import { useHomeChatStore } from '../../stores/homeChatStore';
 import type { Project, TaskWithWorkspace } from '../../types';
 
 /** Past the tracker's dwell window, so a settled view counts as visited. */
@@ -93,6 +94,13 @@ describe('visitTracker', () => {
     usePanelStore.setState({ open: { source: 'github-pr', number: 42 } });
     await settle();
     expect(written()).toEqual([`task:${projectA.path}#7`]);
+  });
+
+  test("a conversation of Chat's on screen is a visit to it", async () => {
+    useHomeChatStore.getState().set({ currentId: 'home-2', chats: [], owners: {} });
+    useAppStore.getState().select({ kind: 'chat' });
+    await settle();
+    expect(written()).toEqual(['chat:home-2']);
   });
 
   test('passing through a view on the way elsewhere is not a visit', async () => {

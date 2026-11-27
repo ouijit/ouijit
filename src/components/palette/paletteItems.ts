@@ -18,6 +18,7 @@
 
 import type { ActiveSession, Project, PullRequestSummary, SandboxProviderId, TaskWithWorkspace } from '../../types';
 import type { LinearIssueSummary } from '../../linear/types';
+import type { HomeChatSummary } from '../../chat/preferences';
 import type { TerminalDisplayState, TerminalStatus } from '../../stores/terminalStore';
 import type { SearchField } from '../../utils/paletteScore';
 import { formatAge } from '../../utils/formatDate';
@@ -25,11 +26,21 @@ import { STATUS_LABELS } from '../kanban/statusLabels';
 import { activateTask, focusTerminal, openProject, TASK_OPEN_LABEL } from '../navigation';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
 import { openLinearIssueInPanel } from '../../services/linearTaskActions';
-import { issueKey, projectKey, pullKey, taskKey, terminalKey, terminalTaskNumber } from '../../utils/paletteFrecency';
+import { openHomeChat } from '../chat/homeChatActions';
+import {
+  chatKey,
+  issueKey,
+  projectKey,
+  pullKey,
+  taskKey,
+  terminalKey,
+  terminalTaskNumber,
+} from '../../utils/paletteFrecency';
 
-export type PaletteKind = 'terminal' | 'project' | 'task' | 'pull' | 'issue';
+export type PaletteKind = 'chat' | 'terminal' | 'project' | 'task' | 'pull' | 'issue';
 
 export const KIND_LABEL: Record<PaletteKind, string> = {
+  chat: 'Chats',
   terminal: 'Terminals',
   project: 'Projects',
   task: 'Tasks',
@@ -92,6 +103,8 @@ export interface PaletteInput {
   pullRequests?: PullRequestSummary[];
   /** This project's Linear issues, on the same terms. */
   linearIssues?: LinearIssueSummary[];
+  /** Chat's conversations, latest first, while Chat is on. */
+  chats?: HomeChatSummary[];
 }
 
 /** One live, switchable shell, from either source. */
@@ -206,6 +219,22 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
 
   const items: PaletteItem[] = [];
   const push = (item: Omit<PaletteItem, 'order'>) => items.push({ ...item, order: items.length });
+
+  // ── Chats ──
+  for (const chat of input.chats ?? []) {
+    const key = chatKey(chat.id);
+    push({
+      id: key,
+      key,
+      kind: 'chat',
+      title: chat.title,
+      context: 'Chat',
+      fields: [{ key: 'title', text: chat.title, weight: 1 }],
+      meta: chat.working ? 'working' : formatAge((Date.now() - chat.activeAt) / 1000),
+      action: 'Open chat',
+      run: () => void openHomeChat(chat.id),
+    });
+  }
 
   // ── Terminals ──
   // A task's shells hang off its row instead. The exception is a shell whose

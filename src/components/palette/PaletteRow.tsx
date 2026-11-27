@@ -154,7 +154,7 @@ function Leading({ item }: { item: PaletteItem }) {
 
   return (
     <span className="text-ink/40 [&>svg]:w-3.5 [&>svg]:h-3.5">
-      <Icon name={item.kind === 'task' ? 'kanban' : 'terminal'} />
+      <Icon name={item.kind === 'task' ? 'kanban' : item.kind === 'chat' ? 'chat-circle' : 'terminal'} />
     </span>
   );
 }

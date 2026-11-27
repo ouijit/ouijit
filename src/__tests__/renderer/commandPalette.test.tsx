@@ -13,6 +13,7 @@ import {
   type TerminalDisplayState,
 } from '../../stores/terminalStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useHomeChatStore } from '../../stores/homeChatStore';
 import type { ActiveSession, Project, TaskWithWorkspace } from '../../types';
 
 vi.mock('electron-log/renderer', () => ({
@@ -259,6 +260,39 @@ describe('command palette results', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     await waitFor(() => expect(shown()).toBe('alpha-7b'));
+  });
+
+  test("Chat's conversations list as chats while Chat is on, found by title, and Enter opens one", async () => {
+    const chats = [
+      { id: 'home-1', title: 'Ship the settings page', createdAt: '', activeAt: Date.now() - 60_000, working: false },
+      {
+        id: 'home-2',
+        title: 'Keychain recovery review',
+        createdAt: '',
+        activeAt: Date.now() - 3_600_000,
+        working: true,
+      },
+    ];
+    useHomeChatStore.getState().set({ currentId: 'home-1', chats, owners: {} });
+    window.api.homeChat.switch = vi.fn().mockResolvedValue({ info: { id: 'home-2' }, nodes: [], seq: 0 });
+
+    // Off, Chat's conversations are nowhere to go.
+    useHomeChatStore.getState().setEnabled(false);
+    await openPalette();
+    expect(screen.queryByText('Chats')).toBeNull();
+    expect(rowLabels().some((l) => l.includes('Keychain recovery review'))).toBe(false);
+
+    useHomeChatStore.getState().setEnabled(true);
+    await waitFor(() => expect(screen.getByText('Chats')).toBeTruthy());
+    expect(rowLabels().find((l) => l.includes('Keychain recovery review'))).toContain('working');
+
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+    fireEvent.change(input, { target: { value: 'keychain' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Keychain recovery review'));
+    expect(screen.getByText('Open chat')).toBeTruthy();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(useAppStore.getState().selection).toEqual({ kind: 'chat' }));
+    expect(useHomeChatStore.getState().currentId).toBe('home-2');
   });
 
   test('a project row searches and shows the same home-relative path', async () => {

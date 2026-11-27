@@ -16,7 +16,9 @@ import { useUIStore } from '../stores/uiStore';
 import { useGithubStore } from '../stores/githubStore';
 import { useLinearStore } from '../stores/linearStore';
 import { usePanelStore } from '../stores/panelStore';
+import { useHomeChatStore } from '../stores/homeChatStore';
 import {
+  chatKey,
   issueKey,
   issueTaskNumber,
   projectKey,
@@ -36,10 +38,15 @@ type View =
   | { kind: 'pull'; projectPath: string; prNumber: number }
   | { kind: 'issue'; projectPath: string; issueId: string }
   | { kind: 'project'; projectPath: string }
+  | { kind: 'chat'; conversation: string }
   | null;
 
 function currentView(): View {
   const { selection } = useAppStore.getState();
+  if (selection.kind === 'chat') {
+    const conversation = useHomeChatStore.getState().currentId;
+    return conversation ? { kind: 'chat', conversation } : null;
+  }
   if (selection.kind === 'terminal') {
     // The canvas has no single foreground card.
     const onCanvas =
@@ -72,6 +79,7 @@ function identity(view: View): string | null {
   if (view.kind === 'terminal') return terminalKey(view.ptyId);
   if (view.kind === 'pull') return pullKey(view.projectPath, view.prNumber);
   if (view.kind === 'issue') return issueKey(view.projectPath, view.issueId);
+  if (view.kind === 'chat') return chatKey(view.conversation);
   return projectKey(view.projectPath);
 }
 
@@ -83,6 +91,7 @@ function visitKey(view: View): string | null {
   if (!view) return null;
   const { taskCacheByProject } = useAppStore.getState();
   if (view.kind === 'project') return projectKey(view.projectPath);
+  if (view.kind === 'chat') return chatKey(view.conversation);
   if (view.kind === 'pull') {
     const owner = pullTaskNumber(view.projectPath, view.prNumber, taskCacheByProject);
     return owner == null ? pullKey(view.projectPath, view.prNumber) : taskKey(view.projectPath, owner);
@@ -124,6 +133,7 @@ export function installVisitTracker(): () => void {
     useGithubStore,
     useLinearStore,
     usePanelStore,
+    useHomeChatStore,
   ];
   const unsubscribes = stores.map((store) => store.subscribe(onViewChanged));
   onViewChanged();
