@@ -46,7 +46,6 @@ ouijit task start 5 --run-hook --sandbox custom # run it in a sandbox other than
 ouijit task start 5 --surface chat            # open it as a chat, whatever the chat setting says
 ouijit task create-and-start "Add 2FA"        # create + start in one step
 ouijit task create-and-start "Add 2FA" --prompt "..." --branch custom --skip-hook
-ouijit task spawn "Add 2FA"                   # alias for create-and-start
 ouijit task set-status 5 in_review            # the review hook waits for you by default
 ouijit task set-status 5 in_review --run-hook # run the review hook, no dialog
 ouijit task set-status 5 in_review --skip-hook

@@ -263,7 +263,7 @@ ouijit task start <number> --branch <name>    # use a custom branch name for the
 ouijit task start <number> --run-hook         # run the configured start hook immediately, no dialog
 ouijit task start <number> --skip-hook        # spawn the terminal but run no hook
 ouijit task start <number> --hook-command "<cmd>"  # spawn the terminal running a one-off command instead of the configured hook
-ouijit task create-and-start "<name>"         # create + start in one step (accepts --prompt, --branch, and the same --run-hook / --skip-hook / --hook-command flags); aliased as "task spawn"
+ouijit task create-and-start "<name>"         # create + start in one step (accepts --prompt, --branch, and the same --run-hook / --skip-hook / --hook-command flags)
 ouijit task set-status <number> <status>      # status: todo | in_progress | in_review | done
 ouijit task set-status <number> in_review                    # default: the review hook waits for the user
 ouijit task set-status <number> in_review --run-hook         # run the configured review hook immediately, no dialog

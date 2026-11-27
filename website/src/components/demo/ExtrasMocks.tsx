@@ -179,7 +179,7 @@ export function CliMock() {
     <FloatingPanel>
       <div className="px-4 py-3 font-mono text-[12px] leading-relaxed">
         <div className="text-ink/85">
-          <span className="text-accent">❯</span> ouijit task spawn &quot;Fix flaky auth test&quot; --hook-command claude
+          <span className="text-accent">❯</span> ouijit task create-and-start &quot;Fix flaky auth test&quot; --hook-command claude
         </div>
         <div className="text-ink/45 truncate">
           {'{"success": true, "task": {"taskNumber": 12, "branch": "fix-flaky-auth-test-12"}}'}
