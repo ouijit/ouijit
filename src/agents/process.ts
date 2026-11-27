@@ -38,6 +38,9 @@ export function spawnAgentProcess(
   env: Record<string, string>,
 ): AgentProcess {
   const child = spawnChild(file, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], detached: true });
+  // A write after the agent has exited fails with EPIPE, and unheard it crashes the process. The exit
+  // itself is what the drivers act on, and they hear it from 'exit'.
+  child.stdin.on('error', () => {});
   return {
     stdin: child.stdin,
     stdout: child.stdout,
