@@ -749,6 +749,70 @@ describe('a message sent mid-turn', () => {
   });
 });
 
+describe('what a sent message carried', () => {
+  test('images show as themselves, open full size a set at a time, and other files as a card with their size', async () => {
+    const DIR = '/Users/test/Pictures';
+    const attachment = (name: string, mimeType: string) => ({ path: `${DIR}/${name}`, name, mimeType });
+    const sent = (id: string, text: string, attachments: ReturnType<typeof attachment>[]): ChatNode => ({
+      id,
+      kind: 'user_message',
+      parentId: null,
+      createdAt: 0,
+      text,
+      attachments,
+      delivery: 'prompt',
+    });
+    // Main reads an image into a data URL, and nothing for one moved since; a size for a file still there.
+    vi.mocked(window.api.chat.attachmentPreview).mockImplementation(async (path) =>
+      path.endsWith('moved.png') ? null : `data:image/jpeg;base64,${btoa(path)}`,
+    );
+    vi.mocked(window.api.chat.attachmentSize).mockImplementation(async (path) =>
+      path.endsWith('.pdf') ? 2_516_582 : null,
+    );
+    act(() =>
+      useChatStore.getState().adopt({
+        info: INFO,
+        nodes: [
+          sent('a1', 'i like this one', [attachment('svema_23.jpg', 'image/jpeg')]),
+          sent('a2', '', [
+            attachment('roll-1.jpg', 'image/jpeg'),
+            attachment('roll-2.png', 'image/png'),
+            attachment('moved.png', 'image/png'),
+            attachment('contact-sheet.pdf', 'application/pdf'),
+          ]),
+        ],
+        seq: 0,
+      }),
+    );
+    render(<ChatView cardId={ID} />);
+
+    // The image is in the message, not a paperclip and its name.
+    const single = await screen.findByRole('img', { name: 'svema_23.jpg' });
+    expect(single.getAttribute('src')).toBe(`data:image/jpeg;base64,${btoa(`${DIR}/svema_23.jpg`)}`);
+    expect(screen.getByText('i like this one')).toBeTruthy();
+    expect(await screen.findByRole('img', { name: 'roll-1.jpg' })).toBeTruthy();
+    expect(await screen.findByRole('img', { name: 'roll-2.png' })).toBeTruthy();
+
+    // A file is a card with what it is; an image gone since is one too, saying so.
+    expect(await screen.findByText('2.4 MB')).toBeTruthy();
+    expect(screen.getByText('contact-sheet.pdf')).toBeTruthy();
+    expect(screen.queryByRole('img', { name: 'moved.png' })).toBeNull();
+    expect(screen.getByText('moved.png')).toBeTruthy();
+    expect(screen.getAllByText('No longer there')).toHaveLength(1);
+
+    // Opened, an image shows full size, and the arrows step through the rest of its message.
+    fireEvent.click(screen.getByRole('button', { name: 'Open roll-2.png' }));
+    const viewer = screen.getByRole('dialog', { name: 'Image' });
+    const full = () => viewer.querySelector('img')!.getAttribute('src');
+    expect(full()).toBe(`data:image/jpeg;base64,${btoa(`${DIR}/roll-2.png`)}`);
+    expect(within(viewer).getByText('2 of 2')).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    expect(full()).toBe(`data:image/jpeg;base64,${btoa(`${DIR}/roll-1.jpg`)}`);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Image' })).toBeNull();
+  });
+});
+
 describe("the context's fill", () => {
   test('is a ring that says how full on hover, and plain tokens where the agent reports no window', async () => {
     const live = (usage: ChatSessionInfo['usage']) =>

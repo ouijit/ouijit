@@ -424,6 +424,8 @@ export interface ChatAPI {
   interrupt(id: string): Promise<void>;
   /** An image attachment as a data URL, or null for anything else. */
   attachmentPreview(path: string): Promise<string | null>;
+  /** Bytes, or null for a file that is gone. */
+  attachmentSize(path: string): Promise<number | null>;
   setModel(id: string, model: string): Promise<void>;
   setEffort(id: string, effort: string): Promise<void>;
   setMode(id: string, mode: string): Promise<void>;

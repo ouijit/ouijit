@@ -494,6 +494,8 @@ export interface IpcInvokeContract {
   'chat:answer': { args: [id: string, requestId: string, answer: ChatAnswer]; return: boolean };
   'chat:interrupt': { args: [id: string]; return: void };
   'chat:attachment-preview': { args: [path: string]; return: string | null };
+  /** Bytes, or null for a file that is gone or is not a file. */
+  'chat:attachment-size': { args: [path: string]; return: number | null };
   'chat:set-model': { args: [id: string, model: string]; return: void };
   'chat:set-effort': { args: [id: string, effort: string]; return: void };
   'chat:set-mode': { args: [id: string, mode: string]; return: void };

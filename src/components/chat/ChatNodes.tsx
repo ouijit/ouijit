@@ -17,6 +17,7 @@ import type {
 } from '../../chat/model';
 import { relativeToCard } from './cardPaths';
 import { Tooltip } from '../ui/Tooltip';
+import { MessageAttachments } from './MessageAttachments';
 
 const TOOL_ICONS: Record<ToolKind, string> = {
   command: 'terminal',
@@ -540,27 +541,24 @@ function UserMessageView({ node, waiting, onEdit }: { node: UserMessageNode; wai
   }
   return (
     <div className="group/user flex flex-col items-end">
-      <Tooltip
-        text={waiting && 'Waiting for the current step'}
-        placement="left"
-        referenceClassName={`max-w-[85%] rounded-[12px] px-3 py-2 text-sm whitespace-pre-wrap break-words ${
-          waiting
-            ? 'outline-dashed outline-1 -outline-offset-1 outline-ink/25 text-text-secondary'
-            : 'bg-ink/[0.07] text-text-primary'
-        }`}
-      >
-        {node.text}
-        {node.attachments.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {node.attachments.map((attachment) => (
-              <span key={attachment.path} className="inline-flex items-center gap-1 text-[12px] text-text-secondary">
-                <Icon name="paperclip" className="w-3 h-3" />
-                {attachment.name}
-              </span>
-            ))}
-          </div>
-        )}
-      </Tooltip>
+      {node.attachments.length > 0 && (
+        <div className={`max-w-[85%] flex flex-col items-end gap-1.5 ${node.text ? 'mb-1.5' : ''}`}>
+          <MessageAttachments attachments={node.attachments} />
+        </div>
+      )}
+      {node.text && (
+        <Tooltip
+          text={waiting && 'Waiting for the current step'}
+          placement="left"
+          referenceClassName={`max-w-[85%] rounded-[12px] px-3 py-2 text-sm whitespace-pre-wrap break-words ${
+            waiting
+              ? 'outline-dashed outline-1 -outline-offset-1 outline-ink/25 text-text-secondary'
+              : 'bg-ink/[0.07] text-text-primary'
+          }`}
+        >
+          {node.text}
+        </Tooltip>
+      )}
       <div className="mt-1 -mb-2.5 -mr-1 flex items-center gap-2 h-[22px] text-[11px] text-text-tertiary">
         {node.delivery === 'queued' && <span>Queued</span>}
         {node.delivery === 'steer' && !waiting && <span>Sent mid-turn</span>}

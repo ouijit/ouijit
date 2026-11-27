@@ -38,7 +38,10 @@ import code from '@phosphor-icons/core/assets/regular/code.svg?raw';
 import copy from '@phosphor-icons/core/assets/regular/copy.svg?raw';
 import cube from '@phosphor-icons/core/assets/regular/cube.svg?raw';
 import download from '@phosphor-icons/core/assets/regular/download.svg?raw';
+import file from '@phosphor-icons/core/assets/regular/file.svg?raw';
 import fileDashed from '@phosphor-icons/core/assets/regular/file-dashed.svg?raw';
+import fileImage from '@phosphor-icons/core/assets/regular/file-image.svg?raw';
+import filePdf from '@phosphor-icons/core/assets/regular/file-pdf.svg?raw';
 import fileMinus from '@phosphor-icons/core/assets/regular/file-minus.svg?raw';
 import filePlus from '@phosphor-icons/core/assets/regular/file-plus.svg?raw';
 import fileText from '@phosphor-icons/core/assets/regular/file-text.svg?raw';
@@ -149,7 +152,10 @@ export const iconMap: Record<string, string> = {
   copy: copy,
   cube: cube,
   download: download,
+  file: file,
   'file-dashed': fileDashed,
+  'file-image': fileImage,
+  'file-pdf': filePdf,
   'file-minus': fileMinus,
   'file-plus': filePlus,
   'file-text': fileText,

@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { BrowserWindow } from 'electron';
 import { typedHandle, typedPush } from '../helpers';
@@ -68,6 +69,11 @@ export function registerChatHandlers(mainWindow: BrowserWindow): void {
   });
   typedHandle('chat:interrupt', (id) => chatHost.interrupt(id));
   typedHandle('chat:attachment-preview', (file) => (path.isAbsolute(file) ? readImageDataUrl(file) : null));
+  typedHandle('chat:attachment-size', async (file) => {
+    if (!path.isAbsolute(file)) return null;
+    const stat = await fs.promises.stat(file).catch(() => null);
+    return stat?.isFile() ? stat.size : null;
+  });
   typedHandle('chat:set-model', (id, model) => chatHost.setModel(id, model));
   typedHandle('chat:set-effort', (id, effort) => chatHost.setEffort(id, effort));
   typedHandle('chat:set-mode', (id, mode) => chatHost.setMode(id, mode));
