@@ -307,7 +307,7 @@ describe("a terminal's panels, from the CLI", () => {
     });
     const added = await panelOp({ ptyId: 'pty-front', action: 'add', kind: 'runner', value: 'scr-1' });
     expect(added.panels).toEqual([
-      { id: 'panel-1', kind: 'runner', label: 'Dev server', script: 'Dev server', active: true },
+      { id: 'panel-1', kind: 'script', label: 'Dev server', script: 'Dev server', active: true },
     ]);
     expect(vi.mocked(window.api.pty.spawn).mock.lastCall?.[0]).toEqual(expect.objectContaining({ sandbox: 'nono' }));
 
@@ -316,7 +316,7 @@ describe("a terminal's panels, from the CLI", () => {
     await panelOp({ ptyId: 'pty-front', action: 'add', kind: 'runner', value: 'Dev server' });
     const all = await panelOp({ ptyId: 'pty-front', action: 'list-all' });
     expect(all.panels?.map((p) => [p.kind, p.active])).toEqual([
-      ['runner', true],
+      ['script', true],
       ['markdown', false],
     ]);
 
@@ -337,8 +337,12 @@ describe("a terminal's panels, from the CLI", () => {
     await openLink('ouijit://alpha/terminals/pty-front/panels/panel-2');
     expect(terminalInstances.get('pty-front')?.activePanelId).toBe('panel-2');
 
-    const removed = await panelOp({ ptyId: 'pty-front', action: 'remove', kind: 'runner', value: 'scr-1' });
-    expect(removed.panels).toEqual([]);
+    const closed = await panelOp({ ptyId: 'pty-front', action: 'close', value: 'panel-1' });
+    expect(closed.panels?.map((p) => p.id)).not.toContain('panel-1');
+    expect(await panelOp({ ptyId: 'pty-front', action: 'close', value: 'panel-1' })).toEqual({
+      ok: false,
+      error: 'No panel panel-1',
+    });
     await openLink('ouijit://alpha/terminals/pty-front/panels/panel-1');
     expect(useProjectStore.getState().toasts.map((t) => t.message)).toContain('That panel was closed');
     expect(await panelOp({ ptyId: 'pty-front', action: 'add', kind: 'runner', value: 'nope' })).toEqual({

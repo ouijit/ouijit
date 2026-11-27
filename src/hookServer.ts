@@ -334,14 +334,14 @@ ouijit ask script <script> [-m "<why>"] [--wait]   # a project script, by id or 
 
 The ask opens over this terminal's card, and while the user is elsewhere it
 shows as a toast. They read the exact command and press Run
-or Decline; nothing runs before that. It runs in a runner panel
+or Decline; nothing runs before that. It runs in a panel
 on this terminal, in its worktree. With --wait the reply comes once they
 decline or it finishes; without it, the reply is pending at once, and panel
-read shows the runner. Ask for what the sandbox stops, such as credentials,
+read shows it. Ask for what the sandbox stops, such as credentials,
 the network or signing, and say in -m why.
 
 The user can run it privately: then you get only its exit code, with
-private: true in place of output, and panel read of that runner the same.
+private: true in place of output, and panel read of that panel the same.
 The output is theirs; don't ask to run it again to see it.
 
 Put the command itself in the ask, so the user reads what runs. A script it
@@ -374,7 +374,7 @@ ouijit chat follow <task-or-chat>             # Chat only: hear what happens to 
 ouijit chat unfollow <task-or-chat>           # Chat only: stop hearing about it
 ouijit chat following                         # Chat only: → [{task, project, name, status} | {chat, label, status}]
 
-A chat card has a pty-id like any terminal, so tag, markdown and browser commands
+A chat card has a pty-id like any terminal, so tag and panel commands
 reach it the same way. A chat cannot answer its own requests; opening, sending,
 answering and interrupting need a host terminal.
 
@@ -493,36 +493,27 @@ Comments stage rather than post, for the reason review comments do: a person
 sends them. There is no command that moves an issue — that is a control on the
 issue, pressed by someone looking at it.
 
-## Markdown Panel Commands (open .md files as tabs in this terminal)
-ouijit markdown add <path.md>                 # open a markdown file panel on this terminal
-ouijit markdown list                          # → {ptyId, kind, panels: [{id, label, path, active}, ...]}
-ouijit markdown remove <path.md>              # close that markdown panel
+## Panel Commands (the tabs on a terminal)
+ouijit panel open markdown <path.md> [pty-id] # a markdown file, rendered
+ouijit panel open browser <url> [pty-id] [-m "<why>"]   # a browser tab (http/https)
+ouijit panel open script <script> [pty-id] [--sandbox host|nono|custom] [-m "<why>"]
+                                              # a project script by id or name from script list, in the project's default sandbox
+ouijit panel open shell [pty-id] [--sandbox host|nono|custom] [-m "<why>"]   # a shell to type in, in this terminal's worktree
+ouijit panel list [pty-id]                    # → {ptyId, panels: [{id, kind, label, active, path|url|script}], diffOpen}
+                                              # kind: markdown | browser | script | shell
+ouijit panel read <id> [pty-id] [--lines <n>] # a script or shell → {kind, text, status, exitCode}; markdown → {path}; browser → {url}
+ouijit panel focus <id> [pty-id]              # bring one forward; focus terminal shows the terminal itself
+ouijit panel close <id> [pty-id]              # close it, stopping what runs in it
 
-## Browser Commands (open a URL as a tab in this terminal)
-ouijit browser add <url> [-m "<why>"]         # open a browser tab (http/https) on this terminal
-ouijit browser list                           # → {ptyId, kind, panels: [{id, label, url, active}, ...]}
-ouijit browser remove <url>                   # close that browser tab
-
-## Runner Commands (run a project script in a tab on this terminal)
-ouijit runner add <script>                    # by id or name from script list, in the project's default sandbox
-ouijit runner add <script> --sandbox host|nono|custom [-m "<why>"]   # somewhere else
-ouijit runner shell [--sandbox host|nono|custom] [-m "<why>"]   # a shell to type in, in this terminal's worktree
-ouijit runner list                            # → {ptyId, kind, panels: [{id, label, script, active}, ...]}
-ouijit runner remove <script>                 # close it, stopping the script; a shell is "Shell"
-
-From a sandbox, a runner runs in that sandbox, and a browser tab on localhost,
-127.0.0.1 or [::1] opens at once. A runner with --sandbox host, or a browser tab on
-any other page, waits for the user to press Run or Open, as an ask does, and
-the reply is pending until then. A runner or shell asked for anywhere but that
+Opening one that is already open brings it forward. From a sandbox, a script
+or shell runs in that sandbox, and a browser tab on localhost, 127.0.0.1 or
+[::1] opens at once. A script with --sandbox host, or a browser tab on any
+other page, waits for the user to press Run or Open, as an ask does, and the
+reply is pending until then. A script or shell asked for anywhere but that
 sandbox waits for the user the same way: Run or Open, or privately, when the
 output stays theirs. Reading or pasting into a terminal, or reading a shell
 panel, works only for those in the same sandbox, and for a shell the user
 opened for this terminal's ask.
-
-## Panel Commands (every kind of tab on a terminal)
-ouijit panel list [pty-id]                    # → {ptyId, panels: [{id, kind, label, active, ...}], diffOpen}
-ouijit panel read <id> [pty-id] [--lines <n>] # a runner → {kind, text, status, exitCode}; markdown → {path}; browser → {url}
-ouijit panel focus <id> [pty-id]              # bring one forward; focus terminal shows the terminal itself
 
 ## Project Commands
 ouijit project list                           # → all registered projects
@@ -544,9 +535,9 @@ ouijit theme delete <id>                      # remove a custom theme
 A sandboxed terminal reaches Ouijit in its own project, at that project's CLI access level:
 - View, the default (Whole board for Chat): its own task (task current, task get), diff notes,
   link, ask, pr list and view, pr and linear drafts, pr lenses, linear list
-  and view. On this terminal: terminal read, tags, panel list and read,
-  markdown add and remove for files in its worktree, and runner and browser
-  panels as above.
+  and view. On this terminal: terminal read, tags, panel list, read and
+  close, markdown panels for files in its worktree, and script, shell and
+  browser panels as above.
 - Own task: also task set-status, set-name and set-description on its own
   task, pr link and issue link to it, and task create for a to-do card.
   terminal read, tags and panels reach every sandboxed terminal on its task. A hook that

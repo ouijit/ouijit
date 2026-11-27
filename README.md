@@ -59,9 +59,9 @@ ouijit pr draft add 116 --file src/api.ts --line 88 --body "throws when the toke
 # "switch to dracula"
 ouijit theme use dracula
 # "open your plan next to you"
-ouijit markdown add ./plan.md
+ouijit panel open markdown ./plan.md
 # "show me the app"
-ouijit browser add http://localhost:3000
+ouijit panel open browser http://localhost:3000
 ```
 
 It works from your shell too, with JSON output. Full command list in the [docs](https://ouijit.com/docs/cli/).

@@ -17,8 +17,8 @@ import Docs from '../../layouts/Docs.astro';
     Each panel can split beside the terminal or go full width.
   </p>
   <p>
-    Agents and scripts open panels through the CLI: <code>ouijit markdown add</code> and
-    <code>ouijit browser add</code> attach to the terminal they run in. Adding a panel that is already open
+    Agents and scripts open panels through the CLI: <code>ouijit panel open markdown</code> and
+    <code>ouijit panel open browser</code> attach to the terminal they run in. Adding a panel that is already open
     activates it instead of duplicating it.
   </p>
 
@@ -38,7 +38,7 @@ import Docs from '../../layouts/Docs.astro';
   <h2>Browser</h2>
   <p>
     An embedded browser for the app you're building. It has back, forward, reload/stop, and an editable URL
-    field. Open one empty and type a URL, point it at a dev server the runner started, or let an agent open one with <code>ouijit browser add http://localhost:3000</code>.
+    field. Open one empty and type a URL, point it at a dev server the runner started, or let an agent open one with <code>ouijit panel open browser http://localhost:3000</code>.
   </p>
 
   <img

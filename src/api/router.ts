@@ -747,7 +747,7 @@ function readLines(query: URLSearchParams): number | undefined {
 /** Forward a panel op to the renderer (via the CLI panel bridge) and shape the reply. */
 async function runPanelOp(
   ptyId: string,
-  action: 'list' | 'add' | 'remove',
+  action: 'add',
   kind: CliPanelKind,
   value?: string,
   sandbox?: SandboxSpec | 'none',
@@ -769,7 +769,7 @@ async function runPanelOp(
 /** A panel op that spans every kind, or the diff, which is not a panel. */
 async function runTerminalPanelsOp(
   ptyId: string,
-  action: 'list-all' | 'focus' | 'diff-open' | 'diff-close',
+  action: 'list-all' | 'focus' | 'close' | 'diff-open' | 'diff-close',
   value?: string,
 ): Promise<{ ptyId: string; panels: unknown; diffOpen: boolean }> {
   if (!isSessionLive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
@@ -1921,7 +1921,7 @@ const routes: Route[] = [
   // any URL in this window, the other runs a script on the host.
   route('GET', 'panels/:ptyId', (r) => runTerminalPanelsOp(r.segments[1], 'list-all'), false, OWN_TERMINAL),
 
-  // Matched before the panel-kind routes, whose `:kind` would otherwise read `focus`.
+  // Matched before the panel-kind routes, whose `:kind` would otherwise read `focus` or `close`.
   route(
     'POST',
     'panels/:ptyId/focus',
@@ -1933,10 +1933,13 @@ const routes: Route[] = [
   ),
 
   route(
-    'GET',
-    'panels/:ptyId/:kind',
-    (r) => runPanelOp(r.segments[1], 'list', parsePanelKind(r.segments[2])),
-    false,
+    'POST',
+    'panels/:ptyId/close',
+    (r) => {
+      if (typeof r.body.id !== 'string' || !r.body.id) throw new HttpError(400, 'Missing id');
+      return runTerminalPanelsOp(r.segments[1], 'close', r.body.id);
+    },
+    true,
     OWN_TERMINAL,
   ),
 
@@ -1968,25 +1971,6 @@ const routes: Route[] = [
       const value = panelValue(kind, r.body.path, r.body.url, r.body.script);
       if (r.auth.sandboxed) return addSandboxedPanel(r, ptyId, kind, value);
       return runPanelOp(ptyId, 'add', kind, value, kind === 'runner' ? await hostRunnerSandbox(r, ptyId) : undefined);
-    },
-    true,
-    OWN_TERMINAL,
-  ),
-
-  route(
-    'DELETE',
-    'panels/:ptyId/:kind',
-    (r) => {
-      const kind = parsePanelKind(r.segments[2]);
-      // DELETE carries no body through the CLI client; the target comes in the
-      // query string (?path= / ?url= / ?script=).
-      const value = panelValue(
-        kind,
-        r.query.get('path') ?? undefined,
-        r.query.get('url') ?? undefined,
-        r.query.get('script') ?? undefined,
-      );
-      return runPanelOp(r.segments[1], 'remove', kind, value);
     },
     true,
     OWN_TERMINAL,

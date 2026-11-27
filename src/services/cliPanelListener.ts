@@ -12,6 +12,7 @@ import {
   TERMINAL_READY_WAIT_MS,
   type CliPanelInfo,
   type CliPanelKind,
+  type CliPanelShownKind,
   type CliPanelOp,
   type CliPanelRead,
   type CliPanelResponse,
@@ -22,7 +23,12 @@ const cliPanelsLog = log.scope('cliPanels');
 const DEFAULT_READ_LINES = 100;
 
 const INTERNAL_KIND = { markdown: 'plan', browser: 'browser', runner: 'runner' } as const;
-const CLI_KIND = { plan: 'markdown', browser: 'browser', runner: 'runner' } as const;
+
+function shownKind(panel: Exclude<TerminalPanel, { kind: 'newTab' }>): CliPanelShownKind {
+  if (panel.kind === 'plan') return 'markdown';
+  if (panel.kind === 'browser') return 'browser';
+  return panel.shell ? 'shell' : 'script';
+}
 
 /** The panel's own spelling of `CliPanelOp.value`. */
 function panelValue(panel: TerminalPanel): string | undefined {
@@ -41,13 +47,13 @@ function findPanel(instance: RegisteredTerminal, kind: CliPanelKind, value: stri
 }
 
 function describe(instance: RegisteredTerminal, panel: Exclude<TerminalPanel, { kind: 'newTab' }>): CliPanelInfo {
-  const kind = CLI_KIND[panel.kind];
-  const field = { markdown: 'path', browser: 'url', runner: 'script' }[kind];
+  const kind = shownKind(panel);
+  const field = { markdown: 'path', browser: 'url', script: 'script', shell: null }[kind];
   return {
     id: panel.id,
     kind,
     label: panelLabel(panel),
-    [field]: panelValue(panel),
+    ...(field && { [field]: panelValue(panel) }),
     active: panel.id === instance.activePanelId,
   };
 }
@@ -94,18 +100,6 @@ async function add(
   return null;
 }
 
-async function remove(
-  instance: RegisteredTerminal,
-  kind: CliPanelKind,
-  value: string | undefined,
-): Promise<string | null> {
-  const name = kind === 'runner' && value ? ((await scriptNamed(instance.projectPath, value))?.name ?? value) : value;
-  const match = name ? findPanel(instance, kind, name) : undefined;
-  if (!match) return `No ${kind} panel matching ${value ?? '(none)'}`;
-  instance.closePanel(match.id);
-  return null;
-}
-
 function focus(instance: RegisteredTerminal, id: string | undefined): string | null {
   if (id === 'terminal') {
     instance.deactivatePanel();
@@ -113,6 +107,12 @@ function focus(instance: RegisteredTerminal, id: string | undefined): string | n
   }
   if (!id || !instance.panels.some((p) => p.id === id)) return `No panel ${id ?? '(none)'}`;
   instance.activatePanel(id);
+  return null;
+}
+
+function close(instance: RegisteredTerminal, id: string | undefined): string | null {
+  if (!id || !instance.panels.some((p) => p.id === id && p.kind !== 'newTab')) return `No panel ${id ?? '(none)'}`;
+  instance.closePanel(id);
   return null;
 }
 
@@ -139,9 +139,10 @@ function read(instance: RegisteredTerminal, op: CliPanelOp): CliPanelRead | stri
   if (panel.kind === 'plan') return { kind: 'markdown', path: panel.planPath };
   if (panel.kind === 'browser') return { kind: 'browser', url: panel.url ?? undefined };
   const ended = { status: panel.status, exitCode: panel.exitCode ?? null };
-  if (panel.private) return { kind: 'runner', ...ended, private: true };
+  const kind = panel.shell ? 'shell' : 'script';
+  if (panel.private) return { kind, ...ended, private: true };
   const child = instance.runnerChildren.get(panel.id);
-  return { kind: 'runner', text: child ? bufferText(child.xterm, lines ?? DEFAULT_READ_LINES) : '', ...ended };
+  return { kind, text: child ? bufferText(child.xterm, lines ?? DEFAULT_READ_LINES) : '', ...ended };
 }
 
 function respondWith(instance: RegisteredTerminal, panels: TerminalPanel[]): CliPanelResponse {
@@ -155,9 +156,15 @@ async function run(instance: RegisteredTerminal, op: CliPanelOp): Promise<CliPan
     const result = read(instance, op);
     return typeof result === 'string' ? { ok: false, error: result } : { ok: true, read: result };
   }
-  if (action === 'list-all' || action === 'focus' || action === 'diff-open' || action === 'diff-close') {
-    if (action === 'focus') {
-      const error = focus(instance, value);
+  if (
+    action === 'list-all' ||
+    action === 'focus' ||
+    action === 'close' ||
+    action === 'diff-open' ||
+    action === 'diff-close'
+  ) {
+    if (action === 'focus' || action === 'close') {
+      const error = action === 'focus' ? focus(instance, value) : close(instance, value);
       if (error) return { ok: false, error };
     }
     if (action === 'diff-open' || action === 'diff-close') instance.setDiffPanelOpen(action === 'diff-open');
@@ -168,7 +175,6 @@ async function run(instance: RegisteredTerminal, op: CliPanelOp): Promise<CliPan
   let error: string | null = null;
   if (action === 'add')
     error = value ? await add(instance, kind, value, op.sandbox, op.shell) : 'Missing value for add';
-  if (action === 'remove') error = await remove(instance, kind, value);
   if (error) return { ok: false, error };
   return respondWith(instance, panelsOfKind(instance, kind));
 }

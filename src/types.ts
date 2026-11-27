@@ -965,18 +965,21 @@ export interface PlanAPI {
  */
 export type CliPanelKind = 'markdown' | 'browser' | 'runner';
 
+/** What `panel list` and `panel read` call a panel: a runner is a script or a shell, as `panel open` names them. */
+export type CliPanelShownKind = 'markdown' | 'browser' | 'script' | 'shell';
+
 /** A single panel as reported back to the CLI. */
 export interface CliPanelInfo {
   /** What `ouijit panel focus` takes. */
   id: string;
-  kind: CliPanelKind;
+  kind: CliPanelShownKind;
   /** Tab label shown in the UI. */
   label: string;
   /** Absolute file path — markdown panels only. */
   path?: string;
   /** URL — browser panels only. */
   url?: string;
-  /** Script name — runner panels only. */
+  /** Script name — script panels only. */
   script?: string;
   /** Whether this panel is the terminal's active (foreground) panel. */
   active: boolean;
@@ -992,7 +995,7 @@ export interface CliPanelOp {
    * every kind, `focus` taking a panel id or `terminal`. `diff-open` and
    * `diff-close` toggle the diff, which is not a panel.
    */
-  action: 'list' | 'add' | 'remove' | 'list-all' | 'focus' | 'diff-open' | 'diff-close' | 'read';
+  action: 'add' | 'list-all' | 'focus' | 'close' | 'diff-open' | 'diff-close' | 'read';
   kind?: CliPanelKind;
   /** Absolute path (markdown), URL (browser) or script id or name (runner) for add/remove; a panel id for focus and read. */
   value?: string;
@@ -1106,13 +1109,13 @@ export interface CliTerminalResponse {
 }
 
 export interface CliPanelRead {
-  kind: CliPanelKind;
+  kind: CliPanelShownKind;
   text?: string;
   status?: 'running' | 'success' | 'error' | 'idle';
   exitCode?: number | null;
   path?: string;
   url?: string;
-  /** A runner the user ran privately: `text` is withheld. */
+  /** A script or shell the user ran privately: `text` is withheld. */
   private?: true;
 }
 

@@ -101,7 +101,7 @@ describe('CLI panel listener', () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it('adds, lists, and removes panels, activating what it adds', async () => {
+  it('adds panels, activating what it adds, and closes them by id', async () => {
     const term = new FakeTerminal();
     register('pty-home', term);
 
@@ -117,21 +117,16 @@ describe('CLI panel listener', () => {
     expect(term.panels).toHaveLength(2);
     expect(term.activePanelId).toBe('panel-1');
 
-    // Listing is scoped to the kind asked for.
-    const listed = await run({ ptyId: 'pty-home', action: 'list', kind: 'browser' });
-    expect(listed.panels).toEqual([
-      { id: 'panel-2', kind: 'browser', label: 'localhost:3000', url: 'http://localhost:3000', active: false },
+    // Closing goes by the id a listing gives, whatever the kind.
+    const closed = await run({ ptyId: 'pty-home', action: 'close', value: 'panel-1' });
+    expect(closed.panels).toEqual([
+      { id: 'panel-2', kind: 'browser', label: 'localhost:3000', url: 'http://localhost:3000', active: true },
     ]);
-
-    expect(await run({ ptyId: 'pty-home', action: 'remove', kind: 'markdown', value: '/notes.md' })).toEqual({
-      ok: true,
-      panels: [],
-    });
     expect(term.panels.map((p) => p.kind)).toEqual(['browser']);
 
-    const gone = await run({ ptyId: 'pty-home', action: 'remove', kind: 'markdown', value: '/notes.md' });
+    const gone = await run({ ptyId: 'pty-home', action: 'close', value: 'panel-1' });
     expect(gone.ok).toBe(false);
-    expect(gone.error).toContain('/notes.md');
+    expect(gone.error).toContain('panel-1');
   });
 
   it("reads a runner's screen, status and exit code, where any other panel points, and only how a private one ended", async () => {
@@ -151,7 +146,7 @@ describe('CLI panel listener', () => {
 
     expect(await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-r', lines: 1 })).toEqual({
       ok: true,
-      read: { kind: 'runner', text: '  ✗ refresh keeps the session', status: 'error', exitCode: 1 },
+      read: { kind: 'script', text: '  ✗ refresh keeps the session', status: 'error', exitCode: 1 },
     });
     expect(await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-p' })).toEqual({
       ok: true,
@@ -159,7 +154,7 @@ describe('CLI panel listener', () => {
     });
     expect(await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-s' })).toEqual({
       ok: true,
-      read: { kind: 'runner', status: 'success', exitCode: 0, private: true },
+      read: { kind: 'script', status: 'success', exitCode: 0, private: true },
     });
     expect(await run({ ptyId: 'pty-agent', action: 'read', value: 'panel-x' })).toEqual({
       ok: false,
@@ -199,7 +194,7 @@ describe('CLI panel listener', () => {
     expect((await run({ ...asked, readerPtyId: 'pty-other' })).ok).toBe(false);
     term.panels[0] = { ...term.panels[0], private: true };
     expect((await run({ ...asked, readerPtyId: 'pty-agent' })).read).toEqual({
-      kind: 'runner',
+      kind: 'shell',
       status: 'running',
       exitCode: null,
       private: true,

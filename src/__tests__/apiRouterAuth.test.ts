@@ -320,8 +320,8 @@ describe('panel scope', () => {
     const post = (kind: string, body: Record<string, unknown>) =>
       request('POST', `/api/panels/pty-42/${kind}`, token, body).then((r) => r.status);
 
-    expect((await request('GET', '/api/panels/pty-42/markdown', token)).status).toBe(200);
-    expect((await request('GET', '/api/panels/pty-other/markdown', token)).status).toBe(403);
+    expect((await request('GET', '/api/panels/pty-42', token)).status).toBe(200);
+    expect((await request('GET', '/api/panels/pty-other', token)).status).toBe(403);
     expect(await post('markdown', { path: '/tmp/test-project/T-7/plan.md' })).toBe(200);
     expect(await post('markdown', { path: '/tmp/x.md' })).toBe(403);
     expect(await post('markdown', { path: '/tmp/test-project/T-7/../../x.md' })).toBe(403);

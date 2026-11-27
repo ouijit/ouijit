@@ -1,4 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as path from 'node:path';
 import { Command } from 'commander';
 import type { BrowserWindow } from 'electron';
 
@@ -148,20 +149,27 @@ describe('ouijit terminal', () => {
   });
 });
 
-describe('ouijit panel, runner and diff', () => {
-  test("act on this terminal's panels unless another is named", async () => {
+describe('ouijit panel and diff', () => {
+  test("open every kind of panel, then focus and close them, on this terminal's card unless another is named", async () => {
+    sessions.push({ ptyId: 'pty-b', projectPath: '/p', command: 'zsh', label: 'Shell' } as ActiveSession);
+    await ouijit('panel', 'open', 'markdown', 'notes/plan.md');
+    await ouijit('panel', 'open', 'browser', 'http://localhost:3000', 'pty-b');
+    await ouijit('panel', 'open', 'script', 'Dev server');
+    await ouijit('panel', 'open', 'shell');
     await ouijit('panel', 'list');
     await ouijit('panel', 'focus', 'panel-2', 'pty-a');
-    await ouijit('runner', 'add', 'Dev server');
-    await ouijit('runner', 'remove', 'Dev server');
+    await ouijit('panel', 'close', 'panel-2');
     expect(await ouijit('diff', 'open')).toEqual({ ptyId: 'pty-a', panels: [], diffOpen: true });
     await ouijit('diff', 'close');
 
     expect(renderer.panelOps.map((op) => (({ requestId: _, ...rest }) => rest)(op as CliPanelOp))).toEqual([
+      { ptyId: 'pty-a', action: 'add', kind: 'markdown', value: path.resolve('notes/plan.md') },
+      { ptyId: 'pty-b', action: 'add', kind: 'browser', value: 'http://localhost:3000' },
+      { ptyId: 'pty-a', action: 'add', kind: 'runner', value: 'Dev server' },
+      expect.objectContaining({ ptyId: 'pty-a', action: 'add', kind: 'runner', shell: true }),
       { ptyId: 'pty-a', action: 'list-all' },
       { ptyId: 'pty-a', action: 'focus', value: 'panel-2' },
-      { ptyId: 'pty-a', action: 'add', kind: 'runner', value: 'Dev server' },
-      { ptyId: 'pty-a', action: 'remove', kind: 'runner', value: 'Dev server' },
+      { ptyId: 'pty-a', action: 'close', value: 'panel-2' },
       { ptyId: 'pty-a', action: 'diff-open' },
       { ptyId: 'pty-a', action: 'diff-close' },
     ]);
