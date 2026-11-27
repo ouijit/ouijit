@@ -290,7 +290,7 @@ test('switching: going to another conversation and back shows the first one whol
   // A new tab becomes what is typed into it: here a file in the conversation's folder.
   fs.writeFileSync(path.join(folder, 'notes.md'), '# Notes\n');
   await appPage.getByRole('button', { name: 'New tab', exact: true }).click();
-  const newTab = appPage.getByLabel('Open a file, or enter a URL');
+  const newTab = appPage.getByLabel('Open a shell or a file, or enter a URL');
   await expect(newTab).toBeFocused();
   await newTab.fill('notes');
   await expect(appPage.getByRole('option', { name: /notes\.md/ })).toBeVisible();
