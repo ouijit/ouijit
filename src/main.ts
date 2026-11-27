@@ -252,10 +252,12 @@ const createWindow = (): BrowserWindow => {
   });
   // macOS sends a swipe only for three fingers, or two when its trackpad settings say so.
   window.on('swipe', (_event, direction) => {
-    if (direction === 'right') typedPush(window, 'navigate-back');
+    if (direction === 'right') typedPush(window, 'navigate', 'back');
+    else if (direction === 'left') typedPush(window, 'navigate', 'forward');
   });
   window.on('app-command', (_event, command) => {
-    if (command === 'browser-backward') typedPush(window, 'navigate-back');
+    if (command === 'browser-backward') typedPush(window, 'navigate', 'back');
+    else if (command === 'browser-forward') typedPush(window, 'navigate', 'forward');
   });
 
   window.on('close', (e) => {

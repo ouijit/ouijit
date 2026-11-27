@@ -32,7 +32,7 @@ import { openLinearIssueInPanel } from '../services/linearTaskActions';
 import { usePanelStore, type OpenItem, type PanelList } from '../stores/panelStore';
 import { useGithubStore } from '../stores/githubStore';
 import { useLinearStore } from '../stores/linearStore';
-import { asOneMove, takePreviousPlace, type Place } from '../stores/navigationHistory';
+import { asOneMove, currentPlace, travel, type Place } from '../stores/navigationHistory';
 import type { ChatAgentId, TaskChatSummary } from '../chat/model';
 
 /** Tasks load first, so a board's first paint has its cards. */
@@ -345,10 +345,12 @@ export function navigate<T>(work: () => Promise<T>): Promise<T> {
   return asOneMove(work);
 }
 
-/** To the last place the user was that is still there, without remembering where they left. */
-export async function goBack(): Promise<void> {
-  const place = takePreviousPlace();
-  if (place) await asOneMove(() => restorePlace(place), false);
+/** Back to the last place the user was that is still there, or Forward again to where Back left. */
+export function goTo(direction: 'back' | 'forward'): Promise<void> {
+  return asOneMove(async () => {
+    const place = travel(direction, currentPlace());
+    if (place) await restorePlace(place);
+  }, false);
 }
 
 async function restorePlace(place: Place): Promise<void> {

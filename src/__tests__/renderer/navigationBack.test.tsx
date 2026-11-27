@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor, act } from '@testing-library/react'
 import { Sidebar } from '../../components/SidebarReact';
 import { MainView } from '../../components/MainView';
 import { TitleBar } from '../../components/TitleBarReact';
-import { useBackShortcuts } from '../../components/BackButton';
+import { useHistoryShortcuts } from '../../components/HistoryArrows';
 import { useAppStore } from '../../stores/appStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useHomeChatStore } from '../../stores/homeChatStore';
@@ -58,7 +58,7 @@ function snapshot(id: string, reply: string): ChatSnapshot {
 }
 
 function App() {
-  useBackShortcuts();
+  useHistoryShortcuts();
   return (
     <>
       <TitleBar />
@@ -80,7 +80,7 @@ async function replyLink(): Promise<HTMLElement> {
   return screen.findByRole('link', { name: 'the pull request' });
 }
 
-test('Back from a pull request a Chat link opened lands on that same conversation, and goes only where is still there', async () => {
+test('Back from a pull request a Chat link opened lands on that same conversation, Forward returns, and both go only where is still there', async () => {
   const first = snapshot('home-1', 'Nothing yet.');
   const second = snapshot('home-2', 'It is up as [the pull request](ouijit://Alpha/pulls/357).');
   vi.mocked(window.api.homeChat.switch).mockImplementation(async (id) => (id === 'home-1' ? first : second));
@@ -107,8 +107,10 @@ test('Back from a pull request a Chat link opened lands on that same conversatio
   useAppStore.getState().select({ kind: 'chat' });
   installNavigationHistory();
   render(<App />);
-  // Nowhere has been left yet.
-  expect(screen.queryByRole('button', { name: /^Back to / })).toBeNull();
+  const arrow = (name: string | RegExp) => screen.getByRole('button', { name });
+  // Nowhere has been left yet: both arrows are there, and neither goes anywhere.
+  expect((arrow('Back') as HTMLButtonElement).disabled).toBe(true);
+  expect((arrow('Forward') as HTMLButtonElement).disabled).toBe(true);
 
   // Another conversation from the sidebar, then a link in its reply to a pull request.
   press(await screen.findByText('Ship the panel'));
@@ -128,10 +130,24 @@ test('Back from a pull request a Chat link opened lands on that same conversatio
   expect(useHomeChatStore.getState().currentId).toBe('home-2');
   expect(await screen.findByRole('link', { name: 'the pull request' })).toBeTruthy();
 
-  // ⌘[ goes back too, here to the conversation before it.
+  // ⌘[ goes back too, to the conversation before it, as far back as there is.
   fireEvent.keyDown(document, { key: '[', metaKey: true, ctrlKey: true });
   await waitFor(() => expect(useHomeChatStore.getState().currentId).toBe('home-1'));
-  expect(screen.queryByRole('button', { name: /^Back to / })).toBeNull();
+  expect((arrow('Back') as HTMLButtonElement).disabled).toBe(true);
+
+  // Forward retraces it: ⌘] to the conversation, then the arrow, named for it, to the pull request.
+  fireEvent.keyDown(document, { key: ']', metaKey: true, ctrlKey: true });
+  await waitFor(() => expect(useHomeChatStore.getState().currentId).toBe('home-2'));
+  press(await screen.findByRole('button', { name: 'Forward to #357' }));
+  await waitFor(() => expect(usePanelStore.getState().open).toEqual({ source: 'github-pr', number: 357 }));
+  expect((arrow('Forward') as HTMLButtonElement).disabled).toBe(true);
+
+  // Going somewhere new from a place Back reached ends the way forward, as in a browser.
+  press(await screen.findByRole('button', { name: 'Back to Chat' }));
+  expect(await screen.findByRole('button', { name: 'Forward to #357' })).toBeTruthy();
+  press(await screen.findByText('Plan the week'));
+  await waitFor(() => expect(useHomeChatStore.getState().currentId).toBe('home-1'));
+  await waitFor(() => expect((arrow('Forward') as HTMLButtonElement).disabled).toBe(true));
 
   // A conversation deleted since is nowhere to go back to.
   press(await screen.findByText('Ship the panel'));
@@ -144,5 +160,5 @@ test('Back from a pull request a Chat link opened lands on that same conversatio
       owners: {},
     }),
   );
-  await waitFor(() => expect(screen.queryByRole('button', { name: /^Back to / })).toBeNull());
+  await waitFor(() => expect((arrow('Back') as HTMLButtonElement).disabled).toBe(true));
 });

@@ -112,38 +112,57 @@ export function placeName(place: Place): string {
 }
 
 interface NavigationHistoryState {
-  /** Oldest first. Can hold places gone since; `previousPlace` skips them. */
+  /** Oldest first. Either list can hold places gone since; going there skips them. */
   back: Place[];
+  /** Where Back has been from, nearest last, until the user goes somewhere new. */
+  forward: Place[];
 }
 
-export const useNavigationHistory = create<NavigationHistoryState>()(() => ({ back: [] }));
+export const useNavigationHistory = create<NavigationHistoryState>()(() => ({ back: [], forward: [] }));
 
-/** Where Back goes: the latest place that is still there. */
-export function previousPlace(back: Place[] = useNavigationHistory.getState().back): Place | null {
-  for (let i = back.length - 1; i >= 0; i--) if (stillThere(back[i])) return back[i];
+type Direction = keyof NavigationHistoryState;
+
+/** Where Back or Forward goes: the nearest place that way that is still there. */
+export function nextPlace(
+  direction: Direction,
+  state: NavigationHistoryState = useNavigationHistory.getState(),
+): Place | null {
+  const places = state[direction];
+  for (let i = places.length - 1; i >= 0; i--) if (stillThere(places[i])) return places[i];
   return null;
 }
 
-/** Takes the latest place still there off the history, with whatever gone since it. */
-export function takePreviousPlace(): Place | null {
-  const back = [...useNavigationHistory.getState().back];
-  while (back.length > 0) {
-    const place = back.pop()!;
-    if (stillThere(place)) {
-      useNavigationHistory.setState({ back });
-      return place;
-    }
+/**
+ * Takes the nearest place still there off one list, with whatever gone since
+ * it, and keeps `here` on the other, so the way back is the way it came.
+ */
+export function travel(direction: Direction, here: Place | null): Place | null {
+  const state = useNavigationHistory.getState();
+  const from = [...state[direction]];
+  let place: Place | null = null;
+  while (from.length > 0 && !place) {
+    const candidate = from.pop()!;
+    if (stillThere(candidate)) place = candidate;
   }
-  useNavigationHistory.setState({ back });
-  return null;
+  const other: Direction = direction === 'back' ? 'forward' : 'back';
+  const to = place && here ? pushPlace(state[other], here) : state[other];
+  useNavigationHistory.setState({ [direction]: from, [other]: to } as Partial<NavigationHistoryState>);
+  return place;
 }
 
-/** Where the user was, as they leave it. Gone places, and the same place twice running, are not kept. */
+function pushPlace(places: Place[], place: Place): Place[] {
+  if (samePlace(places.at(-1) ?? null, place)) return places;
+  return [...places, place].slice(-MAX_PLACES);
+}
+
+/**
+ * Where the user was, as they leave it for somewhere new, which ends the way
+ * forward as a browser's does. Gone places, and the same place twice running,
+ * are not kept.
+ */
 export function rememberPlace(place: Place | null): void {
   if (!place || !stillThere(place)) return;
-  const { back } = useNavigationHistory.getState();
-  if (samePlace(back.at(-1) ?? null, place)) return;
-  useNavigationHistory.setState({ back: [...back, place].slice(-MAX_PLACES) });
+  useNavigationHistory.setState(({ back }) => ({ back: pushPlace(back, place), forward: [] }));
 }
 
 let settled: Place | null = null;
@@ -189,7 +208,7 @@ export function installNavigationHistory(): void {
 
 /**
  * `work` as one move however long it takes, from where it started to where it
- * ends. With `record` false it is not remembered at all: going back.
+ * ends. With `record` false it is not remembered at all: going back or forward.
  */
 export async function asOneMove<T>(work: () => Promise<T>, record = true): Promise<T> {
   if (depth === 0) settle(true);

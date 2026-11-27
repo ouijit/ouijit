@@ -28,6 +28,7 @@ import { ResizeHandle } from './common/ResizeHandle';
 import { Icon } from './terminal/Icon';
 import { StatusGlyph } from './terminal/StatusDot';
 import { Tooltip } from './ui/Tooltip';
+import { HistoryArrows } from './HistoryArrows';
 import { FadeLine } from './ui/FadeLine';
 import { openProject, openProjectChat, openProjectPage, openShell, openTaskTerminal } from './navigation';
 import { isModKey } from '../utils/modKey';
@@ -149,6 +150,7 @@ export function Sidebar({ onAddProject, onCloneSelect }: SidebarProps) {
           <div
             className={`${isMac ? 'h-[72px]' : 'h-[52px]'} shrink-0 flex items-center justify-end gap-0.5 px-2.5 ${open ? '[-webkit-app-region:drag]' : ''}`}
           >
+            <HistoryArrows />
             <SearchButton />
             <Tooltip text={shown ? 'Hide sidebar' : 'Keep sidebar open'} placement="bottom-end">
               <button

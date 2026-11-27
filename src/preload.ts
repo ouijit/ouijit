@@ -276,7 +276,7 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   onFullscreenChange: (callback: (isFullscreen: boolean) => void) => typedListen('fullscreen-change', callback),
-  onNavigateBack: (callback: () => void) => typedListen('navigate-back', callback),
+  onNavigate: (callback: (direction: 'back' | 'forward') => void) => typedListen('navigate', callback),
 
   agentHooks: {
     onStatus: (callback: (ptyId: string, status: string) => void) => typedListen('agent-hook-status', callback),

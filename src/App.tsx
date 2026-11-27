@@ -2,7 +2,7 @@ import { Component, useCallback, useEffect, useState, type ErrorInfo, type React
 import { useIPCListeners } from './hooks/useIPCListeners';
 import { usePaletteShortcut } from './hooks/usePaletteShortcut';
 import { useTerminalShortcuts } from './components/terminal/terminalShortcuts';
-import { useBackShortcuts } from './components/BackButton';
+import { useHistoryShortcuts } from './components/HistoryArrows';
 import { useAppStore, restoredSelection, selectIsCloning } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
 import { useExperimentalStore } from './stores/experimentalStore';
@@ -85,7 +85,7 @@ export function App() {
   useIPCListeners();
   usePaletteShortcut();
   useTerminalShortcuts();
-  useBackShortcuts();
+  useHistoryShortcuts();
 
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const whatsNew = useAppStore((s) => s.whatsNew);
