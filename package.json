@@ -23,6 +23,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "node e2e/build.mjs && npx playwright test --config e2e/playwright.config.ts",
+    "test:e2e:headful": "OUIJIT_E2E_HEADFUL=1 npm run test:e2e",
     "test:e2e:ci": "node e2e/build.mjs && xvfb-run npx playwright test --config e2e/playwright.config.ts",
     "build:cli": "node scripts/build-cli.mjs",
     "docs:check": "node scripts/build-cli.mjs && node scripts/docs-check.mjs",

@@ -46,12 +46,25 @@ test.skipIf(process.platform !== 'darwin' || !fs.existsSync(NONO))(
         extends: [guard],
       },
     );
+    // nono refuses to start with its state (~/.nono, $XDG_STATE_HOME/nono) inside a folder it
+    // grants, and its macOS system group reads all of /private, where every temp dir is.
+    const cache = path.resolve(__dirname, '../../../node_modules/.cache');
+    fs.mkdirSync(cache, { recursive: true });
+    const home = fs.mkdtempSync(path.join(cache, 'ouijit-nono-home-'));
     const run = spawnSync(launch.file, launch.args, {
       cwd: repo,
       encoding: 'utf8',
       // nono's default profile doesn't grant the user's git config, which git would otherwise refuse to start without.
-      env: { ...process.env, XDG_CONFIG_HOME: config, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' },
+      env: {
+        ...process.env,
+        HOME: home,
+        XDG_CONFIG_HOME: config,
+        XDG_STATE_HOME: path.join(home, '.local', 'state'),
+        GIT_CONFIG_GLOBAL: '/dev/null',
+        GIT_CONFIG_NOSYSTEM: '1',
+      },
     });
+    fs.rmSync(home, { recursive: true, force: true });
     const out = `${run.stdout}${run.stderr}`;
 
     expect(out).not.toContain('planted');

@@ -1,5 +1,5 @@
 import { getAllProjects, getGlobalSetting } from '../db';
-import { getWorktreesRoot } from '../worktree';
+import { getWorktreesRoot } from '../paths';
 import { CHAT_SETTING_KEYS, parseChatSettings } from './preferences';
 import { issueToken, revokeToken } from '../apiAuth';
 import { hostEnv, ouijitSessionEnv, sandboxLaunch } from '../sessionEnv';

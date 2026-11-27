@@ -66,6 +66,8 @@ async function dragCard(appPage: Page, source: Locator, target: Locator): Promis
 }
 
 test('project mode: terminals, kanban, context menu, and task lifecycle', async ({ appPage, testRepo }) => {
+  test.setTimeout(30_000);
+
   await enterProject(appPage, testRepo.repoPath);
 
   // --- Terminal lifecycle ---
@@ -219,6 +221,8 @@ test('terminal reconnect after reload does not produce % artifacts', async ({ ap
 });
 
 test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, testRepo, cli }) => {
+  test.setTimeout(30_000);
+
   const repoPath = testRepo.repoPath;
 
   await enterProject(appPage, repoPath);

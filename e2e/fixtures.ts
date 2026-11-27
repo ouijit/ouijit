@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile);
  * Returns the path and a cleanup function.
  */
 export function createTestRepo(name = 'test-project'): { repoPath: string; cleanup: () => void } {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-e2e-'));
+  const tmpDir = fs.mkdtempSync(path.join(process.env.OUIJIT_E2E_RUN_DIR ?? os.tmpdir(), 'ouijit-e2e-'));
   const repoPath = path.join(tmpDir, name);
   fs.mkdirSync(repoPath, { recursive: true });
 

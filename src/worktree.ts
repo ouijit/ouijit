@@ -10,6 +10,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import koffi from 'koffi';
 import { getLogger } from './logger';
+import { getWorktreesRoot } from './paths';
 import {
   getNextTaskNumber,
   createTask,
@@ -140,11 +141,6 @@ export interface TaskWorktreeResult {
 export interface WorktreeRemoveResult {
   success: boolean;
   error?: string;
-}
-
-/** Where every project's task worktrees live. */
-export function getWorktreesRoot(): string {
-  return path.join(os.homedir(), 'Ouijit', 'worktrees');
 }
 
 export function getWorktreeBaseDir(projectName: string): string {
