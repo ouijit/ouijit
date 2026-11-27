@@ -385,6 +385,17 @@ textarea,
   z-index: 20;
 }
 
+/* A small control floating over content, such as a thumbnail's remove button: lit from above
+   and lifted off what it sits on, where a border would only outline it. */
+.raised-badge {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-ink) 9%, var(--color-terminal-surface)),
+    var(--color-terminal-surface)
+  );
+  box-shadow: var(--shadow-md);
+}
+
 /* `background-secondary` is a 6% wash: over a pane's own content the content
    shows through, so a group placed over it needs an opaque base underneath. */
 .segmented-opaque {
