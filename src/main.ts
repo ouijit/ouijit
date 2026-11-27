@@ -172,7 +172,7 @@ const createWindow = (): BrowserWindow => {
     // Linux needs explicit icon (macOS uses .icns from app bundle)
     ...(isLinux && { icon: path.join(__dirname, '..', '..', 'icon.png') }),
     backgroundColor,
-    ...(backgroundE2E && { show: false, paintWhenInitiallyHidden: true }),
+    ...(backgroundE2E && { show: false }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       webviewTag: true,
