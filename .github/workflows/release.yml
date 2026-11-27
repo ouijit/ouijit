@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*'
+  # A dry run: builds each platform unsigned and smoke tests it, with no
+  # version bump, no draft and no upload.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,6 +17,7 @@ jobs:
     uses: ./.github/workflows/checks.yml
 
   create-draft:
+    if: github.event_name == 'push'
     needs: test
     permissions:
       contents: write
@@ -36,7 +40,9 @@ jobs:
           fi
 
   publish:
-    needs: create-draft
+    needs: [test, create-draft]
+    # create-draft is skipped on a dry run, which would otherwise skip this too.
+    if: ${{ !cancelled() && needs.test.result == 'success' && (needs.create-draft.result == 'success' || github.event_name == 'workflow_dispatch') }}
     permissions:
       contents: write
     strategy:
@@ -67,11 +73,12 @@ jobs:
 
       # Set package.json version from the git tag (after npm ci to avoid lockfile mismatch)
       - name: Set version from tag
+        if: github.event_name == 'push'
         run: npm version "${GITHUB_REF#refs/tags/v}" --no-git-tag-version --allow-same-version
 
       # -- macOS Code Signing ------------------------------------------------
       - name: Import Apple signing certificate
-        if: matrix.platform == 'darwin'
+        if: matrix.platform == 'darwin' && github.event_name == 'push'
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -92,7 +99,7 @@ jobs:
           security list-keychain -d user -s $KEYCHAIN_PATH
 
       - name: Prepare notarization key
-        if: matrix.platform == 'darwin'
+        if: matrix.platform == 'darwin' && github.event_name == 'push'
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
@@ -101,17 +108,35 @@ jobs:
           echo "$APPLE_API_KEY" > ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8
           chmod 600 ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8
 
-      # -- Build & Publish ---------------------------------------------------
-      - name: Publish
+      # -- Build, smoke test & publish ---------------------------------------
+      - name: Build
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           BUILD_ARCH: ${{ matrix.arch }}
-        run: npm run publish -- --arch="$BUILD_ARCH"
+          SKIP_SIGN: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+          SKIP_NOTARIZE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+        run: npm run make -- --arch="$BUILD_ARCH"
+
+      # Has to stay ahead of Publish, so a build that does not run is never uploaded.
+      - name: Smoke test the macOS build
+        if: matrix.platform == 'darwin'
+        timeout-minutes: 10
+        run: node scripts/smoke-packaged.mjs "out/make/dmg/${{ matrix.arch }}/ouijit-darwin-${{ matrix.arch }}.dmg"
+
+      - name: Smoke test the Linux build
+        if: matrix.platform == 'linux'
+        timeout-minutes: 10
+        run: xvfb-run -a node scripts/smoke-packaged.mjs "out/make/zip/linux/${{ matrix.arch }}/ouijit-linux-${{ matrix.arch }}.zip"
+
+      - name: Publish
+        if: github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-forge release --from-make
 
       - name: Staple DMG
-        if: matrix.platform == 'darwin'
+        if: matrix.platform == 'darwin' && github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
@@ -120,7 +145,7 @@ jobs:
       # -- Verify the DMG would pass Gatekeeper on a user's machine.
       # Catches missing signing or notarization before the draft is promoted.
       - name: Verify DMG signed + notarized
-        if: matrix.platform == 'darwin'
+        if: matrix.platform == 'darwin' && github.event_name == 'push'
         run: ./scripts/verify-dmg.sh
 
       # -- Cleanup -----------------------------------------------------------

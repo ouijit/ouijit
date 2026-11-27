@@ -13,6 +13,7 @@
     "package": "npm run build:cli && electron-forge package",
     "make": "npm run build:cli && electron-forge make",
     "make:linux": "./scripts/build-linux.sh",
+    "smoke:packaged": "node scripts/smoke-packaged.mjs",
     "publish": "npm run build:cli && electron-forge release",
     "typecheck": "tsc --noEmit",
     "check": "tsc --noEmit && eslint src/ && depcruise src --config .dependency-cruiser.cjs && prettier --check src/",

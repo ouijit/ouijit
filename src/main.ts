@@ -318,12 +318,12 @@ app.on('ready', async () => {
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
 
-  // Read by the e2e `cli` fixture through electronApp.evaluate.
   if (process.env.OUIJIT_E2E === '1') {
-    (globalThis as Record<string, unknown>).__ouijitE2EApi = {
-      url: `http://127.0.0.1:${getApiPort()}`,
-      token: issueToken('e2e-driver', 'host'),
-    };
+    const e2eApi = { url: `http://127.0.0.1:${getApiPort()}`, token: issueToken('e2e-driver', 'host') };
+    // Drivers poll for this file, so it has to appear whole.
+    const e2eApiPath = path.join(app.getPath('userData'), 'e2e-api.json');
+    fs.writeFileSync(`${e2eApiPath}.tmp`, JSON.stringify(e2eApi), { mode: 0o600 });
+    fs.renameSync(`${e2eApiPath}.tmp`, e2eApiPath);
   }
 
   Menu.setApplicationMenu(
