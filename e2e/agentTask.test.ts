@@ -59,6 +59,7 @@ test('a task runs an agent from its start hook, its edit shows in the diff, and 
   await appPage.keyboard.press('Shift+Enter');
   await appPage.keyboard.type('done');
   await appPage.keyboard.press('Enter');
+  await expect.poll(async () => (await terminal())?.agentStatus, { intervals: [100] }).toBe('thinking');
   await expect.poll(screen, { timeout: 10_000 }).toContain('heard 2 line(s): stub- | done');
   await expect.poll(async () => (await terminal())?.agentStatus, { timeout: 10_000 }).toBe('ready');
 

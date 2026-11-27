@@ -83,31 +83,32 @@ type OuijitFixtures = {
   userDataDir: string;
 };
 
-/** A dir of `claude` and `codex` shims that run the stub agent, so terminals never reach a real one. */
-function stubAgentBin(): string {
+/** A `claude` shim that runs the stub agent, and an empty ZDOTDIR, so terminals never reach a real agent. */
+function stubAgentEnv(): { PATH: string; ZDOTDIR: string } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-e2e-agents-'));
+  const bin = path.join(dir, 'bin');
+  const zdotdir = path.join(dir, 'zdotdir');
+  fs.mkdirSync(bin);
+  fs.mkdirSync(zdotdir);
   const stub = path.resolve(__dirname, 'fixtures', 'stub-agent.js');
-  for (const name of ['claude', 'codex']) {
-    fs.writeFileSync(path.join(dir, name), `#!/bin/sh\nexec '${process.execPath}' '${stub}' "$@"\n`, { mode: 0o755 });
-  }
+  fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\nexec '${process.execPath}' '${stub}' "$@"\n`, { mode: 0o755 });
   process.on('exit', () => fs.rmSync(dir, { recursive: true, force: true }));
-  return dir;
+  // The user's .zshrc may put a real `claude` back ahead of the stub.
+  return { PATH: `${bin}:${process.env.PATH}`, ZDOTDIR: zdotdir };
 }
 
-let agentBin: string | undefined;
+let agentEnv: { PATH: string; ZDOTDIR: string } | undefined;
 
 export function launchApp(userDataDir: string): Promise<ElectronApplication> {
-  agentBin ??= stubAgentBin();
+  agentEnv ??= stubAgentEnv();
   return _electron.launch({
     args: [path.resolve(__dirname, '..', '.vite-e2e', 'build', 'main.cjs'), '--no-sandbox'],
     env: {
       ...process.env,
-      PATH: `${agentBin}:${process.env.PATH}`,
-      // A login zsh runs path_helper and the user's rc, which put a real
-      // `claude` (~/.local/bin, Homebrew) back ahead of the stubs.
-      SHELL: '/bin/bash',
+      ...agentEnv,
       OUIJIT_TEST_USER_DATA: userDataDir,
       OUIJIT_E2E: '1',
+      OUIJIT_E2E_STUB_AGENTS: '1',
     },
   });
 }

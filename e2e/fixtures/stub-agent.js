@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// A stand-in for an agent CLI, run by the e2e suite as `claude` or `codex`.
-// It takes the status hooks Ouijit's wrapper injects (claude's --settings JSON,
-// codex's -c hooks.<Event> overrides) and runs them as the real agent would.
+// A stand-in for an agent CLI, run by the e2e suite as `claude`. It takes the
+// status hooks Ouijit's wrapper injects with --settings and runs them as Claude Code would.
 
 const { execFile } = require('node:child_process');
 const fs = require('node:fs');
@@ -21,9 +20,6 @@ for (let i = 0; i < args.length; i++) {
         for (const hook of matcher.hooks) hooks[event].push(hook.command);
       }
     }
-  } else if (arg === '-c') {
-    const match = /^hooks\.(\w+)=.*command="([^"]+)"/.exec(args[++i]);
-    if (match && hooks[match[1]]) hooks[match[1]].push(match[2]);
   } else if (arg === '--append-system-prompt-file') {
     i++;
   } else if (!arg.startsWith('-')) {

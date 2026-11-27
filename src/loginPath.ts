@@ -23,7 +23,7 @@ const execFileAsync = promisify(execFile);
 let resolved: Promise<void> | null = null;
 
 export function ensureLoginPath(): Promise<void> {
-  resolved ??= process.env.OUIJIT_E2E === '1' ? Promise.resolve() : readLoginPath();
+  resolved ??= process.env.OUIJIT_E2E_STUB_AGENTS === '1' ? Promise.resolve() : readLoginPath();
   return resolved;
 }
 

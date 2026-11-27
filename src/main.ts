@@ -65,7 +65,7 @@ process.stderr?.on?.('error', () => {});
 // Fix PATH for packaged apps launched from Finder/Dock
 // This sources the user's shell PATH so npm/node are available in PTY.
 // The e2e suite's PATH starts with stub agents a login PATH would put behind real ones.
-if (process.env.OUIJIT_E2E !== '1') fixPath();
+if (process.env.OUIJIT_E2E_STUB_AGENTS !== '1') fixPath();
 
 // Allow E2E tests to isolate userData and task worktrees per instance
 if (process.env.OUIJIT_TEST_USER_DATA) {
