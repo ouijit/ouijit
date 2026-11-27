@@ -221,7 +221,6 @@ export function PullRequestDetailView({
         onRefresh={() => void useGithubStore.getState().reloadDetail(projectPath)}
         refreshTip={refreshTip}
         onRefreshHover={checkFreshness}
-        onClose={() => useGithubStore.getState().closeDetail()}
         actions={<ReviewActions projectPath={projectPath} detail={detail} onJumpToDraft={jumpToDraft} />}
         tabs={
           <TabBar className="mx-auto shrink-0 self-stretch items-center">

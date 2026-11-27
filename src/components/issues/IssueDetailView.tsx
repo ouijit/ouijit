@@ -27,7 +27,6 @@ interface IssueDetailViewProps {
   timeline: TimelineItem[];
   loading: boolean;
   onRefresh: () => void;
-  onClose: () => void;
   /** Controls in the chrome — Linear's state control, and nothing on GitHub's side. */
   actions?: ReactNode;
   /** Facts below the linked task, whichever ones this source has. */
@@ -65,7 +64,6 @@ export function IssueDetailView({
   timeline,
   loading,
   onRefresh,
-  onClose,
   actions,
   facts,
   composer,
@@ -96,7 +94,6 @@ export function IssueDetailView({
         busy={loading}
         actions={actions}
         onRefresh={onRefresh}
-        onClose={onClose}
         tabs={
           <TabBar className="mx-auto shrink-0 self-stretch items-center">
             <Tab active={pane === 'summary'} onClick={() => setPane('summary')}>

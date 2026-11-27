@@ -1,5 +1,5 @@
 import log from 'electron-log/renderer';
-import { focusTerminal, openProject, openProjectPage, openTaskTerminal } from '../components/navigation';
+import { focusTerminal, navigate, openProject, openProjectPage, openTaskTerminal } from '../components/navigation';
 import { terminalInstances } from '../components/terminal/terminalRegistry';
 import { homePanelHost } from '../components/chat/homeChatPanels';
 import { openHomeChat } from '../components/chat/homeChatActions';
@@ -50,7 +50,11 @@ export async function showTask(projectPath: string, taskNumber: number): Promise
  * Go where an `ouijit://` link says. It only navigates. Where the place has
  * gone — a terminal closed since — it lands on what held it.
  */
-export async function openLink(uri: string): Promise<void> {
+export function openLink(uri: string): Promise<void> {
+  return navigate(() => follow(uri));
+}
+
+async function follow(uri: string): Promise<void> {
   const target = parseLink(uri);
   if (target?.kind === 'terminal' && isHomeChat(target.ptyId)) {
     await openHomeChat(target.ptyId);

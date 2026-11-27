@@ -26,6 +26,13 @@ import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartSe
 import { terminalInstances } from './terminal/terminalRegistry';
 import { ensureWorktree } from '../services/worktreeRecovery';
 import { PROJECT_CHAT_LABEL, type TaskSurface } from '../chat/preferences';
+import { openHomeChat } from './chat/homeChatActions';
+import { openGithubIssueInPanel, openPullRequestInPanel } from '../services/githubTaskActions';
+import { openLinearIssueInPanel } from '../services/linearTaskActions';
+import { usePanelStore, type OpenItem, type PanelList } from '../stores/panelStore';
+import { useGithubStore } from '../stores/githubStore';
+import { useLinearStore } from '../stores/linearStore';
+import { asOneMove, takePreviousPlace, type Place } from '../stores/navigationHistory';
 import type { ChatAgentId, TaskChatSummary } from '../chat/model';
 
 /** Tasks load first, so a board's first paint has its cards. */
@@ -328,4 +335,48 @@ export async function activateTask(project: Project, task: TaskWithWorkspace, kn
     return;
   }
   await startTaskWorktree(project, task);
+}
+
+/**
+ * A move that takes more than one step, or waits on something between them,
+ * as one place in the history rather than each step it passes through.
+ */
+export function navigate<T>(work: () => Promise<T>): Promise<T> {
+  return asOneMove(work);
+}
+
+/** To the last place the user was that is still there, without remembering where they left. */
+export async function goBack(): Promise<void> {
+  const place = takePreviousPlace();
+  if (place) await asOneMove(() => restorePlace(place), false);
+}
+
+async function restorePlace(place: Place): Promise<void> {
+  switch (place.kind) {
+    case 'terminal':
+      await focusTerminal(place.ptyId, { stack: place.stack });
+      return;
+    case 'chat':
+      await openHomeChat(place.conversation);
+      return;
+    case 'app-settings':
+      useAppStore.getState().select({ kind: 'app-settings' });
+      return;
+    case 'page':
+      if (place.page === 'pull-requests') showPanel(place.projectPath, place.list, place.open);
+      else await openProjectPage(place.projectPath, place.page);
+  }
+}
+
+function showPanel(projectPath: string, list: PanelList, open: OpenItem): void {
+  if (open?.source === 'github-pr') openPullRequestInPanel(projectPath, open.number);
+  else if (open?.source === 'github-issue') openGithubIssueInPanel(projectPath, open.number);
+  else if (open?.source === 'linear') openLinearIssueInPanel(projectPath, open.id);
+  else {
+    useAppStore.getState().openPage(projectPath, 'pull-requests');
+    usePanelStore.getState().setProject(projectPath);
+    useGithubStore.getState().closeDetail();
+    useLinearStore.getState().closeDetail();
+  }
+  usePanelStore.getState().setListView(list);
 }

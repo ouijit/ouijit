@@ -554,6 +554,8 @@ export interface IpcPushContract {
   'homeChat:changed': { args: [state: HomeChatState] };
   'decisions:changed': { args: [decisions: Decision[]] };
   'fullscreen-change': { args: [isFullscreen: boolean] };
+  /** A swipe back across the trackpad, or the back key a Windows mouse sends as an app command. */
+  'navigate-back': { args: [] };
   'agent-hook-status': { args: [ptyId: string, status: import('../hookStatus').HookStatus] };
   'cli:panel-op': { args: [op: CliPanelOp] };
   'cli:tag-op': { args: [op: CliTagOp] };

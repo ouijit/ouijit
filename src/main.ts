@@ -250,6 +250,13 @@ const createWindow = (): BrowserWindow => {
   window.on('leave-full-screen', () => {
     typedPush(window, 'fullscreen-change', false);
   });
+  // macOS sends a swipe only for three fingers, or two when its trackpad settings say so.
+  window.on('swipe', (_event, direction) => {
+    if (direction === 'right') typedPush(window, 'navigate-back');
+  });
+  window.on('app-command', (_event, command) => {
+    if (command === 'browser-backward') typedPush(window, 'navigate-back');
+  });
 
   window.on('close', (e) => {
     if (quitConfirmed) return;

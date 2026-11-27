@@ -58,7 +58,6 @@ export function LinearIssueView({
       timeline={issue.comments}
       loading={loading}
       onRefresh={() => void useLinearStore.getState().reloadIssue(projectPath)}
-      onClose={() => useLinearStore.getState().closeDetail()}
       linkedTask={linkedTask}
       openTaskLabel={openTaskLabel}
       onOpenTask={onOpenTask}

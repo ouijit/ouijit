@@ -10,6 +10,7 @@ import { useAppStore } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
 import { trackWindowFocus, useTerminalStore } from './stores/terminalStore';
 import { useWaitingStore } from './stores/waitingStore';
+import { installNavigationHistory } from './stores/navigationHistory';
 import { setTerminalLinkOpener } from './links/terminalLinkOpener';
 
 // Apply the cached theme before first render (no dark flash for light-mode
@@ -20,6 +21,7 @@ void initTheme();
 initIcons();
 trackWindowFocus();
 initChat();
+installNavigationHistory();
 setTerminalLinkOpener(openTerminalLink);
 
 // Expose stores for e2e tests

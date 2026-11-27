@@ -20,13 +20,9 @@ interface DetailChromeProps {
   /** Defaults to plain "Refresh" until a caller has checked what is pending. */
   refreshTip?: string;
   onRefreshHover?: () => void;
-  onClose: () => void;
 }
 
-/**
- * The bar above whatever is open. The title doubles as the way back, rather
- * than a fourth button beside the other three.
- */
+/** The bar above whatever is open. Back, in the title bar, is the way out of it. */
 export function DetailChrome({
   icon,
   tone,
@@ -39,7 +35,6 @@ export function DetailChrome({
   onRefresh,
   refreshTip,
   onRefreshHover,
-  onClose,
 }: DetailChromeProps) {
   const sidebarCollapsed = usePanelStore((s) => s.sidebarCollapsed);
 
@@ -57,19 +52,14 @@ export function DetailChrome({
         showLabel="Show the list"
         className="-ml-1"
       />
-      <button
-        type="button"
-        className="flex items-center gap-2 min-w-0 max-w-[min(45%,720px)] text-text-secondary hover:text-text-primary transition-colors duration-150"
-        title={title}
-        onClick={onClose}
-      >
+      <div className="flex items-center gap-2 min-w-0 max-w-[min(45%,720px)] text-text-secondary" title={title}>
         <Icon
           name={icon}
           className={`w-4 h-4 shrink-0 ${tone ?? ''}`}
           {...(iconColor ? { style: { color: iconColor } } : {})}
         />
         <span className="truncate text-[15px]">{title}</span>
-      </button>
+      </div>
 
       {tabs}
 
@@ -85,7 +75,6 @@ export function DetailChrome({
           <RefreshButton busy={busy} onClick={onRefresh} title="" />
         </Tooltip>
         <IconButton icon="arrow-square-out" label="Open on GitHub" onClick={() => void window.api.openExternal(url)} />
-        <IconButton icon="x" label="Close" onClick={onClose} />
       </div>
     </header>
   );

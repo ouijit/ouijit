@@ -23,6 +23,7 @@ import {
 import { showInListOrder } from './sidebar/SidebarRows';
 import { useSidebarShown } from './sidebar/sidebarShown';
 import { PanelsAway } from './terminal/PanelTabs';
+import { BackButton } from './BackButton';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -144,6 +145,9 @@ export function TitleBar() {
             </Tooltip>
           </div>
         )}
+        <div className="flex items-center h-9 shrink-0 [-webkit-app-region:no-drag] empty:hidden">
+          <BackButton className={iconButton} />
+        </div>
         {onChat && (
           <div className="flex items-center ml-1.5 min-w-0">
             <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">

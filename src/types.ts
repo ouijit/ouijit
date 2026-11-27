@@ -636,6 +636,7 @@ export interface ElectronAPI {
   /** Set a custom icon color for a project, or null to revert to the generated color */
   setProjectIconColor(projectPath: string, color: string | null): Promise<{ success: boolean }>;
   onFullscreenChange(callback: (isFullscreen: boolean) => void): () => void;
+  onNavigateBack(callback: () => void): () => void;
   /** Listen for app update availability (Linux only) */
   onUpdateAvailable(callback: (info: { version: string; url: string }) => void): () => void;
   /** Listen for a spawned shell that has no integration provider (fish/zsh/bash are integrated) */

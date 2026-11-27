@@ -45,7 +45,6 @@ export function GithubIssueView({
       timeline={issue.timeline}
       loading={loading}
       onRefresh={() => void useGithubStore.getState().reloadIssue(projectPath)}
-      onClose={() => useGithubStore.getState().closeDetail()}
       linkedTask={linkedTask}
       openTaskLabel={openTaskLabel}
       onOpenTask={onOpenTask}
