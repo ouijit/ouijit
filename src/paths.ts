@@ -14,6 +14,7 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 
 let _userDataPath: string | null = null;
+let _worktreesRoot: string | null = null;
 let _cliPath: string | null = null;
 let _devResourcesRoot: string | null = null;
 const _bundledBinaryCache = new Map<string, string>();
@@ -109,6 +110,14 @@ export function getOuijitDir(): string {
 
 export function setUserDataPath(p: string): void {
   _userDataPath = p;
+}
+
+export function setWorktreesRoot(p: string): void {
+  _worktreesRoot = p;
+}
+
+export function getWorktreesRoot(): string {
+  return _worktreesRoot ?? path.join(os.homedir(), 'Ouijit', 'worktrees');
 }
 
 export function getUserDataPath(): string {
