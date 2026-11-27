@@ -83,10 +83,32 @@ type OuijitFixtures = {
   userDataDir: string;
 };
 
+/** A `claude` shim that runs the stub agent, and an empty ZDOTDIR, so terminals never reach a real agent. */
+function stubAgentEnv(): { PATH: string; ZDOTDIR: string } {
+  const dir = fs.mkdtempSync(path.join(process.env.OUIJIT_E2E_RUN_DIR ?? os.tmpdir(), 'ouijit-e2e-agents-'));
+  const bin = path.join(dir, 'bin');
+  const zdotdir = path.join(dir, 'zdotdir');
+  fs.mkdirSync(bin);
+  fs.mkdirSync(zdotdir);
+  const stub = path.resolve(__dirname, 'fixtures', 'stub-agent.js');
+  fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\nexec '${process.execPath}' '${stub}' "$@"\n`, { mode: 0o755 });
+  // The user's .zshrc may put a real `claude` back ahead of the stub.
+  return { PATH: `${bin}:${process.env.PATH}`, ZDOTDIR: zdotdir };
+}
+
+let agentEnv: { PATH: string; ZDOTDIR: string } | undefined;
+
 export function launchApp(userDataDir: string): Promise<ElectronApplication> {
+  agentEnv ??= stubAgentEnv();
   return _electron.launch({
     args: [path.resolve(__dirname, '..', '.vite-e2e', 'build', 'main.cjs'), '--no-sandbox'],
-    env: { ...process.env, OUIJIT_TEST_USER_DATA: userDataDir, OUIJIT_E2E: '1' },
+    env: {
+      ...process.env,
+      ...agentEnv,
+      OUIJIT_TEST_USER_DATA: userDataDir,
+      OUIJIT_E2E: '1',
+      OUIJIT_E2E_STUB_AGENTS: '1',
+    },
   });
 }
 
