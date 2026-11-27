@@ -67,10 +67,6 @@ export function getLogger(): Logger {
   };
 }
 
-/**
- * Format a log entry as a JSON line.
- * Used by electron-log's file transport and tested in logger.test.ts.
- */
 export function formatLogEntry(data: unknown[], level: string, scope?: string): string {
   const entry: Record<string, unknown> = {
     ts: new Date().toISOString(),
