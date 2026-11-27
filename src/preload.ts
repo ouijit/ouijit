@@ -72,6 +72,28 @@ function typedListen<C extends keyof IpcPushContract>(
   return () => ipcRenderer.removeListener(channel, handler);
 }
 
+// About can open a window from cold, and main's push then lands before React
+// has subscribed, so the first subscriber is handed what arrived unclaimed.
+type AboutInfo = IpcPushContract['show-about']['args'][0];
+let unclaimedAbout: AboutInfo | undefined;
+let aboutSubscribers = 0;
+ipcRenderer.on('show-about', (_event, info: AboutInfo) => {
+  if (aboutSubscribers === 0) unclaimedAbout = info;
+});
+
+function listenShowAbout(callback: (info: AboutInfo) => void): () => void {
+  aboutSubscribers++;
+  if (unclaimedAbout) {
+    callback(unclaimedAbout);
+    unclaimedAbout = undefined;
+  }
+  const unsubscribe = typedListen('show-about', callback);
+  return () => {
+    aboutSubscribers--;
+    unsubscribe();
+  };
+}
+
 // ── Exposed API ─────────────────────────────────────────────────────────────
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -269,7 +291,7 @@ contextBridge.exposeInMainWorld('api', {
 
   onWhatsNew: (callback: (info: { version: string; notes: string }) => void) => typedListen('whats-new', callback),
 
-  onShowAbout: (callback: (info: { version: string }) => void) => typedListen('show-about', callback),
+  onShowAbout: listenShowAbout,
 
   onCliChange: (
     callback: (payload: { project: string; action: string; resource: string; message?: string; ts: number }) => void,
