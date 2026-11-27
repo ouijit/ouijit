@@ -318,12 +318,12 @@ app.on('ready', async () => {
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
 
-  // Read by the e2e `cli` fixture through electronApp.evaluate.
   if (process.env.OUIJIT_E2E === '1') {
-    (globalThis as Record<string, unknown>).__ouijitE2EApi = {
-      url: `http://127.0.0.1:${getApiPort()}`,
-      token: issueToken('e2e-driver', 'host'),
-    };
+    const e2eApi = { url: `http://127.0.0.1:${getApiPort()}`, token: issueToken('e2e-driver', 'host') };
+    // Playwright reads the global through the inspector, which a packaged
+    // build's fuses refuse, so a driver of one reads the file.
+    (globalThis as Record<string, unknown>).__ouijitE2EApi = e2eApi;
+    fs.writeFileSync(path.join(app.getPath('userData'), 'e2e-api.json'), JSON.stringify(e2eApi), { mode: 0o600 });
   }
 
   Menu.setApplicationMenu(
