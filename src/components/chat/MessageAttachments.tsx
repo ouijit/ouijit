@@ -9,7 +9,7 @@ import type { ChatAttachment } from '../../chat/model';
 const MAX_CACHED = 40;
 const previews = new Map<string, Promise<string | null>>();
 
-function previewOf(path: string): Promise<string | null> {
+export function previewOf(path: string): Promise<string | null> {
   let preview = previews.get(path);
   if (!preview) {
     preview = window.api.chat.attachmentPreview(path).catch(() => null);
@@ -19,7 +19,7 @@ function previewOf(path: string): Promise<string | null> {
   return preview;
 }
 
-const isImage = (attachment: ChatAttachment) => attachment.mimeType.startsWith('image/');
+export const isImage = (attachment: ChatAttachment) => attachment.mimeType.startsWith('image/');
 
 /**
  * What a sent message carried, above its text as a phone shows it: images as
@@ -93,7 +93,7 @@ export function MessageAttachments({ attachments }: { attachments: ChatAttachmen
   );
 }
 
-function fileIcon(attachment: ChatAttachment): string {
+export function fileIcon(attachment: ChatAttachment): string {
   if (isImage(attachment)) return 'file-image';
   if (attachment.mimeType === 'application/pdf') return 'file-pdf';
   if (attachment.mimeType.startsWith('text/')) return 'file-text';

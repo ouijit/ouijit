@@ -25,6 +25,7 @@ import {
   type ChatSessionInfo,
   type UserMessageNode,
 } from '../../chat/model';
+import { fileIcon, isImage, previewOf } from './MessageAttachments';
 import type { ChatDelivery } from '../../chat/startOptions';
 
 const MIME_BY_EXTENSION: Record<string, string> = {
@@ -278,43 +279,52 @@ function SettingsPicker({ settings }: { settings: Setting[] }) {
   );
 }
 
-function AttachmentChip({ attachment, onRemove }: { attachment: ChatAttachment; onRemove: () => void }) {
-  const image = attachment.mimeType.startsWith('image/');
-  const [preview, setPreview] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
-  const show = () => {
+/** What is attached, waiting to be sent: an image as a thumbnail, anything else as its name. */
+function Attached({ attachment, onRemove }: { attachment: ChatAttachment; onRemove: () => void }) {
+  const image = isImage(attachment);
+  // Undefined while loading; null for an image that cannot be shown, which falls back to its name.
+  const [preview, setPreview] = useState<string | null | undefined>(image ? undefined : null);
+  useEffect(() => {
     if (!image) return;
-    setOpen(true);
-    if (preview === null) void window.api.chat.attachmentPreview(attachment.path).then(setPreview, report);
-  };
-  return (
-    <span
-      tabIndex={image ? 0 : undefined}
-      onMouseEnter={show}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={show}
-      onBlur={() => setOpen(false)}
-      className="relative inline-flex items-center gap-1 rounded-[6px] bg-ink/[0.06] px-2 py-0.5 text-[12px] text-text-secondary"
+    let live = true;
+    void previewOf(attachment.path).then((src) => live && setPreview(src));
+    return () => {
+      live = false;
+    };
+  }, [image, attachment.path]);
+  const remove = (
+    <button
+      type="button"
+      aria-label={`Remove ${attachment.name}`}
+      className="hover:text-text-primary"
+      onClick={onRemove}
     >
-      <Icon name="paperclip" className="w-3 h-3" />
-      {attachment.name}
-      <button
-        type="button"
-        aria-label={`Remove ${attachment.name}`}
-        className="hover:text-text-primary"
-        onClick={onRemove}
-      >
-        <Icon name="x" className="w-3 h-3" />
-      </button>
-      {open && preview && (
-        <span className="absolute left-0 bottom-full mb-2 z-10 glass-bevel rounded-[10px] border border-bezel bg-terminal-surface p-1.5 pointer-events-none">
+      <Icon name="x" className="w-3 h-3" />
+    </button>
+  );
+  if (image && preview !== null) {
+    return (
+      <span className="group/attached relative inline-flex">
+        {preview ? (
           <img
             src={preview}
             alt={attachment.name}
-            className="block max-w-[240px] max-h-[180px] rounded-[6px] object-contain"
+            className="block h-14 w-auto max-w-[120px] rounded-[10px] object-cover outline outline-1 -outline-offset-1 outline-ink/10"
           />
+        ) : (
+          <span aria-hidden className="block w-14 h-14 rounded-[10px] bg-ink/[0.06]" />
+        )}
+        <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center bg-terminal-surface text-text-secondary shadow-[0_0_0_1px_var(--color-bezel)] opacity-0 group-hover/attached:opacity-100 focus-within:opacity-100 transition-opacity duration-100">
+          {remove}
         </span>
-      )}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 self-end rounded-[6px] bg-ink/[0.06] px-2 py-0.5 text-[12px] text-text-secondary">
+      <Icon name={fileIcon(attachment)} className="w-3 h-3" />
+      {attachment.name}
+      {remove}
     </span>
   );
 }
@@ -608,9 +618,9 @@ export function ChatComposer({
         </div>
       )}
       {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
+        <div className="flex flex-wrap items-end gap-2 px-3 pt-3">
           {attachments.map((attachment, index) => (
-            <AttachmentChip
+            <Attached
               key={`${attachment.path}-${index}`}
               attachment={attachment}
               onRemove={() => setAttachments((current) => current.filter((_, i) => i !== index))}
