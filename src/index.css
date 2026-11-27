@@ -955,24 +955,28 @@ textarea,
   margin: 8px 0;
 }
 
-/* Two or more: equal tiles, each image whole inside its own, so they compare at the same weight. */
+/* Two or more: justified rows, each image at its own shape, sized by justifyImageSets. Until it
+   runs, and while an image loads, each holds a placeholder's space. */
 .chat-markdown .chat-images:has(> img + img) {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.chat-markdown .chat-images:has(> img:nth-child(3)) {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .chat-markdown .chat-images:has(> img + img) > img {
-  width: 100%;
-  height: 220px;
+  width: auto;
+  height: 180px;
+  aspect-ratio: 3 / 2;
+  max-width: none;
   max-height: none;
   margin: 0;
-  object-fit: contain;
-  background: var(--color-terminal-bg);
+  object-fit: cover;
+  border: none;
+  border-radius: 14px;
+  outline: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
+  outline-offset: -1px;
+  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  cursor: zoom-in;
 }
 
 .chat-markdown .chat-code pre {

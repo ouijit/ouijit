@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { renderChatMarkdown, renderChatMarkdownHighlighted } from '../../utils/renderChatMarkdown';
 import { openLink } from '../../links/openLink';
 import { ImageViewer } from './ImageViewer';
+import { justifyImageSets } from './justifiedImages';
 
 function handleClick(event: MouseEvent<HTMLDivElement>): void {
   const link = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="ouijit://"]');
@@ -30,7 +31,7 @@ function copyCode(event: MouseEvent<HTMLDivElement>): void {
  */
 function atScreenSize(root: HTMLElement | null): (() => void) | void {
   if (!root || window.devicePixelRatio <= 1) return;
-  // In a set each image fills a tile of its own instead.
+  // In a set, justifyImageSets sizes each image instead.
   const images = [...root.querySelectorAll('img')].filter(
     (img) => img.src.startsWith('file:') && img.parentElement?.querySelectorAll(':scope > img').length === 1,
   );
@@ -61,6 +62,7 @@ export function ChatMarkdown({ text, complete }: { text: string; complete: boole
   const ref = useRef<HTMLDivElement>(null);
   const [viewing, setViewing] = useState<{ srcs: string[]; start: number } | null>(null);
   useEffect(() => atScreenSize(ref.current), [html]);
+  useEffect(() => justifyImageSets(ref.current), [html]);
 
   const onClick = (event: MouseEvent<HTMLDivElement>) => {
     const image = (event.target as HTMLElement).closest('img');
