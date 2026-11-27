@@ -85,14 +85,13 @@ type OuijitFixtures = {
 
 /** A `claude` shim that runs the stub agent, and an empty ZDOTDIR, so terminals never reach a real agent. */
 function stubAgentEnv(): { PATH: string; ZDOTDIR: string } {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-e2e-agents-'));
+  const dir = fs.mkdtempSync(path.join(process.env.OUIJIT_E2E_RUN_DIR ?? os.tmpdir(), 'ouijit-e2e-agents-'));
   const bin = path.join(dir, 'bin');
   const zdotdir = path.join(dir, 'zdotdir');
   fs.mkdirSync(bin);
   fs.mkdirSync(zdotdir);
   const stub = path.resolve(__dirname, 'fixtures', 'stub-agent.js');
   fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\nexec '${process.execPath}' '${stub}' "$@"\n`, { mode: 0o755 });
-  process.on('exit', () => fs.rmSync(dir, { recursive: true, force: true }));
   // The user's .zshrc may put a real `claude` back ahead of the stub.
   return { PATH: `${bin}:${process.env.PATH}`, ZDOTDIR: zdotdir };
 }
