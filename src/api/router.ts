@@ -769,7 +769,7 @@ async function runPanelOp(
 /** A panel op that spans every kind, or the diff, which is not a panel. */
 async function runTerminalPanelsOp(
   ptyId: string,
-  action: 'list-all' | 'focus' | 'close' | 'diff-open' | 'diff-close',
+  action: 'list-all' | 'focus' | 'close' | 'hide' | 'diff-open' | 'diff-close',
   value?: string,
 ): Promise<{ sessionId: string; panels: unknown; diffOpen: boolean }> {
   if (!isSessionLive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
@@ -1937,7 +1937,7 @@ const routes: Route[] = [
   // any URL in this window, the other runs a script on the host.
   route('GET', 'panels/:ptyId', (r) => runTerminalPanelsOp(r.segments[1], 'list-all'), false, OWN_TERMINAL),
 
-  // Matched before the panel-kind routes, whose `:kind` would otherwise read `focus` or `close`.
+  // Matched before the panel-kind routes, whose `:kind` would otherwise read `focus`, `close` or `hide`.
   route(
     'POST',
     'panels/:ptyId/focus',
@@ -1947,6 +1947,8 @@ const routes: Route[] = [
     },
     true,
   ),
+
+  route('POST', 'panels/:ptyId/hide', (r) => runTerminalPanelsOp(r.segments[1], 'hide'), true),
 
   route(
     'POST',

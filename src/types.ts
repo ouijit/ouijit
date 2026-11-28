@@ -995,7 +995,7 @@ export interface CliPanelOp {
    * every kind, `focus` taking a panel id or `terminal`. `diff-open` and
    * `diff-close` toggle the diff, which is not a panel.
    */
-  action: 'add' | 'list-all' | 'focus' | 'close' | 'diff-open' | 'diff-close' | 'read';
+  action: 'add' | 'list-all' | 'focus' | 'close' | 'hide' | 'diff-open' | 'diff-close' | 'read';
   kind?: CliPanelKind;
   /** Absolute path (markdown), URL (browser) or script id or name (runner) for add/remove; a panel id for focus and read. */
   value?: string;

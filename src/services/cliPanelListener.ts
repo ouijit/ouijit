@@ -101,10 +101,6 @@ async function add(
 }
 
 function focus(instance: RegisteredTerminal, id: string | undefined): string | null {
-  if (id === 'terminal') {
-    instance.deactivatePanel();
-    return null;
-  }
   if (!id || !instance.panels.some((p) => p.id === id)) return `No panel ${id ?? '(none)'}`;
   instance.activatePanel(id);
   return null;
@@ -160,6 +156,7 @@ async function run(instance: RegisteredTerminal, op: CliPanelOp): Promise<CliPan
     action === 'list-all' ||
     action === 'focus' ||
     action === 'close' ||
+    action === 'hide' ||
     action === 'diff-open' ||
     action === 'diff-close'
   ) {
@@ -167,6 +164,7 @@ async function run(instance: RegisteredTerminal, op: CliPanelOp): Promise<CliPan
       const error = action === 'focus' ? focus(instance, value) : close(instance, value);
       if (error) return { ok: false, error };
     }
+    if (action === 'hide') instance.deactivatePanel();
     if (action === 'diff-open' || action === 'diff-close') instance.setDiffPanelOpen(action === 'diff-open');
     return respondWith(instance, instance.panels);
   }

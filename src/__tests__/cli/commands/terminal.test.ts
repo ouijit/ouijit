@@ -167,6 +167,7 @@ describe('ouijit panel and diff', () => {
     await ouijit('panel', 'open', 'shell');
     await ouijit('panel', 'list');
     await ouijit('panel', 'focus', 'panel-2', 'pty-a');
+    await ouijit('panel', 'hide');
     await ouijit('panel', 'close', 'panel-2');
     expect(await ouijit('diff', 'open')).toEqual({ sessionId: 'pty-a', panels: [], diffOpen: true });
     await ouijit('diff', 'close');
@@ -178,6 +179,7 @@ describe('ouijit panel and diff', () => {
       expect.objectContaining({ ptyId: 'pty-a', action: 'add', kind: 'runner', shell: true }),
       { ptyId: 'pty-a', action: 'list-all' },
       { ptyId: 'pty-a', action: 'focus', value: 'panel-2' },
+      { ptyId: 'pty-a', action: 'hide' },
       { ptyId: 'pty-a', action: 'close', value: 'panel-2' },
       { ptyId: 'pty-a', action: 'diff-open' },
       { ptyId: 'pty-a', action: 'diff-close' },

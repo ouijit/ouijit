@@ -321,9 +321,7 @@ describe("a terminal's panels, from the CLI", () => {
     ]);
 
     expect((await panelOp({ ptyId: 'pty-front', action: 'focus', value: 'panel-2' })).panels?.[1].active).toBe(true);
-    expect(
-      (await panelOp({ ptyId: 'pty-front', action: 'focus', value: 'terminal' })).panels?.some((p) => p.active),
-    ).toBe(false);
+    expect((await panelOp({ ptyId: 'pty-front', action: 'hide' })).panels?.some((p) => p.active)).toBe(false);
     expect(await panelOp({ ptyId: 'pty-front', action: 'focus', value: 'panel-9' })).toEqual({
       ok: false,
       error: 'No panel panel-9',

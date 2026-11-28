@@ -310,7 +310,8 @@ ouijit panel open script "Deploy" --sandbox host -m "needs the keychain"
 ouijit panel open shell                       # a shell in this terminal's worktree
 ouijit panel list                             # ids, kinds, labels, which is active
 ouijit panel read panel-3fa9 --lines 40       # a script's screen, status and exit code
-ouijit panel focus terminal                   # back to the terminal itself
+ouijit panel focus panel-3fa9                 # bring one to the front
+ouijit panel hide                             # back to the terminal or chat itself
 ouijit panel close panel-3fa9                 # stops what runs in it</code></pre>
   <p>
     A script or shell runs in the project's default sandbox, and from a sandbox, in that sandbox.

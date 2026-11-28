@@ -27,7 +27,7 @@ Examples:
   ouijit panel open shell
   ouijit panel list
   ouijit panel read panel-3fa9 --lines 40
-  ouijit panel focus terminal
+  ouijit panel hide
   ouijit panel close panel-3fa9`,
     );
 
@@ -56,11 +56,19 @@ Examples:
 
   panel
     .command('focus')
-    .description('Bring a panel to the front, or the session itself with `terminal`')
-    .argument('<id>', 'a panel id from `panel list`, or terminal')
+    .description('Bring a panel to the front')
+    .argument('<id>', 'a panel id from `panel list`')
     .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
     .action(async (id: string, explicitSessionId?: string) => {
       printJson(await post(`${panelsUrl(resolveSessionId(explicitSessionId))}/focus`, { id }));
+    });
+
+  panel
+    .command('hide')
+    .description("Put the panels away, so the session's own terminal or chat is in front")
+    .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
+    .action(async (explicitSessionId?: string) => {
+      printJson(await post(`${panelsUrl(resolveSessionId(explicitSessionId))}/hide`, {}));
     });
 
   panel

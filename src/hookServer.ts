@@ -506,7 +506,8 @@ ouijit panel open shell [session-id] [--sandbox host|nono|custom] [-m "<why>"]  
 ouijit panel list [session-id]                # → {sessionId, panels: [{id, kind, label, active, path|url|script}], diffOpen}
                                               # kind: markdown | browser | script | shell
 ouijit panel read <id> [session-id] [--lines <n>] # a script or shell → {kind, text, status, exitCode}; markdown → {path}; browser → {url}
-ouijit panel focus <id> [session-id]          # bring one forward; focus terminal shows the terminal itself
+ouijit panel focus <id> [session-id]          # bring one forward
+ouijit panel hide [session-id]                # put them away, so the terminal or chat itself is in front
 ouijit panel close <id> [session-id]          # close it, stopping what runs in it
 
 Opening one that is already open brings it forward. From a sandbox, a script
