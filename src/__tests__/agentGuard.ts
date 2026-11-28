@@ -9,15 +9,32 @@ export function realAgentMessage(binary: string): string {
 }
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-test-home-'));
-const binDir = path.join(home, '.agent-guard-bin');
-fs.mkdirSync(binDir);
-for (const binary of AGENT_BINARIES) {
-  fs.writeFileSync(path.join(binDir, binary), `#!/bin/sh\necho '${realAgentMessage(binary)}' >&2\nexit 1\n`, {
-    mode: 0o755,
-  });
-}
 
-process.env.PATH = [binDir, process.env.PATH ?? ''].join(path.delimiter);
+// Recording a cassette is the one run that means to reach the real agents, signed
+// in as the user is, so their own config is linked into the test home.
+const AGENT_CONFIG = [
+  'Library/Keychains',
+  '.codex/auth.json',
+  '.pi/agent/auth.json',
+  '.local/share/opencode/auth.json',
+];
+if (process.env.RECORD_CASSETTES === '1') {
+  for (const entry of AGENT_CONFIG) {
+    const real = path.join(os.homedir(), entry);
+    if (!fs.existsSync(real)) continue;
+    fs.mkdirSync(path.dirname(path.join(home, entry)), { recursive: true });
+    fs.symlinkSync(real, path.join(home, entry));
+  }
+} else {
+  const binDir = path.join(home, '.agent-guard-bin');
+  fs.mkdirSync(binDir);
+  for (const binary of AGENT_BINARIES) {
+    fs.writeFileSync(path.join(binDir, binary), `#!/bin/sh\necho '${realAgentMessage(binary)}' >&2\nexit 1\n`, {
+      mode: 0o755,
+    });
+  }
+  process.env.PATH = [binDir, process.env.PATH ?? ''].join(path.delimiter);
+}
 
 // os.homedir() reads HOME, so this also moves Ouijit's own ~/.config/Ouijit and
 // ~/Ouijit/worktrees. The rest are the agents' own overrides, which win over HOME.

@@ -115,6 +115,12 @@ export function recordingSpawn(
       stopped = true;
       return kill(signal);
     };
+    // Claude is stopped by closing its input, and exits 0 for it, as for a kill.
+    const end = proc.stdin.end.bind(proc.stdin);
+    proc.stdin.end = ((...args: unknown[]) => {
+      stopped = true;
+      return (end as (...a: unknown[]) => typeof proc.stdin)(...args);
+    }) as typeof proc.stdin.end;
     // Written as it goes, not only when the agent exits: an app that quits
     // takes its agents with it before their exit is heard.
     let saving: ReturnType<typeof setTimeout> | null = null;
@@ -124,7 +130,7 @@ export function recordingSpawn(
       mkdirSync(dir, { recursive: true });
       writeFileSync(
         cassettePath(dir, target),
-        JSON.stringify({ agent, version, entries, exit } satisfies Cassette, null, 1) + '\n',
+        JSON.stringify({ agent, version, entries, exit } satisfies Cassette, null, 2) + '\n',
       );
     };
     process.once('exit', save);
