@@ -16,7 +16,7 @@ function panelsUrl(ptyId: string): string {
 export function registerPanelCommands(parent: Command) {
   const panel = parent
     .command('panel')
-    .description('Open, list, read, focus and close the tabs beside a terminal')
+    .description('Open, list, read, focus and close the tabs on a session')
     .addHelpText(
       'after',
       `
@@ -33,7 +33,7 @@ Examples:
 
   panel
     .command('list')
-    .description("List a terminal's panels: markdown, browser, script and shell")
+    .description("List a session's panels: markdown, browser, script and shell")
     .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
     .action(async (explicitSessionId?: string) => {
       printJson(await get(panelsUrl(resolveSessionId(explicitSessionId))));
@@ -56,7 +56,7 @@ Examples:
 
   panel
     .command('focus')
-    .description('Bring a panel to the front, or the terminal itself with `terminal`')
+    .description('Bring a panel to the front, or the session itself with `terminal`')
     .argument('<id>', 'a panel id from `panel list`, or terminal')
     .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
     .action(async (id: string, explicitSessionId?: string) => {
@@ -72,7 +72,7 @@ Examples:
       printJson(await post(`${panelsUrl(resolveSessionId(explicitSessionId))}/close`, { id }));
     });
 
-  const open = panel.command('open').description('Open a panel on a terminal, or bring forward the one already open');
+  const open = panel.command('open').description('Open a panel on a session, or bring forward the one already open');
 
   open
     .command('markdown')

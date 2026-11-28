@@ -15,7 +15,7 @@ function tagsUrl(ptyId: string): string {
 export function registerTagCommands(parent: Command) {
   const tag = parent
     .command('tag')
-    .description('Manage terminal tags')
+    .description('Manage the tags on sessions')
     .addHelpText(
       'after',
       `
@@ -30,14 +30,14 @@ Examples:
 
   tag
     .command('list')
-    .description('List the tags on open terminals, with the terminals that carry each')
+    .description('List the tags on open sessions, with the sessions that carry each')
     .action(async () => {
       printJson(await get('/api/tags'));
     });
 
   tag
     .command('get')
-    .description("Show a terminal's tags")
+    .description("Show a session's tags")
     .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
     .action(async (explicitSessionId?: string) => {
       printJson(await get(tagsUrl(resolveSessionId(explicitSessionId))));
@@ -45,7 +45,7 @@ Examples:
 
   tag
     .command('add')
-    .description('Add a tag to a terminal')
+    .description('Add a tag to a session')
     .argument('<tag>', 'tag name')
     .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
     .action(async (tagName: string, explicitSessionId?: string) => {
@@ -54,7 +54,7 @@ Examples:
 
   tag
     .command('remove')
-    .description('Remove a tag from a terminal')
+    .description('Remove a tag from a session')
     .argument('<tag>', 'tag name')
     .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
     .action(async (tagName: string, explicitSessionId?: string) => {
@@ -63,7 +63,7 @@ Examples:
 
   tag
     .command('clear')
-    .description("Remove all of a terminal's tags")
+    .description("Remove all of a session's tags")
     .argument('[session-id]', 'session id (defaults to OUIJIT_SESSION_ID)')
     .action(async (explicitSessionId?: string) => {
       printJson(await del(tagsUrl(resolveSessionId(explicitSessionId))));

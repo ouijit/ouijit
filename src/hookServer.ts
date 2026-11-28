@@ -246,7 +246,7 @@ export const HELPER_SCRIPT = [
 /** CLI reference loaded by Claude Code via --append-system-prompt-file. */
 export const CLI_REFERENCE = `# Ouijit CLI Reference
 
-You are running inside an Ouijit terminal. The \`ouijit\` CLI manages tasks, terminals, panels, tags, hooks, and scripts for this project. All commands output JSON to stdout. The CLI is pre-configured via environment variables — no setup needed.
+You are running inside an Ouijit session. The \`ouijit\` CLI manages tasks, sessions, panels, tags, hooks, and scripts for this project. All commands output JSON to stdout. The CLI is pre-configured via environment variables — no setup needed.
 
 ## Environment (pre-set, do not modify)
 - OUIJIT_API_URL — REST API endpoint (already configured)
