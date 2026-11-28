@@ -16,7 +16,13 @@ import type { Decision } from '../../types';
 import { listenForDecisions } from '../../services/decisions';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { DEFAULT_DISPLAY_STATE } from '../../stores/terminalDisplay';
-import { NO_CAPABILITIES, type ChatNode, type ChatSessionInfo, type ChatSnapshot } from '../../chat/model';
+import {
+  NO_CAPABILITIES,
+  type ChatNode,
+  type ChatSessionInfo,
+  type ChatSnapshot,
+  type RequestNode,
+} from '../../chat/model';
 
 // xterm cannot construct under jsdom. Chat's panel host is one of these, so the
 // fake keeps what that reads: its panels, and fitting it to the page.
@@ -577,12 +583,14 @@ describe('Chat', () => {
     act(() => useAppStore.getState().select({ kind: 'chat' }));
 
     const cards = () => [...document.querySelectorAll<HTMLElement>('[data-chat-decision]')];
-    await waitFor(() => expect(cards()).toHaveLength(3));
-    const [ask, push, worker] = cards();
+    await waitFor(() => expect(cards()).toHaveLength(2));
+    const [ask, push] = cards();
     expect(ask.textContent).toContain('gh pr list');
     expect(ask.textContent).toContain('needs your GitHub sign-in');
     expect(push.textContent).toContain('git push');
-    expect(worker.textContent).toContain('Delete old.test.tsx');
+    // Chat was never told of the worker's request, so it is shown here, as the request card a chat shows.
+    const worker = screen.getByText(/asks: Delete old\.test\.tsx$/).parentElement!;
+    expect(worker.textContent).toContain('rm src/old.test.tsx');
 
     // The row of the conversation carries a dot while anything waits.
     const group = screen
@@ -603,7 +611,33 @@ describe('Chat', () => {
 
     // Nothing waits while Chat is still working out what to do with a request.
     adopt(transcript(), { status: 'running' });
-    expect(cards().some((card) => card.textContent?.includes('Delete old.test.tsx'))).toBe(false);
+    expect(screen.queryByText(/asks: Delete old\.test\.tsx$/)).toBeNull();
+
+    // One Chat was woken for, and left to the user, shows once: where it was told, not again below.
+    const request = useChatStore.getState().sessions['pty-12'].nodes[0] as RequestNode;
+    adopt(
+      [
+        ...transcript(),
+        node({
+          kind: 'user_message',
+          id: 'wake-1',
+          text: 'Settings storage asked for approval',
+          attachments: [],
+          delivery: 'prompt',
+          wake: true,
+          notes: [
+            {
+              kind: 'event',
+              text: 'Settings storage asked for approval',
+              request: { session: 'pty-12', name: 'Settings storage (T-12)', node: request },
+            },
+          ],
+        }),
+      ],
+      { status: 'idle' },
+    );
+    await waitFor(() => expect(screen.getAllByText('rm src/old.test.tsx')).toHaveLength(1));
+    expect(screen.queryByText(/asks: Delete old\.test\.tsx$/)).toBeNull();
   });
 
   test("a worker's ask shows in the conversation that owns its task, and is toasted only while that is off screen", async () => {

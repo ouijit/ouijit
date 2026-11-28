@@ -10,6 +10,7 @@ import { taskKey } from '../../chat/preferences';
 import { pendingRequests, type RequestNode } from '../../chat/model';
 import { runWaiting } from '../waiting/WaitingDialog';
 import { useRevealGate } from './ChatTurns';
+import { ChatRequestView } from './ChatRequest';
 
 /** The conversation a queued item came from: Chat itself, or a task one of its conversations started. */
 export function useOwnerOf(): (item: Waiting) => string | null {
@@ -178,47 +179,33 @@ function QueuedCard({ item }: { item: Waiting }) {
   );
 }
 
-function WorkerRequestCard({ worker, name, request }: WorkerRequest) {
-  const allow = request.options.find((o) => o.kind === 'allow_once') ?? request.options[0];
-  const deny = request.options.find((o) => o.kind === 'reject_once');
-  const answer = (optionId: string) => {
-    void window.api.chat.answer(worker, request.id, { kind: 'option', optionId });
-  };
-  return (
-    <Card
-      title={`${name} asks: ${request.title}`}
-      actions={
-        <>
-          {deny && (
-            <button type="button" className="btn-secondary btn-compact" onClick={() => answer(deny.id)}>
-              {deny.label}
-            </button>
-          )}
-          {allow && (
-            <button type="button" className="btn-primary btn-compact" onClick={() => answer(allow.id)}>
-              {allow.label}
-            </button>
-          )}
-        </>
-      }
-    >
-      {request.detail && <Command text={request.detail} />}
-    </Card>
-  );
-}
-
 /** What a conversation is waiting on the user for, as cards at the end of its transcript. */
 export function HomeChatDecisions({ conversation }: { conversation: string }) {
   useEffect(() => useWaitingStore.getState().cardMounted(conversation), [conversation]);
   const ownerOf = useOwnerOf();
   const queued = useWaitingStore(useShallow((s) => s.items.filter((item) => ownerOf(item) === conversation)));
-  const left = useLeftToYou(conversation);
+  // One Chat was told of shows in full where it was told; the rest it never heard of show here.
+  const told = useChatStore(
+    useShallow((s) =>
+      (s.sessions[conversation]?.nodes ?? []).flatMap((node) =>
+        node.kind === 'user_message' ? (node.notes ?? []).flatMap((note) => note.request?.node.id ?? []) : [],
+      ),
+    ),
+  );
+  const left = useLeftToYou(conversation).filter((entry) => !told.includes(entry.request.id));
   const visible = useRevealGate([...queued.map((item) => `q${item.id}`), ...left.map((e) => e.request.id)]);
   const cards = [
     ...queued.filter((item) => visible.has(`q${item.id}`)).map((item) => <QueuedCard key={item.id} item={item} />),
     ...left
       .filter((entry) => visible.has(entry.request.id))
-      .map((entry) => <WorkerRequestCard key={entry.request.id} {...entry} />),
+      .map(({ worker, name, request }) => (
+        <ChatRequestView
+          key={request.id}
+          node={request}
+          cardId={worker}
+          heading={request.request === 'questions' ? `${name} has a question` : `${name} asks: ${request.title}`}
+        />
+      )),
   ];
   if (cards.length === 0) return null;
   return <div className="chat-said-in flex flex-col gap-3 pt-1">{cards}</div>;
