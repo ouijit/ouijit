@@ -140,6 +140,7 @@ function driverSink(session: HostedSession): DriverSink {
     },
     append: (nodeId, field, delta) => session.emit({ type: 'append', id: nodeId, field, delta }),
     remove: (ids) => ids.length && session.emit({ type: 'remove', ids }),
+    read: (userMessageId) => session.read(userMessageId),
     session: (incoming) => {
       const patch =
         incoming.commands && session.driver
@@ -160,7 +161,10 @@ function driverSink(session: HostedSession): DriverSink {
       if (next.status === 'exited' || next.status === 'error') {
         for (const node of settled(session.nodes)) session.emit({ type: 'node', node });
       }
-      if (wasBusy && next.status === 'idle') void endTurn(session);
+      if (wasBusy && next.status === 'idle') {
+        for (const id of session.unread.keys()) session.unread.set(id, true);
+        void endTurn(session);
+      }
     },
     ask: (request) =>
       new Promise<ChatAnswer>((resolve) => {
@@ -194,6 +198,7 @@ function driverSink(session: HostedSession): DriverSink {
     },
     reset: () => {
       session.queued.splice(0);
+      session.unread.clear();
       if (session.nodes.length) session.emit({ type: 'remove', ids: session.nodes.map((node) => node.id) });
     },
     log: (message, data) => chatLog.info(message, { id, ...data }),

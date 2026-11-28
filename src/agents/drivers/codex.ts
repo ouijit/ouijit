@@ -411,8 +411,11 @@ class CodexSession implements DriverSession {
       case 'item/started':
       case 'item/completed': {
         const item = params.item as CodexItem;
-        // The host wrote the message it sent; the echo would only duplicate it.
-        if (item.type === 'userMessage' && item.clientId) return;
+        // The host wrote the message it sent; the echo would only duplicate it, and says the agent has it.
+        if (item.type === 'userMessage' && item.clientId) {
+          if (method === 'item/started') this.sink.read(String(item.clientId));
+          return;
+        }
         const node = codexItemNode(item);
         if (!node) return;
         if (method === 'item/started' && (node.kind === 'assistant_message' || node.kind === 'reasoning')) {

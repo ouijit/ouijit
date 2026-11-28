@@ -35,6 +35,8 @@ export async function deliverPrompt(
   };
   const userInput: UserInput & { id: string } = { id: node.id, text: node.text, attachments: node.attachments };
   if (!busy) {
+    // Any the agent never read, from a turn that was stopped, stay where they were sent.
+    session.unread.clear();
     session.emit({ type: 'node', node });
     session.emit({ type: 'session', patch: { status: 'running' } });
     await runTurn(session, () => driver.prompt(userInput));
@@ -49,9 +51,11 @@ export async function deliverPrompt(
     session.emit({ type: 'node', node: queued });
   } else if (wantsSteer && driver.capabilities.steer) {
     session.emit({ type: 'node', node: { ...node, delivery: 'steer' } });
+    session.unread.set(node.id, false);
     await runTurn(session, () => driver.send(userInput, 'steer'));
   } else {
     session.emit({ type: 'node', node: { ...node, delivery: 'queued' } });
+    session.unread.set(node.id, false);
     await runTurn(session, () => driver.send(userInput, 'queue'));
   }
   return node.id;

@@ -183,6 +183,8 @@ class OpencodeSession implements DriverSession {
   private readonly tools = new Map<string, ToolCallNode>();
   private readonly children = new Map<string, string>();
   private readonly sentMessages = new Map<string, string>();
+  /** Inbox items OpenCode took in before the prompt call that sent them had returned their id. */
+  private readonly deliveredEarly = new Set<string>();
   private model: { id: string; providerID: string; variant?: string } | null = null;
   private variants = new Map<string, string[]>();
   private readonly contextWindows = new Map<string, number>();
@@ -386,6 +388,14 @@ class OpencodeSession implements DriverSession {
       case 'session.execution.started':
         if (top) this.sink.session({ status: 'running' });
         return;
+      case 'session.inbox.delivered': {
+        const inboxId = str(data.inboxID);
+        if (!top || !inboxId) return;
+        const sent = [...this.sentMessages].find(([, messageId]) => messageId === inboxId)?.[0];
+        if (sent) this.sink.read(sent);
+        else this.deliveredEarly.add(inboxId);
+        return;
+      }
       case 'session.execution.succeeded':
       case 'session.execution.interrupted':
         if (top) {
@@ -591,7 +601,10 @@ class OpencodeSession implements DriverSession {
       ...(files.length && { files }),
       ...(delivery && { delivery }),
     });
-    if (data?.id) this.sentMessages.set(input.id, String(data.id));
+    if (data?.id) {
+      this.sentMessages.set(input.id, String(data.id));
+      if (this.deliveredEarly.delete(String(data.id))) this.sink.read(input.id);
+    }
   }
 
   async prompt(input: UserInput): Promise<void> {

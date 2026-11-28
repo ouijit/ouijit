@@ -200,6 +200,8 @@ class PiSession implements DriverSession {
   private readonly tools = new Map<string, ToolCallNode>();
   private readonly contextWindows = new Map<string, number>();
   private readonly userOrder: string[] = [];
+  /** Messages sent mid-turn, with the text Pi echoes once it takes each in, which it does in the order they were sent. */
+  private readonly unread: { id: string; text: string }[] = [];
   closing = false;
 
   constructor(
@@ -290,6 +292,11 @@ class PiSession implements DriverSession {
       case 'message_start': {
         const message = event.message as Json;
         if (message.role === 'assistant') this.currentAssistant = message.timestamp;
+        if (message.role === 'user') {
+          const text = contentText(message.content);
+          const index = this.unread.findIndex((sent) => sent.text === text);
+          for (const sent of this.unread.splice(0, index + 1)) this.sink.read(sent.id);
+        }
         return;
       }
       case 'message_update':
@@ -525,6 +532,7 @@ class PiSession implements DriverSession {
 
   async send(input: UserInput, delivery: 'steer' | 'queue'): Promise<void> {
     this.userOrder.push(input.id);
+    this.unread.push({ id: input.id, text: this.message(input) });
     const images = await this.images(input);
     await this.command({
       type: 'prompt',

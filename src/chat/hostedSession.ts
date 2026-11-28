@@ -50,6 +50,12 @@ export class HostedSession {
   driver: DriverSession | null = null;
   readonly asks = new Map<string, Pending>();
   readonly queued: UserMessageNode[] = [];
+  /**
+   * Messages handed to the agent mid-turn that it has not read yet, kept last:
+   * what it writes before reading one is not a reply to it. True once the turn
+   * it was sent into has ended, so it opens the next one instead of steering.
+   */
+  readonly unread = new Map<string, boolean>();
   private readonly recent: SequencedChatEvent[] = [];
   private dirty = new Set<string>();
   private removed = new Set<string>();
@@ -75,12 +81,33 @@ export class HostedSession {
   }
 
   emit(event: ChatEvent): void {
+    const appended =
+      event.type === 'node' && !this.unread.has(event.node.id) && !this.nodes.some((n) => n.id === event.node.id);
     applyChatEvent(this, event);
     const sequenced = { seq: ++this.seq, event };
     this.recent.push(sequenced);
     if (this.recent.length > REPLAY_WINDOW) this.recent.splice(0, this.recent.length - REPLAY_WINDOW);
     this.track(event);
     this.broadcast(this.info.id, sequenced);
+    if (appended && this.unread.size > 0) this.keepUnreadLast();
+  }
+
+  private keepUnreadLast(): void {
+    const ids = [...this.unread.keys()];
+    const nodes = ids.flatMap((id) => this.nodes.filter((node) => node.id === id));
+    this.emit({ type: 'remove', ids });
+    for (const node of nodes) this.emit({ type: 'node', node });
+  }
+
+  /** The agent has read a message it was sent mid-turn: it stays where it is, last, and what follows answers it. */
+  read(id: string): void {
+    const turnEnded = this.unread.get(id);
+    if (turnEnded === undefined) return;
+    this.unread.delete(id);
+    const node = this.nodes.find((n): n is UserMessageNode => n.id === id && n.kind === 'user_message');
+    if (node && (turnEnded || node.delivery === 'queued')) {
+      this.emit({ type: 'node', node: { ...node, delivery: 'prompt' } });
+    }
   }
 
   since(seq: number): SequencedChatEvent[] | null {

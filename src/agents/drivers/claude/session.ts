@@ -148,6 +148,7 @@ export class ClaudeSession implements DriverSession {
       mode: (context.mode as PermissionMode | undefined) ?? null,
       lastAssistantUuid: null,
       before: new Map(),
+      sent: new Map(),
       stopping: false,
     };
     this.stream = new ClaudeStream(context.sink, this.conversation);
@@ -316,6 +317,7 @@ export class ClaudeSession implements DriverSession {
     if (!this.input) throw new Error('Claude is not running');
     const uuid = uuidOf(input.id);
     this.conversation.before.set(input.id, this.conversation.lastAssistantUuid);
+    this.conversation.sent.set(uuid, input.id);
     this.input.push({
       type: 'user',
       message: { role: 'user', content: (await messageContent(input)) as never },

@@ -60,6 +60,8 @@ export interface DriverSink {
   node(node: ChatNode): void;
   append(id: string, field: ChatTextField, delta: string): void;
   remove(ids: string[]): void;
+  /** The agent has taken in a message sent while it was busy. Any id may come, of any message, more than once. */
+  read(userMessageId: string): void;
   session(patch: Partial<ChatSessionInfo>): void;
   /** Block on a person. Resolves with the first client's answer, or `cancel` if the session ends first. */
   ask(request: Omit<RequestNode, 'kind' | 'status' | 'answer' | 'createdAt'>): Promise<ChatAnswer>;

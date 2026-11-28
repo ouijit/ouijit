@@ -222,8 +222,63 @@ describe.each(['claude', 'codex', 'pi', 'opencode'] as const)('%s steered mid-tu
       );
       const users = done.nodes.filter((n) => n.kind === 'user_message');
       expect(users.map((n) => n.delivery)).toEqual(['prompt', 'steer']);
+      // It sits where the agent read it: after the command it was sent during, before the reply that heeds it.
+      const at = (match: (n: ChatNode) => boolean) => done.nodes.findIndex(match);
+      const steer = at((n) => n.kind === 'user_message' && n.delivery === 'steer');
+      expect(at((n) => n.kind === 'tool_call')).toBeLessThan(steer);
+      expect(at((n) => n.kind === 'assistant_message' && /banana/i.test(n.text))).toBeGreaterThan(steer);
       await host.stop(id);
       stop();
+    },
+    timeout * 2,
+  );
+});
+
+describe('claude written to as it finishes a turn', () => {
+  const name = 'claude-steer-late';
+  const available = recording || fs.existsSync(cassettePath(name));
+
+  test.skipIf(!available)(
+    'a message sent while it works toward its last reply waits below that reply, then opens the next turn',
+    async () => {
+      const cwd = repo();
+      const probe = recording ? await getDriver('claude').probe() : null;
+      const host = new ChatHost({
+        spawnProcess: recording ? recordingSpawn(name, 'claude', probe?.version) : replayingSpawn(loadCassettes(name)),
+      });
+      const id = 'pty-steer-late';
+      await host.start({ id, agent: 'claude', projectPath: cwd, cwd, taskId: null });
+
+      await host.prompt(id, {
+        text: 'Without using any tools, write a 200-word paragraph about lighthouses. Do not ask me anything.',
+      });
+      // While it thinks, before the paragraph it is about to write has begun.
+      await until(
+        host,
+        id,
+        (s) => s.nodes.some((n) => n.kind === 'reasoning') && !s.nodes.some((n) => n.kind === 'assistant_message'),
+        timeout,
+      );
+      await host.prompt(id, { text: 'Now reply with only the word banana.' });
+
+      const done = await until(
+        host,
+        id,
+        (s) =>
+          s.info.status === 'idle' &&
+          s.nodes.some((n) => n.kind === 'assistant_message' && /^\W*banana\W*$/i.test(n.text.trim())),
+        timeout,
+      );
+      const kinds = done.nodes.flatMap((n) =>
+        n.kind === 'user_message' ? [`user:${n.delivery}`] : n.kind === 'assistant_message' ? ['reply'] : [],
+      );
+      // The paragraph was written without it; it went to Claude as the next turn, which it opens.
+      expect(kinds[0]).toBe('user:prompt');
+      expect(kinds.at(-2)).toBe('user:prompt');
+      expect(kinds.at(-1)).toBe('reply');
+      expect(kinds.slice(1, -2)).toContain('reply');
+      expect(kinds.slice(1, -2).every((kind) => kind === 'reply')).toBe(true);
+      await host.stop(id);
     },
     timeout * 2,
   );

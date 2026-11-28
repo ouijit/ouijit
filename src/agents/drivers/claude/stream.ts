@@ -10,8 +10,16 @@ export interface ClaudeConversation {
   lastAssistantUuid: string | null;
   /** For a rewind: the last assistant message uuid before each user message we sent. */
   readonly before: Map<string, string | null>;
+  /** Our id for each user message, by the uuid it was sent with, which a reply names once it has read it. */
+  readonly sent: Map<string, string>;
   /** The user stopped this turn, so it ending early is not an error. */
   stopping: boolean;
+}
+
+/** The user messages a reply has read so far; older Claude Code names only the one its turn answers. */
+function readUuids(message: Json): string[] {
+  if (Array.isArray(message.user_message_uuids)) return message.user_message_uuids.map(String);
+  return typeof message.user_message_uuid === 'string' ? [message.user_message_uuid] : [];
 }
 
 function contextOf(message: Json): { tokens: number; model: string | undefined } {
@@ -70,7 +78,16 @@ export class ClaudeStream {
     return { model: this.modelAliases.get(this.reportedModel) ?? this.reportedModel };
   }
 
+  /** Frames of a turn, system ones first, name the user messages it has read, before the reply that answers them. */
+  private read(message: Json): void {
+    for (const uuid of readUuids(message)) {
+      const id = this.conversation.sent.get(uuid);
+      if (id) this.sink.read(id);
+    }
+  }
+
   handle(message: SDKMessage): void {
+    this.read(message as unknown as Json);
     switch (message.type) {
       case 'system':
         this.system(message as unknown as Json);
